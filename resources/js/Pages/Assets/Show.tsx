@@ -18,6 +18,8 @@ interface ShowProps {
         signReceipt: boolean;
         markStored: boolean;
         generateQr: boolean;
+        uploadJev: boolean;
+        releaseDonation: boolean;
     };
 }
 
@@ -49,6 +51,18 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
     function handleMarkStored() {
         if (confirm('Confirm asset is tagged and placed in storage?')) {
             router.post(route('assets.mark-stored', asset.id));
+        }
+    }
+
+    function handleUploadJev() {
+        if (confirm('Confirm the JEV has been uploaded? This will move the asset to disposal processing.')) {
+            router.post(route('assets.jev.upload', asset.id));
+        }
+    }
+
+    function handleReleaseDonation() {
+        if (asset.disposal && confirm('Mark this donation as released to the requester?')) {
+            router.post(route('disposals.release-donation', asset.disposal.id));
         }
     }
 
@@ -151,7 +165,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                     </Card>
                 )}
 
-                {asset.current_status === 'cleared_for_accounting' && (
+                {asset.current_status === 'cleared_for_accounting' && !asset.jev && (
                     <Card>
                         <CardHeader><CardTitle className="text-base">Create JEV</CardTitle></CardHeader>
                         <CardContent>
@@ -169,6 +183,54 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                                     <Button type="submit" disabled={jevForm.processing}>Issue JEV</Button>
                                 </div>
                             </form>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {asset.jev && !asset.jev.uploaded_at && (
+                    <Card>
+                        <CardHeader><CardTitle className="text-base">JEV Awaiting Upload</CardTitle></CardHeader>
+                        <CardContent className="space-y-3">
+                            <p className="text-sm text-gray-600">
+                                Accounting issued JEV <span className="font-medium">{asset.jev.jev_number}</span>. MES must upload it
+                                before the asset can move to disposal processing.
+                            </p>
+                            {can.uploadJev && (
+                                <Button onClick={handleUploadJev}>Confirm JEV Upload</Button>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
+                {asset.type === 'vehicle' && asset.appeal_deadline && (
+                    <Card>
+                        <CardHeader><CardTitle className="text-base">Appeal Window</CardTitle></CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-gray-600">
+                                Owner has until{' '}
+                                <span className="font-medium">{new Date(asset.appeal_deadline).toLocaleDateString()}</span>
+                                {' '}(15 days from JEV upload) to appeal to the court before release or forfeiture is decided.
+                            </p>
+                            <p className="mt-1 text-sm">
+                                {new Date(asset.appeal_deadline) > new Date()
+                                    ? 'Appeal window is still open.'
+                                    : 'Appeal window has closed.'}
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {asset.disposal?.donation && !asset.disposal.donation.released_at && (
+                    <Card>
+                        <CardHeader><CardTitle className="text-base">Donation Release</CardTitle></CardHeader>
+                        <CardContent className="space-y-3">
+                            <p className="text-sm text-gray-600">
+                                Deed of Donation is on file for <span className="font-medium">{asset.disposal.donation.requester_name}</span>.
+                                Mark as released once the item has been handed over.
+                            </p>
+                            {can.releaseDonation && (
+                                <Button onClick={handleReleaseDonation}>Mark Donation Released</Button>
+                            )}
                         </CardContent>
                     </Card>
                 )}

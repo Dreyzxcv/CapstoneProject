@@ -84,6 +84,7 @@ class AssetController extends Controller
             'acknowledgementReceipt.signedByCustodian',
             'statusHistory.changedBy',
             'jev.createdByAccounting',
+            'jev.uploadedByMes',
             'disposal.donation',
             'disposal.icsRecord',
             'disposal.parRecord',
@@ -107,6 +108,8 @@ class AssetController extends Controller
                 'signReceipt' => $request->user()?->can('signReceipt', $asset) ?? false,
                 'markStored' => $request->user()?->can('markStored', $asset) ?? false,
                 'generateQr' => $request->user()?->can('generateQr', $asset) ?? false,
+                'uploadJev' => $asset->jev ? ($request->user()?->can('upload', $asset->jev) ?? false) : false,
+                'releaseDonation' => $request->user()?->can('disposals.process') ?? false,
             ],
         ]);
     }

@@ -18,6 +18,7 @@ class ProcessDisposalRequest extends FormRequest
         return [
             'disposal_type' => ['required', Rule::enum(DisposalType::class)],
             'requester_name' => ['required_if:disposal_type,donation', 'nullable', 'string', 'max:255'],
+            'appeal_filed' => ['nullable', 'boolean'],
             'details' => ['nullable', 'array'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];

@@ -24,6 +24,7 @@ class Asset extends Model
         'mode',
         'has_ongoing_case',
         'has_confiscation_order',
+        'appeal_deadline',
         'current_status',
         'qr_code_token',
         'metadata',
@@ -38,6 +39,7 @@ class Asset extends Model
             'current_status' => AssetStatus::class,
             'has_ongoing_case' => 'boolean',
             'has_confiscation_order' => 'boolean',
+            'appeal_deadline' => 'datetime',
             'metadata' => 'array',
         ];
     }

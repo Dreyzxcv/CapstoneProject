@@ -25,10 +25,12 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/assets/{asset}/mark-stored', [AssetController::class, 'markStored'])->name('assets.mark-stored');
 
     Route::post('/assets/{asset}/jev', [JevController::class, 'store'])->name('assets.jev.store');
+    Route::post('/assets/{asset}/jev/upload', [JevController::class, 'upload'])->name('assets.jev.upload');
 
     Route::get('/disposals', [DisposalController::class, 'index'])->name('disposals.index');
     Route::get('/assets/{asset}/disposals/create', [DisposalController::class, 'create'])->name('disposals.create');
     Route::post('/assets/{asset}/disposals', [DisposalController::class, 'store'])->name('disposals.store');
+    Route::post('/disposals/{disposal}/release-donation', [DisposalController::class, 'releaseDonation'])->name('disposals.release-donation');
 
     Route::get('/scan', [QrScanController::class, 'index'])->name('scan.index');
     Route::post('/scan', [QrScanController::class, 'store'])->name('scan.store');

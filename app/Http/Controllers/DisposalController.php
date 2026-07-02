@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\ProcessDisposal;
+use App\Actions\ReleaseDonation;
 use App\Enums\DisposalType;
 use App\Http\Requests\ProcessDisposalRequest;
 use App\Models\Asset;
@@ -51,11 +52,22 @@ class DisposalController extends Controller
         $details = array_filter([
             'requester_name' => $request->validated('requester_name'),
             'notes' => $request->validated('notes'),
-        ]);
+            'appeal_filed' => $request->boolean('appeal_filed'),
+            'appeal_deadline' => $asset->appeal_deadline?->toIso8601String(),
+        ], fn ($value) => $value !== null && $value !== '');
 
         $processDisposal->execute($asset, $type, $request->user(), $details);
 
         return redirect()->route('assets.show', $asset)
             ->with('success', 'Disposal processed successfully.');
+    }
+
+    public function releaseDonation(Disposal $disposal, ReleaseDonation $releaseDonation): RedirectResponse
+    {
+        $this->authorize('create', Disposal::class);
+
+        $releaseDonation->execute($disposal, request()->user());
+
+        return back()->with('success', 'Donation marked as released.');
     }
 }

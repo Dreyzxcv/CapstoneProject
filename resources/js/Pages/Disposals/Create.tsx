@@ -16,8 +16,12 @@ export default function DisposalsCreate({ asset, disposalTypes }: DisposalsCreat
     const { data, setData, post, processing, errors } = useForm({
         disposal_type: disposalTypes[0]?.value ?? '',
         requester_name: '',
+        appeal_filed: false as boolean,
         notes: '',
     });
+
+    const isVehicleDecision = data.disposal_type === 'released' || data.disposal_type === 'forfeited';
+    const appealDeadlinePassed = asset.appeal_deadline ? new Date(asset.appeal_deadline) <= new Date() : null;
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -61,6 +65,31 @@ export default function DisposalsCreate({ asset, disposalTypes }: DisposalsCreat
                                 required
                             />
                             <InputError message={errors.requester_name} />
+                        </div>
+                    )}
+
+                    {isVehicleDecision && (
+                        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                            {asset.appeal_deadline ? (
+                                <p>
+                                    15-day appeal window {appealDeadlinePassed ? 'closed' : 'closes'} on{' '}
+                                    <span className="font-medium">{new Date(asset.appeal_deadline).toLocaleDateString()}</span>.
+                                    Release depends on whether the owner appealed within this window; forfeiture is the
+                                    default absent a timely appeal, subject to the judge or regional office decision, since
+                                    PENRO Catanduanes lacks jurisdiction.
+                                </p>
+                            ) : (
+                                <p>No appeal deadline is recorded for this asset yet.</p>
+                            )}
+                            <label className="mt-2 flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={data.appeal_filed}
+                                    onChange={(e) => setData('appeal_filed', e.target.checked)}
+                                />
+                                <span>Owner filed an appeal within the window</span>
+                            </label>
+                            <InputError message={errors.appeal_filed} />
                         </div>
                     )}
 

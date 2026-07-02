@@ -6,7 +6,6 @@ use App\Enums\AssetStatus;
 use App\Models\Asset;
 use App\Models\Jev;
 use App\Models\User;
-use App\Services\AssetLifecycleService;
 use App\Services\AuditLogService;
 use App\Services\PdfDocumentService;
 use DomainException;
@@ -16,13 +15,12 @@ class IssueJev
 {
     public function __construct(
         protected PdfDocumentService $pdfDocumentService,
-        protected AssetLifecycleService $lifecycleService,
         protected AuditLogService $auditLogService,
     ) {}
 
-    public function execute(Asset $asset, string $jevNumber, User $accountingUser, ?User $mesUser = null): Jev
+    public function execute(Asset $asset, string $jevNumber, User $accountingUser): Jev
     {
-        if (! in_array($asset->current_status, [AssetStatus::ClearedForAccounting, AssetStatus::ForDisposal], true)) {
+        if ($asset->current_status !== AssetStatus::ClearedForAccounting) {
             throw new DomainException('Asset is not cleared for accounting.');
         }
 
@@ -30,25 +28,14 @@ class IssueJev
             throw new DomainException('JEV already exists for this asset.');
         }
 
-        return DB::transaction(function () use ($asset, $jevNumber, $accountingUser, $mesUser) {
+        return DB::transaction(function () use ($asset, $jevNumber, $accountingUser) {
             $jev = Jev::create([
                 'asset_id' => $asset->id,
                 'jev_number' => $jevNumber,
                 'created_by_accounting_id' => $accountingUser->id,
-                'uploaded_by_mes_id' => $mesUser?->id,
             ]);
 
             $this->pdfDocumentService->generateJev($asset, $jev);
-
-            if ($asset->current_status === AssetStatus::ClearedForAccounting) {
-                $this->lifecycleService->transition(
-                    $asset->fresh(),
-                    AssetStatus::ForDisposal,
-                    $accountingUser,
-                    "JEV {$jevNumber} issued.",
-                    'jev.created',
-                );
-            }
 
             $this->auditLogService->log('jev.issued', $jev, null, $jev->toArray(), $accountingUser->id);
 

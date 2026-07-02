@@ -31,6 +31,7 @@ export interface Asset {
     mode: string;
     has_ongoing_case: boolean;
     has_confiscation_order: boolean;
+    appeal_deadline: string | null;
     current_status: string;
     qr_code_token: string;
     created_at: string;
@@ -62,12 +63,23 @@ export interface Jev {
     id: number;
     jev_number: string;
     pdf_path: string | null;
+    uploaded_at: string | null;
+    uploaded_by_mes?: User;
+}
+
+export interface Donation {
+    id: number;
+    requester_name: string;
+    deed_of_donation_path: string | null;
+    released_at: string | null;
 }
 
 export interface Disposal {
     id: number;
     disposal_type: string;
     processed_at: string;
+    details?: Record<string, unknown>;
+    donation?: Donation;
 }
 
 export interface QrScan {

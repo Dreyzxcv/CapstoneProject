@@ -12,8 +12,16 @@ class Jev extends Model
         'jev_number',
         'created_by_accounting_id',
         'uploaded_by_mes_id',
+        'uploaded_at',
         'pdf_path',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'uploaded_at' => 'datetime',
+        ];
+    }
 
     public function asset(): BelongsTo
     {

@@ -1,0 +1,577 @@
+diff --git a/app/Actions/IssueJev.php b/app/Actions/IssueJev.php
+index 38006a1..6d50367 100644
+--- a/app/Actions/IssueJev.php
++++ b/app/Actions/IssueJev.php
+@@ -6,7 +6,6 @@
+ use App\Models\Asset;
+ use App\Models\Jev;
+ use App\Models\User;
+-use App\Services\AssetLifecycleService;
+ use App\Services\AuditLogService;
+ use App\Services\PdfDocumentService;
+ use DomainException;
+@@ -16,13 +15,12 @@ class IssueJev
+ {
+     public function __construct(
+         protected PdfDocumentService $pdfDocumentService,
+-        protected AssetLifecycleService $lifecycleService,
+         protected AuditLogService $auditLogService,
+     ) {}
+ 
+-    public function execute(Asset $asset, string $jevNumber, User $accountingUser, ?User $mesUser = null): Jev
++    public function execute(Asset $asset, string $jevNumber, User $accountingUser): Jev
+     {
+-        if (! in_array($asset->current_status, [AssetStatus::ClearedForAccounting, AssetStatus::ForDisposal], true)) {
++        if ($asset->current_status !== AssetStatus::ClearedForAccounting) {
+             throw new DomainException('Asset is not cleared for accounting.');
+         }
+ 
+@@ -30,26 +28,15 @@ public function execute(Asset $asset, string $jevNumber, User $accountingUser, ?
+             throw new DomainException('JEV already exists for this asset.');
+         }
+ 
+-        return DB::transaction(function () use ($asset, $jevNumber, $accountingUser, $mesUser) {
++        return DB::transaction(function () use ($asset, $jevNumber, $accountingUser) {
+             $jev = Jev::create([
+                 'asset_id' => $asset->id,
+                 'jev_number' => $jevNumber,
+                 'created_by_accounting_id' => $accountingUser->id,
+-                'uploaded_by_mes_id' => $mesUser?->id,
+             ]);
+ 
+             $this->pdfDocumentService->generateJev($asset, $jev);
+ 
+-            if ($asset->current_status === AssetStatus::ClearedForAccounting) {
+-                $this->lifecycleService->transition(
+-                    $asset->fresh(),
+-                    AssetStatus::ForDisposal,
+-                    $accountingUser,
+-                    "JEV {$jevNumber} issued.",
+-                    'jev.created',
+-                );
+-            }
+-
+             $this->auditLogService->log('jev.issued', $jev, null, $jev->toArray(), $accountingUser->id);
+ 
+             return $jev->fresh();
+diff --git a/app/Actions/ReleaseDonation.php b/app/Actions/ReleaseDonation.php
+new file mode 100644
+index 0000000..6caa2e6
+--- /dev/null
++++ b/app/Actions/ReleaseDonation.php
+@@ -0,0 +1,40 @@
++<?php
++
++namespace App\Actions;
++
++use App\Models\Disposal;
++use App\Models\Donation;
++use App\Models\User;
++use App\Services\AuditLogService;
++use DomainException;
++use Illuminate\Support\Facades\DB;
++
++class ReleaseDonation
++{
++    public function __construct(
++        protected AuditLogService $auditLogService,
++    ) {}
++
++    public function execute(Disposal $disposal, User $user): Donation
++    {
++        $donation = $disposal->donation;
++
++        if (! $donation) {
++            throw new DomainException('This disposal has no associated donation.');
++        }
++
++        if ($donation->released_at !== null) {
++            throw new DomainException('Donation has already been released.');
++        }
++
++        return DB::transaction(function () use ($donation, $user) {
++            $before = $donation->toArray();
++
++            $donation->update(['released_at' => now()]);
++
++            $this->auditLogService->log('donation.released', $donation, $before, $donation->fresh()->toArray(), $user->id);
++
++            return $donation->fresh();
++        });
++    }
++}
+diff --git a/app/Actions/UploadJev.php b/app/Actions/UploadJev.php
+new file mode 100644
+index 0000000..8e7211e
+--- /dev/null
++++ b/app/Actions/UploadJev.php
+@@ -0,0 +1,65 @@
++<?php
++
++namespace App\Actions;
++
++use App\Enums\AssetStatus;
++use App\Enums\AssetType;
++use App\Models\Asset;
++use App\Models\Jev;
++use App\Models\User;
++use App\Services\AssetLifecycleService;
++use App\Services\AuditLogService;
++use DomainException;
++use Illuminate\Support\Facades\DB;
++
++class UploadJev
++{
++    public function __construct(
++        protected AssetLifecycleService $lifecycleService,
++        protected AuditLogService $auditLogService,
++    ) {}
++
++    public function execute(Asset $asset, Jev $jev, User $mesUser): Jev
++    {
++        if ($jev->asset_id !== $asset->id) {
++            throw new DomainException('JEV does not belong to this asset.');
++        }
++
++        if ($jev->uploaded_at !== null) {
++            throw new DomainException('JEV has already been uploaded.');
++        }
++
++        if ($asset->current_status !== AssetStatus::ClearedForAccounting) {
++            throw new DomainException('Asset is not awaiting JEV upload.');
++        }
++
++        return DB::transaction(function () use ($asset, $jev, $mesUser) {
++            $jev->update([
++                'uploaded_by_mes_id' => $mesUser->id,
++                'uploaded_at' => now(),
++            ]);
++
++            $updates = [];
++            if ($asset->type === AssetType::Vehicle) {
++                // Owner has 15 days from this point to appeal before release/forfeiture is decided.
++                $updates['appeal_deadline'] = now()->addDays(15);
++            }
++
++            if ($updates !== []) {
++                $asset->update($updates);
++            }
++
++            $this->lifecycleService->transition(
++                $asset->fresh(),
++                AssetStatus::ForDisposal,
++                $mesUser,
++                "JEV {$jev->jev_number} uploaded by MES.",
++                'jev.uploaded',
++            );
++
++            $this->auditLogService->log('jev.uploaded', $jev, null, $jev->fresh()->toArray(), $mesUser->id);
++
++            return $jev->fresh();
++        });
++    }
++}
+diff --git a/app/Http/Controllers/AssetController.php b/app/Http/Controllers/AssetController.php
+index 14b47a1..291198c 100644
+--- a/app/Http/Controllers/AssetController.php
++++ b/app/Http/Controllers/AssetController.php
+@@ -84,6 +84,7 @@ public function show(Request $request, Asset $asset, QrCodeService $qrCodeServic
+             'acknowledgementReceipt.signedByCustodian',
+             'statusHistory.changedBy',
+             'jev.createdByAccounting',
++            'jev.uploadedByMes',
+             'disposal.donation',
+             'disposal.icsRecord',
+             'disposal.parRecord',
+@@ -107,6 +108,8 @@ public function show(Request $request, Asset $asset, QrCodeService $qrCodeServic
+                 'signReceipt' => $request->user()?->can('signReceipt', $asset) ?? false,
+                 'markStored' => $request->user()?->can('markStored', $asset) ?? false,
+                 'generateQr' => $request->user()?->can('generateQr', $asset) ?? false,
++                'uploadJev' => $asset->jev ? ($request->user()?->can('upload', $asset->jev) ?? false) : false,
++                'releaseDonation' => $request->user()?->can('disposals.process') ?? false,
+             ],
+         ]);
+     }
+diff --git a/app/Http/Controllers/DisposalController.php b/app/Http/Controllers/DisposalController.php
+index e13aef7..766a5b6 100644
+--- a/app/Http/Controllers/DisposalController.php
++++ b/app/Http/Controllers/DisposalController.php
+@@ -3,6 +3,7 @@
+ namespace App\Http\Controllers;
+ 
+ use App\Actions\ProcessDisposal;
++use App\Actions\ReleaseDonation;
+ use App\Enums\DisposalType;
+ use App\Http\Requests\ProcessDisposalRequest;
+ use App\Models\Asset;
+@@ -51,11 +52,22 @@ public function store(ProcessDisposalRequest $request, Asset $asset, ProcessDisp
+         $details = array_filter([
+             'requester_name' => $request->validated('requester_name'),
+             'notes' => $request->validated('notes'),
+-        ]);
++            'appeal_filed' => $request->boolean('appeal_filed'),
++            'appeal_deadline' => $asset->appeal_deadline?->toIso8601String(),
++        ], fn ($value) => $value !== null && $value !== '');
+ 
+         $processDisposal->execute($asset, $type, $request->user(), $details);
+ 
+         return redirect()->route('assets.show', $asset)
+             ->with('success', 'Disposal processed successfully.');
+     }
++
++    public function releaseDonation(Disposal $disposal, ReleaseDonation $releaseDonation): RedirectResponse
++    {
++        $this->authorize('create', Disposal::class);
++
++        $releaseDonation->execute($disposal, request()->user());
++
++        return back()->with('success', 'Donation marked as released.');
++    }
+ }
+diff --git a/app/Http/Controllers/JevController.php b/app/Http/Controllers/JevController.php
+index d0255ce..c9fc947 100644
+--- a/app/Http/Controllers/JevController.php
++++ b/app/Http/Controllers/JevController.php
+@@ -3,7 +3,9 @@
+ namespace App\Http\Controllers;
+ 
+ use App\Actions\IssueJev;
++use App\Actions\UploadJev;
+ use App\Http\Requests\StoreJevRequest;
++use App\Http\Requests\UploadJevRequest;
+ use App\Models\Asset;
+ use Illuminate\Http\RedirectResponse;
+ 
+@@ -21,4 +23,17 @@ public function store(StoreJevRequest $request, Asset $asset, IssueJev $issueJev
+ 
+         return back()->with('success', 'JEV created and linked to asset.');
+     }
++
++    public function upload(UploadJevRequest $request, Asset $asset, UploadJev $uploadJev): RedirectResponse
++    {
++        $asset->loadMissing('jev');
++
++        abort_if($asset->jev === null, 404, 'No JEV has been issued for this asset yet.');
++
++        $this->authorize('upload', $asset->jev);
++
++        $uploadJev->execute($asset, $asset->jev, $request->user());
++
++        return back()->with('success', 'JEV uploaded. Asset moved to disposal processing.');
++    }
+ }
+diff --git a/app/Http/Requests/ProcessDisposalRequest.php b/app/Http/Requests/ProcessDisposalRequest.php
+index d9bb149..0dc648a 100644
+--- a/app/Http/Requests/ProcessDisposalRequest.php
++++ b/app/Http/Requests/ProcessDisposalRequest.php
+@@ -18,6 +18,7 @@ public function rules(): array
+         return [
+             'disposal_type' => ['required', Rule::enum(DisposalType::class)],
+             'requester_name' => ['required_if:disposal_type,donation', 'nullable', 'string', 'max:255'],
++            'appeal_filed' => ['nullable', 'boolean'],
+             'details' => ['nullable', 'array'],
+             'notes' => ['nullable', 'string', 'max:1000'],
+         ];
+diff --git a/app/Http/Requests/UploadJevRequest.php b/app/Http/Requests/UploadJevRequest.php
+new file mode 100644
+index 0000000..ed4d6c8
+--- /dev/null
++++ b/app/Http/Requests/UploadJevRequest.php
+@@ -0,0 +1,18 @@
++<?php
++
++namespace App\Http\Requests;
++
++use Illuminate\Foundation\Http\FormRequest;
++
++class UploadJevRequest extends FormRequest
++{
++    public function authorize(): bool
++    {
++        return $this->user()->can('jev.upload');
++    }
++
++    public function rules(): array
++    {
++        return [];
++    }
++}
+diff --git a/app/Models/Asset.php b/app/Models/Asset.php
+index 894eb7e..c2bf40a 100644
+--- a/app/Models/Asset.php
++++ b/app/Models/Asset.php
+@@ -24,6 +24,7 @@ class Asset extends Model
+         'mode',
+         'has_ongoing_case',
+         'has_confiscation_order',
++        'appeal_deadline',
+         'current_status',
+         'qr_code_token',
+         'metadata',
+@@ -38,6 +39,7 @@ protected function casts(): array
+             'current_status' => AssetStatus::class,
+             'has_ongoing_case' => 'boolean',
+             'has_confiscation_order' => 'boolean',
++            'appeal_deadline' => 'datetime',
+             'metadata' => 'array',
+         ];
+     }
+diff --git a/app/Models/Jev.php b/app/Models/Jev.php
+index 3213aef..3bfd0a9 100644
+--- a/app/Models/Jev.php
++++ b/app/Models/Jev.php
+@@ -12,9 +12,17 @@ class Jev extends Model
+         'jev_number',
+         'created_by_accounting_id',
+         'uploaded_by_mes_id',
++        'uploaded_at',
+         'pdf_path',
+     ];
+ 
++    protected function casts(): array
++    {
++        return [
++            'uploaded_at' => 'datetime',
++        ];
++    }
++
+     public function asset(): BelongsTo
+     {
+         return $this->belongsTo(Asset::class);
+diff --git a/database/migrations/2026_07_02_074200_add_jev_upload_and_appeal_window_fields.php b/database/migrations/2026_07_02_074200_add_jev_upload_and_appeal_window_fields.php
+new file mode 100644
+index 0000000..525edc9
+--- /dev/null
++++ b/database/migrations/2026_07_02_074200_add_jev_upload_and_appeal_window_fields.php
+@@ -0,0 +1,32 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::table('jevs', function (Blueprint $table) {
++            $table->timestamp('uploaded_at')->nullable()->after('uploaded_by_mes_id');
++        });
++
++        Schema::table('assets', function (Blueprint $table) {
++            // Conveyances get a 15-day appeal window once they reach For Disposal;
++            // release vs. forfeiture is decided against this deadline.
++            $table->timestamp('appeal_deadline')->nullable()->after('has_confiscation_order');
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::table('jevs', function (Blueprint $table) {
++            $table->dropColumn('uploaded_at');
++        });
++
++        Schema::table('assets', function (Blueprint $table) {
++            $table->dropColumn('appeal_deadline');
++        });
++    }
++};
+diff --git a/resources/js/Pages/Assets/Show.tsx b/resources/js/Pages/Assets/Show.tsx
+index cb62df3..fe7e528 100644
+--- a/resources/js/Pages/Assets/Show.tsx
++++ b/resources/js/Pages/Assets/Show.tsx
+@@ -18,6 +18,8 @@ interface ShowProps {
+         signReceipt: boolean;
+         markStored: boolean;
+         generateQr: boolean;
++        uploadJev: boolean;
++        releaseDonation: boolean;
+     };
+ }
+ 
+@@ -52,6 +54,18 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps)
+         }
+     }
+ 
++    function handleUploadJev() {
++        if (confirm('Confirm the JEV has been uploaded? This will move the asset to disposal processing.')) {
++            router.post(route('assets.jev.upload', asset.id));
++        }
++    }
++
++    function handleReleaseDonation() {
++        if (asset.disposal && confirm('Mark this donation as released to the requester?')) {
++            router.post(route('disposals.release-donation', asset.disposal.id));
++        }
++    }
++
+     function submitJev(e: FormEvent) {
+         e.preventDefault();
+         jevForm.post(route('assets.jev.store', asset.id), {
+@@ -151,7 +165,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps)
+                     </Card>
+                 )}
+ 
+-                {asset.current_status === 'cleared_for_accounting' && (
++                {asset.current_status === 'cleared_for_accounting' && !asset.jev && (
+                     <Card>
+                         <CardHeader><CardTitle className="text-base">Create JEV</CardTitle></CardHeader>
+                         <CardContent>
+@@ -173,6 +187,54 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps)
+                     </Card>
+                 )}
+ 
++                {asset.jev && !asset.jev.uploaded_at && (
++                    <Card>
++                        <CardHeader><CardTitle className="text-base">JEV Awaiting Upload</CardTitle></CardHeader>
++                        <CardContent className="space-y-3">
++                            <p className="text-sm text-gray-600">
++                                Accounting issued JEV <span className="font-medium">{asset.jev.jev_number}</span>. MES must upload it
++                                before the asset can move to disposal processing.
++                            </p>
++                            {can.uploadJev && (
++                                <Button onClick={handleUploadJev}>Confirm JEV Upload</Button>
++                            )}
++                        </CardContent>
++                    </Card>
++                )}
++
++                {asset.type === 'vehicle' && asset.appeal_deadline && (
++                    <Card>
++                        <CardHeader><CardTitle className="text-base">Appeal Window</CardTitle></CardHeader>
++                        <CardContent>
++                            <p className="text-sm text-gray-600">
++                                Owner has until{' '}
++                                <span className="font-medium">{new Date(asset.appeal_deadline).toLocaleDateString()}</span>
++                                {' '}(15 days from JEV upload) to appeal to the court before release or forfeiture is decided.
++                            </p>
++                            <p className="mt-1 text-sm">
++                                {new Date(asset.appeal_deadline) > new Date()
++                                    ? 'Appeal window is still open.'
++                                    : 'Appeal window has closed.'}
++                            </p>
++                        </CardContent>
++                    </Card>
++                )}
++
++                {asset.disposal?.donation && !asset.disposal.donation.released_at && (
++                    <Card>
++                        <CardHeader><CardTitle className="text-base">Donation Release</CardTitle></CardHeader>
++                        <CardContent className="space-y-3">
++                            <p className="text-sm text-gray-600">
++                                Deed of Donation is on file for <span className="font-medium">{asset.disposal.donation.requester_name}</span>.
++                                Mark as released once the item has been handed over.
++                            </p>
++                            {can.releaseDonation && (
++                                <Button onClick={handleReleaseDonation}>Mark Donation Released</Button>
++                            )}
++                        </CardContent>
++                    </Card>
++                )}
++
+                 <Card>
+                     <CardHeader><CardTitle className="text-base">Status History</CardTitle></CardHeader>
+                     <CardContent>
+diff --git a/resources/js/Pages/Disposals/Create.tsx b/resources/js/Pages/Disposals/Create.tsx
+index 5574207..b117b12 100644
+--- a/resources/js/Pages/Disposals/Create.tsx
++++ b/resources/js/Pages/Disposals/Create.tsx
+@@ -16,9 +16,13 @@ export default function DisposalsCreate({ asset, disposalTypes }: DisposalsCreat
+     const { data, setData, post, processing, errors } = useForm({
+         disposal_type: disposalTypes[0]?.value ?? '',
+         requester_name: '',
++        appeal_filed: false as boolean,
+         notes: '',
+     });
+ 
++    const isVehicleDecision = data.disposal_type === 'released' || data.disposal_type === 'forfeited';
++    const appealDeadlinePassed = asset.appeal_deadline ? new Date(asset.appeal_deadline) <= new Date() : null;
++
+     const submit: FormEventHandler = (e) => {
+         e.preventDefault();
+         if (confirm('Confirm disposal action? This cannot be undone.')) {
+@@ -64,6 +68,31 @@ export default function DisposalsCreate({ asset, disposalTypes }: DisposalsCreat
+                         </div>
+                     )}
+ 
++                    {isVehicleDecision && (
++                        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
++                            {asset.appeal_deadline ? (
++                                <p>
++                                    15-day appeal window {appealDeadlinePassed ? 'closed' : 'closes'} on{' '}
++                                    <span className="font-medium">{new Date(asset.appeal_deadline).toLocaleDateString()}</span>.
++                                    Release depends on whether the owner appealed within this window; forfeiture is the
++                                    default absent a timely appeal, subject to the judge or regional office decision, since
++                                    PENRO Catanduanes lacks jurisdiction.
++                                </p>
++                            ) : (
++                                <p>No appeal deadline is recorded for this asset yet.</p>
++                            )}
++                            <label className="mt-2 flex items-center gap-2">
++                                <input
++                                    type="checkbox"
++                                    checked={data.appeal_filed}
++                                    onChange={(e) => setData('appeal_filed', e.target.checked)}
++                                />
++                                <span>Owner filed an appeal within the window</span>
++                            </label>
++                            <InputError message={errors.appeal_filed} />
++                        </div>
++                    )}
++
+                     <div>
+                         <Label htmlFor="notes">Notes</Label>
+                         <Input id="notes" value={data.notes} onChange={(e) => setData('notes', e.target.value)} />
+diff --git a/resources/js/types/index.d.ts b/resources/js/types/index.d.ts
+index a63969f..9a88aa6 100644
+--- a/resources/js/types/index.d.ts
++++ b/resources/js/types/index.d.ts
+@@ -31,6 +31,7 @@ export interface Asset {
+     mode: string;
+     has_ongoing_case: boolean;
+     has_confiscation_order: boolean;
++    appeal_deadline: string | null;
+     current_status: string;
+     qr_code_token: string;
+     created_at: string;
+@@ -62,12 +63,23 @@ export interface Jev {
+     id: number;
+     jev_number: string;
+     pdf_path: string | null;
++    uploaded_at: string | null;
++    uploaded_by_mes?: User;
++}
++
++export interface Donation {
++    id: number;
++    requester_name: string;
++    deed_of_donation_path: string | null;
++    released_at: string | null;
+ }
+ 
+ export interface Disposal {
+     id: number;
+     disposal_type: string;
+     processed_at: string;
++    details?: Record<string, unknown>;
++    donation?: Donation;
+ }
+ 
+ export interface QrScan {
+diff --git a/routes/web.php b/routes/web.php
+index 19c79d2..822f17c 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -25,10 +25,12 @@
+     Route::post('/assets/{asset}/mark-stored', [AssetController::class, 'markStored'])->name('assets.mark-stored');
+ 
+     Route::post('/assets/{asset}/jev', [JevController::class, 'store'])->name('assets.jev.store');
++    Route::post('/assets/{asset}/jev/upload', [JevController::class, 'upload'])->name('assets.jev.upload');
+ 
+     Route::get('/disposals', [DisposalController::class, 'index'])->name('disposals.index');
+     Route::get('/assets/{asset}/disposals/create', [DisposalController::class, 'create'])->name('disposals.create');
+     Route::post('/assets/{asset}/disposals', [DisposalController::class, 'store'])->name('disposals.store');
++    Route::post('/disposals/{disposal}/release-donation', [DisposalController::class, 'releaseDonation'])->name('disposals.release-donation');
+ 
+     Route::get('/scan', [QrScanController::class, 'index'])->name('scan.index');
+     Route::post('/scan', [QrScanController::class, 'store'])->name('scan.store');
