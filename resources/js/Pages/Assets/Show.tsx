@@ -117,6 +117,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
         jevForm.reset();
     }
     const receiptUrl = documentUrl(asset.acknowledgement_receipt?.pdf_path);
+    const jevPdfUrl = documentUrl(asset.jev?.pdf_path);
 
     return (
         <AuthenticatedLayout
@@ -492,10 +493,32 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                                 <p><span className="font-medium">Approved By:</span> {asset.jev.approved_by_name ?? '—'}</p>
                             </div>
 
+                            {jevPdfUrl && (
+                                <a href={jevPdfUrl} className="block text-sm text-emerald-700 hover:underline">
+                                    Download JEV PDF
+                                </a>
+                            )}
+
                             {can.uploadJev && (
                                 <div className="border-t border-gray-100 pt-4">
                                     <Button onClick={handleUploadJev}>Confirm JEV Upload</Button>
                                 </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
+                {asset.jev && asset.jev.uploaded_at && (
+                    <Card>
+                        <CardHeader><CardTitle className="text-base">Journal Entry Voucher</CardTitle></CardHeader>
+                        <CardContent className="space-y-2">
+                            <p className="text-sm text-gray-600">
+                                JEV <span className="font-medium">{asset.jev.jev_number}</span> uploaded by MES.
+                            </p>
+                            {jevPdfUrl && (
+                                <a href={jevPdfUrl} className="block text-sm text-emerald-700 hover:underline">
+                                    Download JEV PDF
+                                </a>
                             )}
                         </CardContent>
                     </Card>

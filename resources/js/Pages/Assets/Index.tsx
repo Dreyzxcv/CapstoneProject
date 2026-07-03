@@ -32,7 +32,7 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                 <div className="flex items-center justify-between">
                     <h2 className="text-xl font-semibold text-gray-800">Assets</h2>
                     {canCreate && (
-                        <Button asChild>
+                            <Button asChild>
                             <Link href={route('assets.create')}>New Intake</Link>
                         </Button>
                     )}
