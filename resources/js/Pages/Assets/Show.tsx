@@ -4,11 +4,11 @@ import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
+import InputError from '@/Components/InputError';
 import { Asset, PageProps } from '@/types';
 import { documentUrl } from '@/lib/utils';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { FormEvent, useState, useRef, useEffect } from 'react';
-import { usePage } from '@inertiajs/react';
 
 interface ShowProps {
     asset: Asset;
@@ -40,7 +40,39 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
             svg.style.display = 'block';
         }
     }, [qrSvg]);
-    const jevForm = useForm({ jev_number: '' });
+    
+    const jevForm = useForm({
+        jev_number: '',
+        funding_source_code: '01101101',
+        funding_source_label:
+            'Regular Agency Fund - General Fund - New General Appropriations - Specific Budgets of National Government Agencies',
+        transaction_type: 'Other Adjustments',
+        transaction_code: '',
+        responsibility_center: '10-001-05-00036',
+        document_no: '',
+        particulars: '',
+        prepared_by_name: '',
+        approved_by_name: '',
+        line_items: [
+            { account_title: 'Confiscated Property/Assets', account_code: '19999040', sub_object_code: '00', debit: '', credit: '' },
+            { account_title: 'Accumulated Surplus/(Deficit)', account_code: '30101010', sub_object_code: '00', debit: '', credit: '' },
+        ],
+    });
+
+    function updateLineItem(index: number, field: 'debit' | 'credit', value: string) {
+        const items = [...jevForm.data.line_items];
+        items[index] = { ...items[index], [field]: value };
+        jevForm.setData('line_items', items);
+    }
+
+    const jevTotals = jevForm.data.line_items.reduce(
+        (acc, line) => ({
+            debit: acc.debit + (parseFloat(line.debit) || 0),
+            credit: acc.credit + (parseFloat(line.credit) || 0),
+        }),
+        { debit: 0, credit: 0 },
+    );
+
     const currentRole = auth.user?.roles?.[0] ?? 'User';
 
     function handleSignReceipt() {
@@ -171,20 +203,182 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
 
                 {asset.current_status === 'cleared_for_accounting' && !asset.jev && (
                     <Card>
-                        <CardHeader><CardTitle className="text-base">Create JEV</CardTitle></CardHeader>
+                        <CardHeader>
+                            <CardTitle className="text-base">Create JEV</CardTitle>
+                            <p className="text-sm text-gray-500">
+                                Fill out the Journal Entry Voucher matching the official DENR-PENRO form.
+                            </p>
+                        </CardHeader>
                         <CardContent>
-                            <form onSubmit={submitJev} className="flex flex-wrap gap-3">
-                                <div>
-                                    <Label htmlFor="jev_number">JEV Number</Label>
-                                    <Input
-                                        id="jev_number"
-                                        value={jevForm.data.jev_number}
-                                        onChange={(e) => jevForm.setData('jev_number', e.target.value)}
-                                        required
-                                    />
+                            <form onSubmit={submitJev} className="space-y-6">
+                                {/* Header fields */}
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="jev_number">JEV Number</Label>
+                                        <Input
+                                            id="jev_number"
+                                            placeholder="2026-05-000928"
+                                            value={jevForm.data.jev_number}
+                                            onChange={(e) => jevForm.setData('jev_number', e.target.value)}
+                                            required
+                                        />
+                                        <InputError message={jevForm.errors.jev_number} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="document_no">Document No.</Label>
+                                        <Input
+                                            id="document_no"
+                                            value={jevForm.data.document_no}
+                                            onChange={(e) => jevForm.setData('document_no', e.target.value)}
+                                        />
+                                        <InputError message={jevForm.errors.document_no} />
+                                    </div>
                                 </div>
-                                <div className="flex items-end">
-                                    <Button type="submit" disabled={jevForm.processing}>Issue JEV</Button>
+
+                                <div className="grid gap-4 md:grid-cols-[140px_1fr]">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="funding_source_code">Funding Source Code</Label>
+                                        <Input
+                                            id="funding_source_code"
+                                            value={jevForm.data.funding_source_code}
+                                            onChange={(e) => jevForm.setData('funding_source_code', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="funding_source_label">Funding Source</Label>
+                                        <Input
+                                            id="funding_source_label"
+                                            value={jevForm.data.funding_source_label}
+                                            onChange={(e) => jevForm.setData('funding_source_label', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-4 md:grid-cols-3">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="transaction_type">Transaction Type</Label>
+                                        <Input
+                                            id="transaction_type"
+                                            value={jevForm.data.transaction_type}
+                                            onChange={(e) => jevForm.setData('transaction_type', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="transaction_code">Transaction Code</Label>
+                                        <Input
+                                            id="transaction_code"
+                                            placeholder="OADJ071"
+                                            value={jevForm.data.transaction_code}
+                                            onChange={(e) => jevForm.setData('transaction_code', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="responsibility_center">Responsibility Center</Label>
+                                        <Input
+                                            id="responsibility_center"
+                                            value={jevForm.data.responsibility_center}
+                                            onChange={(e) => jevForm.setData('responsibility_center', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Account entries table */}
+                                <div>
+                                    <Label>Account Entries</Label>
+                                    <div className="mt-2 overflow-hidden rounded-lg border border-gray-200">
+                                        <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Account Title</th>
+                                                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Account Code</th>
+                                                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Sub-Object</th>
+                                                    <th className="px-3 py-2 text-right text-xs font-medium uppercase text-gray-500">Debit</th>
+                                                    <th className="px-3 py-2 text-right text-xs font-medium uppercase text-gray-500">Credit</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {jevForm.data.line_items.map((line, index) => (
+                                                    <tr key={index}>
+                                                        <td className="px-3 py-2">{line.account_title}</td>
+                                                        <td className="px-3 py-2 text-gray-500">{line.account_code}</td>
+                                                        <td className="px-3 py-2 text-gray-500">{line.sub_object_code}</td>
+                                                        <td className="px-3 py-2">
+                                                            <Input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                className="text-right"
+                                                                value={line.debit}
+                                                                onChange={(e) => updateLineItem(index, 'debit', e.target.value)}
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                            <Input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                className="text-right"
+                                                                value={line.credit}
+                                                                onChange={(e) => updateLineItem(index, 'credit', e.target.value)}
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                <tr className="bg-gray-50 font-semibold">
+                                                    <td colSpan={3} className="px-3 py-2 text-right">TOTAL</td>
+                                                    <td className="px-3 py-2 text-right">{jevTotals.debit.toFixed(2)}</td>
+                                                    <td className="px-3 py-2 text-right">{jevTotals.credit.toFixed(2)}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {jevTotals.debit !== jevTotals.credit && (
+                                        <p className="mt-1 text-xs text-amber-600">
+                                            Debit and credit totals do not match — double-check the entries before submitting.
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Particulars */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="particulars">Particulars</Label>
+                                    <textarea
+                                        id="particulars"
+                                        rows={3}
+                                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                        placeholder="Recording of forest products and conveyances with confiscation and forfeiture orders..."
+                                        value={jevForm.data.particulars}
+                                        onChange={(e) => jevForm.setData('particulars', e.target.value)}
+                                    />
+                                    <InputError message={jevForm.errors.particulars} />
+                                </div>
+
+                                {/* Signatories */}
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="prepared_by_name">Prepared By</Label>
+                                        <Input
+                                            id="prepared_by_name"
+                                            placeholder="Accounting Officer name"
+                                            value={jevForm.data.prepared_by_name}
+                                            onChange={(e) => jevForm.setData('prepared_by_name', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="approved_by_name">Approved By</Label>
+                                        <Input
+                                            id="approved_by_name"
+                                            placeholder="MES Officer name"
+                                            value={jevForm.data.approved_by_name}
+                                            onChange={(e) => jevForm.setData('approved_by_name', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end border-t border-gray-100 pt-4">
+                                    <Button type="submit" disabled={jevForm.processing}>
+                                        Issue JEV
+                                    </Button>
                                 </div>
                             </form>
                         </CardContent>
@@ -193,14 +387,90 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
 
                 {asset.jev && !asset.jev.uploaded_at && (
                     <Card>
-                        <CardHeader><CardTitle className="text-base">JEV Awaiting Upload</CardTitle></CardHeader>
-                        <CardContent className="space-y-3">
-                            <p className="text-sm text-gray-600">
-                                Accounting issued JEV <span className="font-medium">{asset.jev.jev_number}</span>. MES must upload it
-                                before the asset can move to disposal processing.
+                        <CardHeader>
+                            <CardTitle className="text-base">JEV Awaiting Upload</CardTitle>
+                            <p className="text-sm text-gray-500">
+                                Accounting issued this JEV. Review the details below, then confirm the upload to
+                                move the asset to disposal processing.
                             </p>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm md:grid-cols-2">
+                                <p><span className="font-medium">JEV Number:</span> {asset.jev.jev_number}</p>
+                                <p><span className="font-medium">Document No:</span> {asset.jev.document_no ?? '—'}</p>
+                                <p className="md:col-span-2">
+                                    <span className="font-medium">Funding Source:</span>{' '}
+                                    {asset.jev.funding_source_code ? `(${asset.jev.funding_source_code}) ` : ''}
+                                    {asset.jev.funding_source_label ?? '—'}
+                                </p>
+                                <p>
+                                    <span className="font-medium">Transaction Type:</span>{' '}
+                                    {asset.jev.transaction_type ?? '—'}
+                                    {asset.jev.transaction_code ? ` - ${asset.jev.transaction_code}` : ''}
+                                </p>
+                                <p><span className="font-medium">Responsibility Center:</span> {asset.jev.responsibility_center ?? '—'}</p>
+                            </div>
+
+                            {asset.jev.line_items && asset.jev.line_items.length > 0 && (
+                                <div className="overflow-hidden rounded-lg border border-gray-200">
+                                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Account Title</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Account Code</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Sub-Object</th>
+                                                <th className="px-3 py-2 text-right text-xs font-medium uppercase text-gray-500">Debit</th>
+                                                <th className="px-3 py-2 text-right text-xs font-medium uppercase text-gray-500">Credit</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {asset.jev.line_items.map((line, index) => (
+                                                <tr key={index}>
+                                                    <td className="px-3 py-2">{line.account_title}</td>
+                                                    <td className="px-3 py-2 text-gray-500">{line.account_code}</td>
+                                                    <td className="px-3 py-2 text-gray-500">{line.sub_object_code}</td>
+                                                    <td className="px-3 py-2 text-right">
+                                                        {line.debit ? Number(line.debit).toFixed(2) : '—'}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-right">
+                                                        {line.credit ? Number(line.credit).toFixed(2) : '—'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            <tr className="bg-gray-50 font-semibold">
+                                                <td colSpan={3} className="px-3 py-2 text-right">TOTAL</td>
+                                                <td className="px-3 py-2 text-right">
+                                                    {asset.jev.line_items
+                                                        .reduce((sum, l) => sum + (Number(l.debit) || 0), 0)
+                                                        .toFixed(2)}
+                                                </td>
+                                                <td className="px-3 py-2 text-right">
+                                                    {asset.jev.line_items
+                                                        .reduce((sum, l) => sum + (Number(l.credit) || 0), 0)
+                                                        .toFixed(2)}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {asset.jev.particulars && (
+                                <div className="rounded-lg border border-gray-200 bg-white p-3 text-sm">
+                                    <p className="font-medium text-gray-700">Particulars</p>
+                                    <p className="mt-1 text-gray-600">{asset.jev.particulars}</p>
+                                </div>
+                            )}
+
+                            <div className="grid gap-3 text-sm md:grid-cols-2">
+                                <p><span className="font-medium">Prepared By:</span> {asset.jev.prepared_by_name ?? '—'}</p>
+                                <p><span className="font-medium">Approved By:</span> {asset.jev.approved_by_name ?? '—'}</p>
+                            </div>
+
                             {can.uploadJev && (
-                                <Button onClick={handleUploadJev}>Confirm JEV Upload</Button>
+                                <div className="border-t border-gray-100 pt-4">
+                                    <Button onClick={handleUploadJev}>Confirm JEV Upload</Button>
+                                </div>
                             )}
                         </CardContent>
                     </Card>

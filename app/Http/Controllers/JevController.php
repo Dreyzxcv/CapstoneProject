@@ -15,11 +15,7 @@ class JevController extends Controller
     {
         $this->authorize('create', \App\Models\Jev::class);
 
-        $issueJev->execute(
-            $asset,
-            $request->validated('jev_number'),
-            $request->user(),
-        );
+        $issueJev->execute($asset, $request->validated(), $request->user());
 
         return back()->with('success', 'JEV created and linked to asset.');
     }

@@ -59,9 +59,27 @@ export interface StatusHistoryEntry {
     changed_by?: User;
 }
 
+export interface JevLineItem {
+    account_title: string;
+    account_code: string | null;
+    sub_object_code: string | null;
+    debit: number | string | null;
+    credit: number | string | null;
+}
+
 export interface Jev {
     id: number;
     jev_number: string;
+    funding_source_code: string | null;
+    funding_source_label: string | null;
+    transaction_type: string | null;
+    transaction_code: string | null;
+    responsibility_center: string | null;
+    document_no: string | null;
+    particulars: string | null;
+    prepared_by_name: string | null;
+    approved_by_name: string | null;
+    line_items: JevLineItem[] | null;
     pdf_path: string | null;
     uploaded_at: string | null;
     uploaded_by_mes?: User;

@@ -1,15 +1,16 @@
 import { Html5Qrcode } from 'html5-qrcode';
 import { ChangeEvent, useEffect, useRef, useState } from 'react';
-import { Camera, ImageIcon, Loader2, Zap, ZapOff } from 'lucide-react';
+import { Camera, Check, ImageIcon, Loader2, Zap, ZapOff } from 'lucide-react';
 
 const CAMERA_REGION_ID = 'qr-camera-region';
 const FILE_REGION_ID = 'qr-file-region';
 
-type Status = 'idle' | 'starting' | 'scanning' | 'error';
+type Status = 'idle' | 'starting' | 'scanning' | 'detected' | 'error';
 
 export function QrScanner() {
     const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const hasScannedRef = useRef(false);
 
     const [status, setStatus] = useState<Status>('idle');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -17,8 +18,21 @@ export function QrScanner() {
     const [torchSupported, setTorchSupported] = useState(false);
 
     function handleDecoded(decodedText: string) {
-        if (decodedText.startsWith('http')) {
-            window.location.href = decodedText;
+        if (hasScannedRef.current) return;
+        hasScannedRef.current = true;
+        setStatus('detected');
+
+        const scanner = html5QrCodeRef.current;
+        const redirect = () => {
+            if (decodedText.startsWith('http')) {
+                window.location.href = decodedText;
+            }
+        };
+
+        if (scanner) {
+            scanner.stop().then(() => scanner.clear()).catch(() => {}).finally(redirect);
+        } else {
+            redirect();
         }
     }
 
@@ -146,6 +160,15 @@ export function QrScanner() {
                         </button>
                     </div>
                 </>
+            )}
+
+            {status === 'detected' && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-black/70 text-white">
+                    <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500">
+                        <Check className="h-7 w-7" />
+                    </span>
+                    <p className="text-sm text-white/90">QR code detected — opening record…</p>
+                </div>
             )}
 
             {status === 'starting' && (
