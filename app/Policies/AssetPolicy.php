@@ -24,12 +24,14 @@ class AssetPolicy
 
     public function signReceipt(User $user, Asset $asset): bool
     {
-        return $user->can('assets.sign_receipt');
+        return $user->can('assets.sign_receipt')
+            && $asset->current_status === \App\Enums\AssetStatus::PendingCustodyReview;
     }
 
     public function markStored(User $user, Asset $asset): bool
     {
-        return $user->can('assets.mark_stored');
+        return $user->can('assets.mark_stored')
+            && $asset->current_status === \App\Enums\AssetStatus::ReceiptSigned;
     }
 
     public function generateQr(User $user, Asset $asset): bool

@@ -110,6 +110,7 @@ class AssetController extends Controller
                 'generateQr' => $request->user()?->can('generateQr', $asset) ?? false,
                 'uploadJev' => $asset->jev ? ($request->user()?->can('upload', $asset->jev) ?? false) : false,
                 'releaseDonation' => $request->user()?->can('disposals.process') ?? false,
+                'processDisposal' => $request->user()?->can('create', \App\Models\Disposal::class) ?? false,
             ],
         ]);
     }

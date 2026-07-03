@@ -20,6 +20,7 @@ interface ShowProps {
         generateQr: boolean;
         uploadJev: boolean;
         releaseDonation: boolean;
+        processDisposal: boolean;
     };
 }
 
@@ -140,10 +141,13 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                                     Mark as Stored
                                 </Button>
                             )}
-                            {asset.current_status === 'for_disposal' && (
+                            {can.processDisposal && asset.current_status === 'for_disposal' && (
                                 <Link href={route('disposals.create', asset.id)}>
                                     <Button className="w-full" variant="outline">Process Disposal</Button>
                                 </Link>
+                            )}
+                            {!can.signReceipt && !can.markStored && !(can.processDisposal && asset.current_status === 'for_disposal') && !receiptUrl && (
+                                <p className="text-sm text-gray-500">No actions available for your role at this stage.</p>
                             )}
                             {receiptUrl && (
                                 <a href={receiptUrl} className="block text-center text-sm text-emerald-700 hover:underline">

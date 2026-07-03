@@ -1,0 +1,86 @@
+diff --git a/resources/js/Layouts/AuthenticatedLayout.tsx b/resources/js/Layouts/AuthenticatedLayout.tsx
+index 32f662b..4fe163d 100644
+--- a/resources/js/Layouts/AuthenticatedLayout.tsx
++++ b/resources/js/Layouts/AuthenticatedLayout.tsx
+@@ -126,8 +126,42 @@ export default function Authenticated({
+ 
+     return (
+         <div className="min-h-screen bg-gray-50">
++            {/* Mobile top bar */}
++            <div className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 lg:hidden">
++                <Link href={route('dashboard')} className="flex items-center gap-3">
++                    <ApplicationLogo className="block h-8 w-auto fill-current text-emerald-800" />
++                    <span className="flex flex-col leading-tight">
++                        <span className="text-sm font-bold text-emerald-900">LogTrack Insight</span>
++                        <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
++                            DENR-PENRO Catanduanes
++                        </span>
++                    </span>
++                </Link>
++                <button
++                    onClick={() => setShowingNavigationDropdown(true)}
++                    className="inline-flex items-center justify-center rounded-md p-2 text-gray-500 hover:bg-gray-100"
++                    aria-label="Open menu"
++                >
++                    <Menu className="h-6 w-6" />
++                </button>
++            </div>
++
++            {/* Mobile backdrop */}
++            {showingNavigationDropdown && (
++                <div
++                    className="fixed inset-0 z-40 bg-gray-900/40 lg:hidden"
++                    onClick={() => setShowingNavigationDropdown(false)}
++                />
++            )}
++
+             <div className="flex min-h-screen flex-col lg:flex-row">
+-                <aside className="border-b border-gray-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-72 lg:flex-col lg:overflow-hidden lg:border-b-0 lg:border-r">
++                <aside
++                    className={
++                        'fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-hidden border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out ' +
++                        (showingNavigationDropdown ? 'translate-x-0' : '-translate-x-full') +
++                        ' lg:sticky lg:top-0 lg:h-screen lg:w-72 lg:translate-x-0'
++                    }
++                >
+                     {/* Logo */}
+                     <div className="flex h-16 items-center justify-between px-4 lg:h-20 lg:px-6">
+                         <Link href={route('dashboard')} className="flex items-center gap-3">
+@@ -144,25 +178,17 @@ export default function Authenticated({
+ 
+                         <div className="flex items-center lg:hidden">
+                             <button
+-                                onClick={() => setShowingNavigationDropdown((s) => !s)}
++                                onClick={() => setShowingNavigationDropdown(false)}
+                                 className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:outline-none"
++                                aria-label="Close menu"
+                             >
+-                                {showingNavigationDropdown ? (
+-                                    <X className="h-6 w-6" />
+-                                ) : (
+-                                    <Menu className="h-6 w-6" />
+-                                )}
++                                <X className="h-6 w-6" />
+                             </button>
+                         </div>
+                     </div>
+ 
+                     {/* Nav sections */}
+-                    <nav
+-                        className={
+-                            (showingNavigationDropdown ? 'block' : 'hidden') +
+-                            ' space-y-6 overflow-y-auto px-4 pb-6 lg:block lg:flex-1 lg:px-4 lg:pb-8'
+-                        }
+-                    >
++                    <nav className="space-y-6 overflow-y-auto px-4 pb-6 lg:flex-1 lg:px-4 lg:pb-8">
+                         {sections.map((section) => (
+                             <div key={section.label}>
+                                 <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+@@ -173,6 +199,7 @@ export default function Authenticated({
+                                         <Link
+                                             key={item.href}
+                                             href={item.href}
++                                            onClick={() => setShowingNavigationDropdown(false)}
+                                             className={
+                                                 'flex items-center gap-3 rounded-md border-l-[3px] py-2 pl-[9px] pr-3 text-sm font-medium transition duration-150 ease-in-out ' +
+                                                 (item.active

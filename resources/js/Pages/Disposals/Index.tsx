@@ -8,9 +8,12 @@ interface DisposalsIndexProps {
     assets: {
         data: Asset[];
     };
+    can: {
+        process: boolean;
+    };
 }
 
-export default function DisposalsIndex({ assets }: DisposalsIndexProps) {
+export default function DisposalsIndex({ assets, can }: DisposalsIndexProps) {
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">Assets For Disposal</h2>}>
             <Head title="Disposals" />
@@ -42,9 +45,15 @@ export default function DisposalsIndex({ assets }: DisposalsIndexProps) {
                                         <AssetStatusBadge status={asset.current_status} label={asset.current_status.replace(/_/g, ' ')} />
                                     </td>
                                     <td className="px-4 py-3 text-right">
-                                        <Link href={route('disposals.create', asset.id)}>
-                                            <Button size="sm">Process</Button>
-                                        </Link>
+                                        {can.process ? (
+                                            <Link href={route('disposals.create', asset.id)}>
+                                                <Button size="sm">Process</Button>
+                                            </Link>
+                                        ) : (
+                                            <Link href={route('assets.show', asset.id)} className="text-sm text-emerald-700 hover:underline">
+                                                View
+                                            </Link>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

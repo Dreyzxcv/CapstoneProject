@@ -17,7 +17,7 @@ class DisposalController extends Controller
 {
     public function index(): Response
     {
-        $this->authorize('create', Disposal::class);
+        $this->authorize('viewAny', Disposal::class);
 
         $assets = Asset::query()
             ->where('current_status', 'for_disposal')
@@ -27,6 +27,9 @@ class DisposalController extends Controller
 
         return Inertia::render('Disposals/Index', [
             'assets' => $assets,
+            'can' => [
+                'process' => request()->user()->can('create', Disposal::class),
+            ],
         ]);
     }
 

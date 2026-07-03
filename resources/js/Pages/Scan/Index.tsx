@@ -10,10 +10,10 @@ export default function ScanIndex() {
             <Head title="Scan QR" />
 
             <div className="mx-auto max-w-lg px-4 sm:px-6 lg:px-8">
-                <p className="mb-4 text-sm text-gray-600">
-                    Point your camera at an asset QR code. You will be redirected to the asset record.
-                </p>
                 <QrScanner />
+                <p className="mt-4 text-center text-xs text-gray-500">
+                    You'll be redirected to the asset record once a code is recognized.
+                </p>
             </div>
         </AuthenticatedLayout>
     );

@@ -7,6 +7,11 @@ use App\Models\User;
 
 class DisposalPolicy
 {
+    public function viewAny(User $user): bool
+    {
+        return $user->can('disposals.view');
+    }
+
     public function create(User $user): bool
     {
         return $user->can('disposals.process');
