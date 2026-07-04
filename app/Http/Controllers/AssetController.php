@@ -113,6 +113,7 @@ class AssetController extends Controller
                 'markStored' => $request->user()?->can('markStored', $asset) ?? false,
                 'generateQr' => $request->user()?->can('generateQr', $asset) ?? false,
                 'uploadJev' => $asset->jev ? ($request->user()?->can('upload', $asset->jev) ?? false) : false,
+                'resolveCase' => $request->user()?->can('updateCaseStatus', $asset) ?? false,
                 'releaseDonation' => $request->user()?->can('disposals.process') ?? false,
                 'processDisposal' => $request->user()?->can('create', \App\Models\Disposal::class) ?? false,
             ],
@@ -135,5 +136,14 @@ class AssetController extends Controller
         $action->execute($asset, request()->user());
 
         return back()->with('success', 'Asset marked as stored.');
+    }
+
+    public function resolveTrial(Asset $asset, \App\Actions\ResolveTrial $action): RedirectResponse
+    {
+        $this->authorize('updateCaseStatus', $asset);
+
+        $action->execute($asset, request()->user());
+
+        return back()->with('success', 'Case resolved. Asset cleared for accounting.');
     }
 }
