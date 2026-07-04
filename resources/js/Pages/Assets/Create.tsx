@@ -10,14 +10,15 @@ import { FormEventHandler } from 'react';
 interface CreateProps {
     types: Array<{ value: string; label: string }>;
     modes: Array<{ value: string; label: string }>;
+    municipalities: Array<{ value: string; label: string }>;
 }
 
-export default function AssetsCreate({ types, modes }: CreateProps) {
+export default function AssetsCreate({ types, modes, municipalities }: CreateProps) {
     const { data, setData, post, processing, errors } = useForm({
         type: 'log',
         species: '',
         description: '',
-        municipality_of_origin: '',
+        municipality_of_origin: municipalities[0]?.value ?? '',
         location_apprehended: '',
         apprehending_agency: 'PENRO Catanduanes MES',
         mode: 'apprehended',
@@ -85,7 +86,16 @@ export default function AssetsCreate({ types, modes }: CreateProps) {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="municipality_of_origin">Municipality of Origin</Label>
-                                    <Input id="municipality_of_origin" value={data.municipality_of_origin} onChange={(e) => setData('municipality_of_origin', e.target.value)} required />
+                                    <select
+                                        id="municipality_of_origin"
+                                        value={data.municipality_of_origin}
+                                        onChange={(e) => setData('municipality_of_origin', e.target.value)}
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                    >
+                                        {municipalities.map((m) => (
+                                            <option key={m.value} value={m.value}>{m.label}</option>
+                                        ))}
+                                    </select>
                                     <InputError message={errors.municipality_of_origin} />
                                 </div>
                             </div>
