@@ -1,18 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { AssetStatusBadge } from '@/Components/shared/AssetStatusBadge';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Head, Link, router, usePage } from '@inertiajs/react';
-import {
-    Bar,
-    BarChart,
-    CartesianGrid,
-    Legend,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis,
-} from 'recharts';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { PageProps } from '@/types';
 import {
     Boxes,
@@ -30,16 +19,8 @@ import {
     AlertCircle,
     Info,
     PartyPopper,
+    FileBarChart2,
 } from 'lucide-react';
-
-interface TrendPoint {
-    key: string;
-    month: string;
-    log: number;
-    equipment: number;
-    vehicle: number;
-    total: number;
-}
 
 interface DashboardAlert {
     id: string;
@@ -54,16 +35,7 @@ interface DashboardProps {
         total: number;
         byType: Record<string, number>;
         byStatus: Record<string, number>;
-        byMunicipality: Array<{ municipality_of_origin: string; count: number }>;
     };
-    recentActivity: Array<{
-        id: number;
-        status: string;
-        notes: string | null;
-        changed_at: string;
-        asset?: { asset_code: string; id: number };
-        changed_by?: { name: string };
-    }>;
     statusLabels: Record<string, string>;
     typeLabels: Record<string, string>;
     roleContext: {
@@ -72,8 +44,6 @@ interface DashboardProps {
         cards: Array<{ label: string; value: number; description: string }>;
     };
     canViewAudit: boolean;
-    trends: TrendPoint[];
-    trendMonths: number;
     alerts: DashboardAlert[];
 }
 
@@ -81,12 +51,6 @@ const TYPE_ICONS: Record<string, typeof TreePine> = {
     log: TreePine,
     equipment: Wrench,
     vehicle: Car,
-};
-
-const TYPE_COLORS: Record<string, string> = {
-    log: '#047857',
-    equipment: '#d97706',
-    vehicle: '#2563eb',
 };
 
 const PIPELINE_STAGES: Array<{ key: string; label: string; icon: typeof PackagePlus }> = [
@@ -106,51 +70,11 @@ const SEVERITY_STYLES: Record<DashboardAlert['severity'], { border: string; bg: 
     info: { border: 'border-blue-200', bg: 'bg-blue-50', icon: Info, iconColor: 'text-blue-600' },
 };
 
-function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
-    if (!active || !payload?.length) return null;
-    return (
-        <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-md">
-            <p className="font-medium text-gray-700">{label}</p>
-            <p className="mt-0.5 text-emerald-700">{payload[0].value} asset{payload[0].value === 1 ? '' : 's'}</p>
-        </div>
-    );
-}
-
-function TrendTooltip({
-    active,
-    payload,
-    label,
-    typeLabels,
-}: {
-    active?: boolean;
-    payload?: Array<{ dataKey: string; value: number; color: string }>;
-    label?: string;
-    typeLabels: Record<string, string>;
-}) {
-    if (!active || !payload?.length) return null;
-    const total = payload.reduce((sum, p) => sum + p.value, 0);
-    return (
-        <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-md">
-            <p className="font-medium text-gray-700">{label}</p>
-            {payload.map((p) => (
-                <p key={p.dataKey} style={{ color: p.color }} className="mt-0.5">
-                    {typeLabels[p.dataKey] ?? p.dataKey}: {p.value}
-                </p>
-            ))}
-            <p className="mt-1 border-t border-gray-100 pt-1 font-medium text-gray-700">Total: {total}</p>
-        </div>
-    );
-}
-
 export default function DashboardIndex({
     stats,
-    recentActivity,
-    statusLabels,
-    typeLabels,
     roleContext,
-    trends,
-    trendMonths,
     alerts,
+    typeLabels,
 }: DashboardProps) {
     const { auth } = usePage<PageProps>().props;
     const permissions = auth.user?.permissions ?? [];
@@ -163,35 +87,8 @@ export default function DashboardIndex({
                 ? { label: 'View Disposals', href: route('disposals.index') }
                 : { label: 'View All Assets', href: route('assets.index') };
 
-    const typeChartData = Object.entries(stats.byType).map(([type, count]) => ({
-        name: typeLabels[type] ?? type,
-        typeValue: type,
-        count,
-    }));
-
-    const municipalityChartData = stats.byMunicipality.map((row) => ({
-        name: row.municipality_of_origin,
-        count: row.count,
-    }));
-
     const disposedCount = TERMINAL_STATUSES.reduce((sum, key) => sum + (stats.byStatus[key] ?? 0), 0);
     const underTrialCount = stats.byStatus['under_trial'] ?? 0;
-
-    function goToAssetsByType(typeValue: string) {
-        router.visit(route('assets.index', { type: typeValue }));
-    }
-
-    function goToAssetsByMunicipality(municipality: string) {
-        router.visit(route('assets.index', { search: municipality }));
-    }
-
-    function handleMonthsChange(months: number) {
-        router.get(
-            route('dashboard'),
-            { months },
-            { preserveState: true, preserveScroll: true, only: ['trends', 'trendMonths'] },
-        );
-    }
 
     return (
         <AuthenticatedLayout
@@ -203,9 +100,19 @@ export default function DashboardIndex({
                         </h2>
                         <p className="text-sm text-gray-500">{roleContext.description}</p>
                     </div>
-                    <Link href={primaryAction.href}>
-                        <Button variant="outline">{primaryAction.label}</Button>
-                    </Link>
+                    <div className="flex gap-2">
+                        {permissions.includes('reports.view') && (
+                            <Link href={route('reports.index')}>
+                                <Button variant="secondary">
+                                    <FileBarChart2 className="mr-2 h-4 w-4" />
+                                    Reports & Trends
+                                </Button>
+                            </Link>
+                        )}
+                        <Link href={primaryAction.href}>
+                            <Button variant="outline">{primaryAction.label}</Button>
+                        </Link>
+                    </div>
                 </div>
             }
         >
@@ -368,176 +275,6 @@ export default function DashboardIndex({
                         );
                     })}
                 </div>
-
-                {/* Trend chart */}
-                <Card>
-                    <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <CardTitle className="text-base font-semibold text-gray-900">Confiscations Over Time</CardTitle>
-                            <p className="text-sm text-gray-500">Monthly intake volume, broken down by asset type.</p>
-                        </div>
-                        <div className="flex gap-1.5">
-                            {[3, 6, 12].map((m) => (
-                                <button
-                                    key={m}
-                                    onClick={() => handleMonthsChange(m)}
-                                    className={
-                                        'rounded-full px-3 py-1 text-xs font-semibold transition ' +
-                                        (trendMonths === m
-                                            ? 'bg-emerald-700 text-white'
-                                            : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')
-                                    }
-                                >
-                                    {m}M
-                                </button>
-                            ))}
-                        </div>
-                    </CardHeader>
-                    <CardContent className="h-72 pt-2">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={trends} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                                <CartesianGrid vertical={false} stroke="#e5e7eb" />
-                                <XAxis
-                                    dataKey="month"
-                                    tick={{ fontSize: 11, fill: '#6b7280' }}
-                                    axisLine={{ stroke: '#e5e7eb' }}
-                                    tickLine={false}
-                                />
-                                <YAxis
-                                    allowDecimals={false}
-                                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                                    axisLine={false}
-                                    tickLine={false}
-                                />
-                                <Tooltip content={<TrendTooltip typeLabels={typeLabels} />} cursor={{ fill: '#f3f4f6' }} />
-                                <Legend
-                                    formatter={(value) => typeLabels[value as string] ?? value}
-                                    wrapperStyle={{ fontSize: 12 }}
-                                />
-                                <Bar dataKey="log" stackId="a" fill={TYPE_COLORS.log} radius={[0, 0, 0, 0]} maxBarSize={48} />
-                                <Bar dataKey="equipment" stackId="a" fill={TYPE_COLORS.equipment} maxBarSize={48} />
-                                <Bar dataKey="vehicle" stackId="a" fill={TYPE_COLORS.vehicle} radius={[6, 6, 0, 0]} maxBarSize={48} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-
-                {/* Charts */}
-                <div className="grid gap-6 lg:grid-cols-2">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-base font-semibold text-gray-900">Assets by Type</CardTitle>
-                            <p className="text-xs text-gray-500">Click a bar to view those assets.</p>
-                        </CardHeader>
-                        <CardContent className="h-72 pt-2">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={typeChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                                    <CartesianGrid vertical={false} stroke="#e5e7eb" />
-                                    <XAxis
-                                        dataKey="name"
-                                        tick={{ fontSize: 12, fill: '#6b7280' }}
-                                        axisLine={{ stroke: '#e5e7eb' }}
-                                        tickLine={false}
-                                    />
-                                    <YAxis
-                                        allowDecimals={false}
-                                        tick={{ fontSize: 12, fill: '#6b7280' }}
-                                        axisLine={false}
-                                        tickLine={false}
-                                    />
-                                    <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f3f4f6' }} />
-                                    <Bar
-                                        dataKey="count"
-                                        fill="#047857"
-                                        radius={[6, 6, 0, 0]}
-                                        maxBarSize={56}
-                                        cursor="pointer"
-                                        onClick={(data) => goToAssetsByType((data as unknown as { typeValue: string }).typeValue)}
-                                    />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-base font-semibold text-gray-900">Confiscations by Municipality</CardTitle>
-                            <p className="text-xs text-gray-500">Click a bar to view those assets.</p>
-                        </CardHeader>
-                        <CardContent className="h-72 pt-2">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={municipalityChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                                    <CartesianGrid vertical={false} stroke="#e5e7eb" />
-                                    <XAxis
-                                        dataKey="name"
-                                        tick={{ fontSize: 11, fill: '#6b7280' }}
-                                        axisLine={{ stroke: '#e5e7eb' }}
-                                        tickLine={false}
-                                    />
-                                    <YAxis
-                                        allowDecimals={false}
-                                        tick={{ fontSize: 12, fill: '#6b7280' }}
-                                        axisLine={false}
-                                        tickLine={false}
-                                    />
-                                    <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f3f4f6' }} />
-                                    <Bar
-                                        dataKey="count"
-                                        fill="#059669"
-                                        radius={[6, 6, 0, 0]}
-                                        maxBarSize={56}
-                                        cursor="pointer"
-                                        onClick={(data) => goToAssetsByMunicipality((data as unknown as { name: string }).name)}
-                                    />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Recent activity */}
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base font-semibold text-gray-900">Recent Activity</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-2">
-                        {recentActivity.length === 0 ? (
-                            <div className="flex flex-col items-center gap-2 py-10 text-center">
-                                <Boxes className="h-8 w-8 text-gray-300" />
-                                <p className="text-sm text-gray-500">No activity yet. New intakes will appear here.</p>
-                            </div>
-                        ) : (
-                            <div className="divide-y divide-gray-100">
-                                {recentActivity.map((entry) => (
-                                    <Link
-                                        key={entry.id}
-                                        href={route('assets.show', entry.asset?.id)}
-                                        className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-3 transition hover:bg-gray-50"
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-                                            <div>
-                                                <p className="font-medium text-gray-900">{entry.asset?.asset_code}</p>
-                                                <p className="text-sm text-gray-500">
-                                                    {entry.changed_by?.name} — {entry.notes}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <AssetStatusBadge
-                                                status={entry.status}
-                                                label={statusLabels[entry.status] ?? entry.status}
-                                            />
-                                            <p className="mt-1 text-xs text-gray-500">
-                                                {new Date(entry.changed_at).toLocaleString()}
-                                            </p>
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
             </div>
         </AuthenticatedLayout>
     );

@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Enums\AssetStatus;
 use App\Enums\AssetType;
 use App\Models\Asset;
-use App\Models\AssetCaseStatusHistory;
 use App\Models\AuditLog;
 use App\Services\AssetAlertService;
 use Illuminate\Database\Eloquent\Builder;
@@ -32,19 +31,7 @@ class DashboardController extends Controller
                 ->selectRaw('current_status, count(*) as count')
                 ->groupBy('current_status')
                 ->pluck('count', 'current_status'),
-            'byMunicipality' => (clone $baseQuery)
-                ->selectRaw('municipality_of_origin, count(*) as count')
-                ->groupBy('municipality_of_origin')
-                ->orderByDesc('count')
-                ->limit(10)
-                ->get(),
         ];
-
-        $recentActivity = AssetCaseStatusHistory::query()
-            ->with(['asset', 'changedBy'])
-            ->latest('changed_at')
-            ->limit(10)
-            ->get();
 
         $statusLabels = collect(AssetStatus::cases())->mapWithKeys(
             fn ($s) => [$s->value => $s->label()]
@@ -54,72 +41,14 @@ class DashboardController extends Controller
             fn ($t) => [$t->value => $t->label()]
         );
 
-        $trendMonths = (int) $request->integer('months', 6);
-        if (! in_array($trendMonths, [3, 6, 12], true)) {
-            $trendMonths = 6;
-        }
-
         return Inertia::render('Dashboard/Index', [
             'stats' => $stats,
-            'recentActivity' => $recentActivity,
             'statusLabels' => $statusLabels,
             'typeLabels' => $typeLabels,
             'roleContext' => $this->buildRoleContext($user, $baseQuery),
             'canViewAudit' => $user->can('viewAny', AuditLog::class),
-            'trends' => $this->buildMonthlyTrends($baseQuery, $trendMonths),
-            'trendMonths' => $trendMonths,
             'alerts' => $alertService->generate(),
         ]);
-    }
-
-    /**
-     * Build a month-by-month confiscation count broken down by asset type,
-     * covering the last $months months (including the current month).
-     * Done in PHP rather than a DB-specific date-grouping query so it
-     * works identically on MySQL (production) and SQLite (tests).
-     */
-    private function buildMonthlyTrends(Builder $baseQuery, int $months): array
-    {
-        $start = now()->subMonths($months - 1)->startOfMonth();
-
-        $assets = (clone $baseQuery)
-            ->where('created_at', '>=', $start)
-            ->get(['created_at', 'type']);
-
-        // Plain array, not a Collection — we need real in-place ++ mutation
-        // below, and Collection's ArrayAccess doesn't support indirect
-        // modification of nested elements (offsetGet returns by value).
-        $buckets = [];
-        for ($i = 0; $i < $months; $i++) {
-            $period = $start->copy()->addMonths($i);
-            $key = $period->format('Y-m');
-            $buckets[$key] = [
-                'key' => $key,
-                'month' => $period->format('M Y'),
-                'log' => 0,
-                'equipment' => 0,
-                'vehicle' => 0,
-                'total' => 0,
-            ];
-        }
-
-        foreach ($assets as $asset) {
-            $key = $asset->created_at->format('Y-m');
-
-            if (! isset($buckets[$key])) {
-                continue;
-            }
-
-            $type = $asset->type instanceof AssetType ? $asset->type->value : $asset->type;
-
-            if (isset($buckets[$key][$type])) {
-                $buckets[$key][$type]++;
-            }
-
-            $buckets[$key]['total']++;
-        }
-
-        return array_values($buckets);
     }
 
     private function buildRoleContext($user, Builder $baseQuery): array
