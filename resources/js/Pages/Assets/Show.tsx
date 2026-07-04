@@ -205,8 +205,26 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                     <Card>
                         <CardHeader><CardTitle className="text-base">QR Code Label</CardTitle></CardHeader>
                         <CardContent className="flex flex-col items-center gap-4">
-                            <div ref={qrContainerRef} dangerouslySetInnerHTML={{ __html: qrSvg }} />
-                            <p className="max-w-md break-all text-center text-xs text-gray-500">{qrPayload}</p>
+                            <style>{`
+                                @media print {
+                                    body * { visibility: hidden; }
+                                    #qr-print-area, #qr-print-area * { visibility: visible; }
+                                    #qr-print-area {
+                                        position: absolute;
+                                        top: 0;
+                                        left: 0;
+                                        width: 100%;
+                                        display: flex;
+                                        flex-direction: column;
+                                        align-items: center;
+                                        gap: 8px;
+                                    }
+                                }
+                            `}</style>
+                            <div id="qr-print-area" className="flex flex-col items-center gap-2">
+                                <div ref={qrContainerRef} dangerouslySetInnerHTML={{ __html: qrSvg }} />
+                                <p className="text-sm font-medium text-gray-700">{asset.asset_code}</p>
+                            </div>
                             <Button variant="outline" onClick={() => window.print()}>Print Label</Button>
                         </CardContent>
                     </Card>
