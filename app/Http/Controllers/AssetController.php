@@ -64,6 +64,10 @@ class AssetController extends Controller
                 'value' => $m->value,
                 'label' => $m->label(),
             ]),
+            'municipalities' => collect(\App\Enums\Municipality::cases())->map(fn ($m) => [
+                'value' => $m->value,
+                'label' => $m->value,
+            ]),
         ]);
     }
 
