@@ -5,15 +5,16 @@ namespace App\Actions;
 use App\Enums\AssetMode;
 use App\Enums\AssetStatus;
 use App\Enums\AssetType;
+use App\Enums\Municipality;
 use App\Models\AcknowledgementReceipt;
 use App\Models\Asset;
 use App\Models\User;
+use App\Services\AssetCodeService;
 use App\Services\AssetLifecycleService;
 use App\Services\AuditLogService;
 use App\Services\PdfDocumentService;
 use App\Services\QrCodeService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class CreateAsset
 {
@@ -22,6 +23,7 @@ class CreateAsset
         protected PdfDocumentService $pdfDocumentService,
         protected AssetLifecycleService $lifecycleService,
         protected AuditLogService $auditLogService,
+        protected AssetCodeService $assetCodeService,
     ) {}
 
     public function execute(array $data, User $user): Asset
@@ -30,22 +32,28 @@ class CreateAsset
             $mode = AssetMode::from($data['mode']);
             $hasConfiscationOrder = $mode === AssetMode::Abandoned
                 || ($data['has_confiscation_order'] ?? false);
+            $hasOngoingCase = $data['has_ongoing_case'] ?? false;
+            $municipality = Municipality::from($data['municipality_of_origin']);
 
             $asset = Asset::create([
-                'asset_code' => (string) Str::uuid(),
+                'asset_code' => 'PENDING', // placeholder; replaced below once we have the DB id
                 'type' => AssetType::from($data['type']),
                 'species' => $data['species'] ?? null,
                 'description' => $data['description'] ?? null,
-                'municipality_of_origin' => $data['municipality_of_origin'],
+                'municipality_of_origin' => $municipality->value,
                 'location_apprehended' => $data['location_apprehended'],
                 'apprehending_agency' => $data['apprehending_agency'],
                 'mode' => $mode,
-                'has_ongoing_case' => $data['has_ongoing_case'] ?? false,
+                'has_ongoing_case' => $hasOngoingCase,
                 'has_confiscation_order' => $hasConfiscationOrder,
                 'current_status' => AssetStatus::IntakeRecorded,
                 'qr_code_token' => $this->qrCodeService->generateToken(),
                 'metadata' => $data['metadata'] ?? null,
                 'created_by' => $user->id,
+            ]);
+
+            $asset->update([
+                'asset_code' => $this->assetCodeService->generate($asset, $municipality, $hasOngoingCase),
             ]);
 
             $receiptNumber = 'AR-'.now()->format('Y').'-'.str_pad((string) $asset->id, 5, '0', STR_PAD_LEFT);
