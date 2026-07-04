@@ -1,22 +1,21 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
+import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Link } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, UserPlus } from 'lucide-react';
 
 interface UsersIndexProps {
     users: Array<{ id: number; name: string; email: string; roles: string[] }>;
+    can: { create: boolean };
 }
 
 const roleBadgeClass: Record<string, string> = {
-    admin: 'bg-red-50 text-red-500',
-    instructor: 'bg-sky-50 text-sky-500',
-    'head instructor': 'bg-sky-50 text-sky-600',
-    'logistic officer': 'bg-amber-50 text-amber-600',
-    'head logistics officer': 'bg-amber-50 text-amber-700',
-    'medical trainee': 'bg-violet-50 text-violet-500',
-    graduate: 'bg-emerald-50 text-emerald-600',
+    'system admin': 'bg-red-50 text-red-500',
+    'mes officer': 'bg-sky-50 text-sky-600',
+    'property custodian': 'bg-amber-50 text-amber-600',
+    'accounting officer': 'bg-violet-50 text-violet-500',
+    'penro management': 'bg-emerald-50 text-emerald-600',
 };
 
 const avatarColors = ['bg-blue-600', 'bg-emerald-600', 'bg-violet-600', 'bg-amber-600', 'bg-rose-600', 'bg-cyan-600'];
@@ -25,7 +24,7 @@ function avatarColor(name: string) {
     return avatarColors[name.charCodeAt(0) % avatarColors.length];
 }
 
-export default function UsersIndex({ users }: UsersIndexProps) {
+export default function UsersIndex({ users, can }: UsersIndexProps) {
     const [search, setSearch] = useState('');
     const [activeFilter, setActiveFilter] = useState('All');
 
@@ -58,12 +57,20 @@ export default function UsersIndex({ users }: UsersIndexProps) {
 
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 {/* Header */}
-                <div className="mb-6 flex items-center justify-between">
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <p className="mt-1 text-sm text-gray-500">
                             {users.length} account{users.length === 1 ? '' : 's'} registered
                         </p>
                     </div>
+                    {can.create && (
+                        <Link href={route('users.create')}>
+                            <Button>
+                                <UserPlus className="mr-1.5 h-4 w-4" />
+                                New User
+                            </Button>
+                        </Link>
+                    )}
                 </div>
 
                 <Card>
