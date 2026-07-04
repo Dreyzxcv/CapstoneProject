@@ -69,6 +69,10 @@ class ReportController extends Controller
             'typeLabels' => $typeLabels,
             'statusLabels' => $statusLabels,
             'recentActivity' => $recentActivity,
+            'can' => [
+                'export' => $request->user()?->can('reports.export') ?? false,
+                'viewAudit' => $request->user()?->can('viewAny', AuditLog::class) ?? false,
+            ],
         ]);
     }
 
@@ -124,7 +128,7 @@ class ReportController extends Controller
 
     public function inventory(Request $request): StreamedResponse
     {
-        $this->authorize('viewAny', Asset::class);
+        abort_unless($request->user()?->can('reports.export'), 403);
 
         $assets = Asset::with(['creator', 'acknowledgementReceipt'])->get();
 
@@ -155,9 +159,9 @@ class ReportController extends Controller
         }, 200, $headers);
     }
 
-    public function compliance(PdfDocumentService $pdfService): \Illuminate\Http\Response
+    public function compliance(Request $request, PdfDocumentService $pdfService): \Illuminate\Http\Response
     {
-        $this->authorize('viewAny', Asset::class);
+        abort_unless($request->user()?->can('reports.export'), 403);
 
         $data = [
             'generatedAt' => now(),
@@ -171,7 +175,7 @@ class ReportController extends Controller
                 ->groupBy('type')
                 ->get()
                 ->map(fn ($row) => [
-                    'type' => AssetType::from($row->type)->label(),
+                    'type' => $row->type->label(),
                     'count' => $row->count,
                 ]),
             'byStatus' => Asset::query()
@@ -179,7 +183,7 @@ class ReportController extends Controller
                 ->groupBy('current_status')
                 ->get()
                 ->map(fn ($row) => [
-                    'status' => AssetStatus::from($row->current_status)->label(),
+                    'status' => $row->current_status->label(),
                     'count' => $row->count,
                 ]),
         ];
