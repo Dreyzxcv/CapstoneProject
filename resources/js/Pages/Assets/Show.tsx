@@ -22,6 +22,7 @@ interface ShowProps {
         uploadJev: boolean;
         releaseDonation: boolean;
         processDisposal: boolean;
+        resolveCase: boolean;
     };
 }
 
@@ -88,6 +89,12 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
             router.post(route('assets.mark-stored', asset.id));
         }
     }
+
+    function handleResolveTrial() {
+    if (confirm('Confirm the case has been resolved and this asset can proceed to accounting?')) {
+        router.post(route('assets.resolve-trial', asset.id));
+    }
+}
 
     function handleUploadJev() {
         if (confirm('Confirm the JEV has been uploaded? This will move the asset to disposal processing.')) {
@@ -184,12 +191,17 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                                     Mark as Stored
                                 </Button>
                             )}
+                            {can.resolveCase && (
+                                <Button className="w-full" variant="secondary" onClick={handleResolveTrial}>
+                                    Resolve Case — Clear for Accounting
+                                </Button>
+                            )}
                             {can.processDisposal && asset.current_status === 'for_disposal' && (
                                 <Link href={route('disposals.create', asset.id)}>
                                     <Button className="w-full" variant="outline">Process Disposal</Button>
                                 </Link>
                             )}
-                            {!can.signReceipt && !can.markStored && !(can.processDisposal && asset.current_status === 'for_disposal') && !receiptUrl && (
+                            {!can.signReceipt && !can.markStored && !can.resolveCase && !(can.processDisposal && asset.current_status === 'for_disposal') && !receiptUrl && (
                                 <p className="text-sm text-gray-500">No actions available for your role at this stage.</p>
                             )}
                             {receiptUrl && (
