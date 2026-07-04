@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateUserRequest;
 use App\Http\Requests\StoreUserRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -28,8 +29,10 @@ class UsersController extends Controller
 
         return Inertia::render('Users/Index', [
             'users' => $users,
+            'availableRoles' => Role::orderBy('name')->pluck('name'),
             'can' => [
                 'create' => true,
+                'edit' => true,
             ],
         ]);
     }
@@ -56,5 +59,19 @@ class UsersController extends Controller
         $user->syncRoles([$request->validated('role')]);
 
         return redirect()->route('users.index')->with('success', "Account created for {$user->name}.");
+    }
+
+    public function update(UpdateUserRequest $request, User $user): RedirectResponse
+    {
+        abort_unless($request->user()?->can('users.manage'), 403);
+
+        $user->update([
+            'name' => $request->validated('name'),
+            'email' => $request->validated('email'),
+        ]);
+
+        $user->syncRoles([$request->validated('role')]);
+
+        return back()->with('success', "{$user->name}'s profile was updated.");
     }
 }
