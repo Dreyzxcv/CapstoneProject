@@ -2,11 +2,12 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { AssetStatusBadge } from '@/Components/shared/AssetStatusBadge';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     Bar,
     BarChart,
     CartesianGrid,
+    Legend,
     ResponsiveContainer,
     Tooltip,
     XAxis,
@@ -25,7 +26,28 @@ import {
     TreePine,
     Wrench,
     Scale,
+    AlertTriangle,
+    AlertCircle,
+    Info,
+    PartyPopper,
 } from 'lucide-react';
+
+interface TrendPoint {
+    key: string;
+    month: string;
+    log: number;
+    equipment: number;
+    vehicle: number;
+    total: number;
+}
+
+interface DashboardAlert {
+    id: string;
+    severity: 'critical' | 'warning' | 'info';
+    title: string;
+    message: string;
+    asset_id: number;
+}
 
 interface DashboardProps {
     stats: {
@@ -50,12 +72,21 @@ interface DashboardProps {
         cards: Array<{ label: string; value: number; description: string }>;
     };
     canViewAudit: boolean;
+    trends: TrendPoint[];
+    trendMonths: number;
+    alerts: DashboardAlert[];
 }
 
 const TYPE_ICONS: Record<string, typeof TreePine> = {
     log: TreePine,
     equipment: Wrench,
     vehicle: Car,
+};
+
+const TYPE_COLORS: Record<string, string> = {
+    log: '#047857',
+    equipment: '#d97706',
+    vehicle: '#2563eb',
 };
 
 const PIPELINE_STAGES: Array<{ key: string; label: string; icon: typeof PackagePlus }> = [
@@ -69,6 +100,12 @@ const PIPELINE_STAGES: Array<{ key: string; label: string; icon: typeof PackageP
 
 const TERMINAL_STATUSES = ['donated', 'decayed', 'fabricated', 'released', 'forfeited', 'damaged'];
 
+const SEVERITY_STYLES: Record<DashboardAlert['severity'], { border: string; bg: string; icon: typeof AlertTriangle; iconColor: string }> = {
+    critical: { border: 'border-red-200', bg: 'bg-red-50', icon: AlertTriangle, iconColor: 'text-red-600' },
+    warning: { border: 'border-amber-200', bg: 'bg-amber-50', icon: AlertCircle, iconColor: 'text-amber-600' },
+    info: { border: 'border-blue-200', bg: 'bg-blue-50', icon: Info, iconColor: 'text-blue-600' },
+};
+
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
     if (!active || !payload?.length) return null;
     return (
@@ -79,12 +116,41 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
     );
 }
 
+function TrendTooltip({
+    active,
+    payload,
+    label,
+    typeLabels,
+}: {
+    active?: boolean;
+    payload?: Array<{ dataKey: string; value: number; color: string }>;
+    label?: string;
+    typeLabels: Record<string, string>;
+}) {
+    if (!active || !payload?.length) return null;
+    const total = payload.reduce((sum, p) => sum + p.value, 0);
+    return (
+        <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-md">
+            <p className="font-medium text-gray-700">{label}</p>
+            {payload.map((p) => (
+                <p key={p.dataKey} style={{ color: p.color }} className="mt-0.5">
+                    {typeLabels[p.dataKey] ?? p.dataKey}: {p.value}
+                </p>
+            ))}
+            <p className="mt-1 border-t border-gray-100 pt-1 font-medium text-gray-700">Total: {total}</p>
+        </div>
+    );
+}
+
 export default function DashboardIndex({
     stats,
     recentActivity,
     statusLabels,
     typeLabels,
     roleContext,
+    trends,
+    trendMonths,
+    alerts,
 }: DashboardProps) {
     const { auth } = usePage<PageProps>().props;
     const permissions = auth.user?.permissions ?? [];
@@ -99,6 +165,7 @@ export default function DashboardIndex({
 
     const typeChartData = Object.entries(stats.byType).map(([type, count]) => ({
         name: typeLabels[type] ?? type,
+        typeValue: type,
         count,
     }));
 
@@ -109,6 +176,22 @@ export default function DashboardIndex({
 
     const disposedCount = TERMINAL_STATUSES.reduce((sum, key) => sum + (stats.byStatus[key] ?? 0), 0);
     const underTrialCount = stats.byStatus['under_trial'] ?? 0;
+
+    function goToAssetsByType(typeValue: string) {
+        router.visit(route('assets.index', { type: typeValue }));
+    }
+
+    function goToAssetsByMunicipality(municipality: string) {
+        router.visit(route('assets.index', { search: municipality }));
+    }
+
+    function handleMonthsChange(months: number) {
+        router.get(
+            route('dashboard'),
+            { months },
+            { preserveState: true, preserveScroll: true, only: ['trends', 'trendMonths'] },
+        );
+    }
 
     return (
         <AuthenticatedLayout
@@ -146,7 +229,45 @@ export default function DashboardIndex({
                     </CardContent>
                 </Card>
 
-                {/* Pipeline stepper — signature element */}
+                {/* Alerts */}
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base font-semibold text-gray-900">Action Needed</CardTitle>
+                        <p className="text-sm text-gray-500">
+                            Deadlines, decay risk, and stalled paperwork that need follow-up.
+                        </p>
+                    </CardHeader>
+                    <CardContent className="pt-2">
+                        {alerts.length === 0 ? (
+                            <div className="flex flex-col items-center gap-2 py-8 text-center">
+                                <PartyPopper className="h-8 w-8 text-emerald-300" />
+                                <p className="text-sm text-gray-500">Nothing needs attention right now.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {alerts.map((alert) => {
+                                    const style = SEVERITY_STYLES[alert.severity];
+                                    const Icon = style.icon;
+                                    return (
+                                        <Link
+                                            key={alert.id}
+                                            href={route('assets.show', alert.asset_id)}
+                                            className={`flex items-start gap-3 rounded-lg border ${style.border} ${style.bg} p-3 transition hover:opacity-80`}
+                                        >
+                                            <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${style.iconColor}`} />
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-900">{alert.title}</p>
+                                                <p className="text-sm text-gray-600">{alert.message}</p>
+                                            </div>
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Pipeline stepper */}
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-base font-semibold text-gray-900">Custody Pipeline</CardTitle>
@@ -248,11 +369,65 @@ export default function DashboardIndex({
                     })}
                 </div>
 
+                {/* Trend chart */}
+                <Card>
+                    <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <CardTitle className="text-base font-semibold text-gray-900">Confiscations Over Time</CardTitle>
+                            <p className="text-sm text-gray-500">Monthly intake volume, broken down by asset type.</p>
+                        </div>
+                        <div className="flex gap-1.5">
+                            {[3, 6, 12].map((m) => (
+                                <button
+                                    key={m}
+                                    onClick={() => handleMonthsChange(m)}
+                                    className={
+                                        'rounded-full px-3 py-1 text-xs font-semibold transition ' +
+                                        (trendMonths === m
+                                            ? 'bg-emerald-700 text-white'
+                                            : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')
+                                    }
+                                >
+                                    {m}M
+                                </button>
+                            ))}
+                        </div>
+                    </CardHeader>
+                    <CardContent className="h-72 pt-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={trends} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                                <CartesianGrid vertical={false} stroke="#e5e7eb" />
+                                <XAxis
+                                    dataKey="month"
+                                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                                    axisLine={{ stroke: '#e5e7eb' }}
+                                    tickLine={false}
+                                />
+                                <YAxis
+                                    allowDecimals={false}
+                                    tick={{ fontSize: 12, fill: '#6b7280' }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                />
+                                <Tooltip content={<TrendTooltip typeLabels={typeLabels} />} cursor={{ fill: '#f3f4f6' }} />
+                                <Legend
+                                    formatter={(value) => typeLabels[value as string] ?? value}
+                                    wrapperStyle={{ fontSize: 12 }}
+                                />
+                                <Bar dataKey="log" stackId="a" fill={TYPE_COLORS.log} radius={[0, 0, 0, 0]} maxBarSize={48} />
+                                <Bar dataKey="equipment" stackId="a" fill={TYPE_COLORS.equipment} maxBarSize={48} />
+                                <Bar dataKey="vehicle" stackId="a" fill={TYPE_COLORS.vehicle} radius={[6, 6, 0, 0]} maxBarSize={48} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+
                 {/* Charts */}
                 <div className="grid gap-6 lg:grid-cols-2">
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-base font-semibold text-gray-900">Assets by Type</CardTitle>
+                            <p className="text-xs text-gray-500">Click a bar to view those assets.</p>
                         </CardHeader>
                         <CardContent className="h-72 pt-2">
                             <ResponsiveContainer width="100%" height="100%">
@@ -271,7 +446,14 @@ export default function DashboardIndex({
                                         tickLine={false}
                                     />
                                     <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f3f4f6' }} />
-                                    <Bar dataKey="count" fill="#047857" radius={[6, 6, 0, 0]} maxBarSize={56} />
+                                    <Bar
+                                        dataKey="count"
+                                        fill="#047857"
+                                        radius={[6, 6, 0, 0]}
+                                        maxBarSize={56}
+                                        cursor="pointer"
+                                        onClick={(data) => goToAssetsByType((data as unknown as { typeValue: string }).typeValue)}
+                                    />
                                 </BarChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -280,6 +462,7 @@ export default function DashboardIndex({
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-base font-semibold text-gray-900">Confiscations by Municipality</CardTitle>
+                            <p className="text-xs text-gray-500">Click a bar to view those assets.</p>
                         </CardHeader>
                         <CardContent className="h-72 pt-2">
                             <ResponsiveContainer width="100%" height="100%">
@@ -298,7 +481,14 @@ export default function DashboardIndex({
                                         tickLine={false}
                                     />
                                     <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f3f4f6' }} />
-                                    <Bar dataKey="count" fill="#059669" radius={[6, 6, 0, 0]} maxBarSize={56} />
+                                    <Bar
+                                        dataKey="count"
+                                        fill="#059669"
+                                        radius={[6, 6, 0, 0]}
+                                        maxBarSize={56}
+                                        cursor="pointer"
+                                        onClick={(data) => goToAssetsByMunicipality((data as unknown as { name: string }).name)}
+                                    />
                                 </BarChart>
                             </ResponsiveContainer>
                         </CardContent>

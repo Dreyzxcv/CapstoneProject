@@ -30,12 +30,15 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::get('/disposals', [DisposalController::class, 'index'])->name('disposals.index');
     Route::get('/assets/{asset}/disposals/create', [DisposalController::class, 'create'])->name('disposals.create');
     Route::post('/assets/{asset}/disposals', [DisposalController::class, 'store'])->name('disposals.store');
+    Route::post('/assets/{asset}/resolve-trial', [AssetController::class, 'resolveTrial'])->name('assets.resolve-trial');
     Route::post('/disposals/{disposal}/release-donation', [DisposalController::class, 'releaseDonation'])->name('disposals.release-donation');
 
     Route::get('/scan', [QrScanController::class, 'index'])->name('scan.index');
     Route::post('/scan', [QrScanController::class, 'store'])->name('scan.store');
 
     Route::get('/users', [\App\Http\Controllers\UsersController::class, 'index'])->name('users.index');
+    Route::get('/users/create', [\App\Http\Controllers\UsersController::class, 'create'])->name('users.create');
+    Route::post('/users', [\App\Http\Controllers\UsersController::class, 'store'])->name('users.store');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/inventory.csv', [ReportController::class, 'inventory'])->name('reports.inventory');
