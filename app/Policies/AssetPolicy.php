@@ -41,6 +41,7 @@ class AssetPolicy
 
     public function updateCaseStatus(User $user, Asset $asset): bool
     {
-        return $user->can('assets.update_case');
+        return $user->can('assets.update_case')
+            && $asset->current_status === \App\Enums\AssetStatus::UnderTrial;
     }
 }
