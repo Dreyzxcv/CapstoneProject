@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreUserRequest;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
+use Spatie\Permission\Models\Role;
 
 class UsersController extends Controller
 {
@@ -24,6 +28,33 @@ class UsersController extends Controller
 
         return Inertia::render('Users/Index', [
             'users' => $users,
+            'can' => [
+                'create' => true,
+            ],
         ]);
+    }
+
+    public function create(Request $request): Response
+    {
+        abort_unless($request->user()?->can('users.manage'), 403);
+
+        return Inertia::render('Users/Create', [
+            'roles' => Role::orderBy('name')->pluck('name'),
+        ]);
+    }
+
+    public function store(StoreUserRequest $request): RedirectResponse
+    {
+        $user = User::create([
+            'name' => $request->validated('name'),
+            'email' => $request->validated('email'),
+            'password' => Hash::make($request->validated('password')),
+            'is_active' => true,
+            'email_verified_at' => now(), // admin-created, skip email verification
+        ]);
+
+        $user->syncRoles([$request->validated('role')]);
+
+        return redirect()->route('users.index')->with('success', "Account created for {$user->name}.");
     }
 }
