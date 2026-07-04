@@ -20,7 +20,7 @@ class StoreAssetRequest extends FormRequest
             'type' => ['required', Rule::enum(AssetType::class)],
             'species' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
-            'municipality_of_origin' => ['required', 'string', 'max:255'],
+            'municipality_of_origin' => ['required', Rule::enum(\App\Enums\Municipality::class)],
             'location_apprehended' => ['required', 'string', 'max:255'],
             'apprehending_agency' => ['required', 'string', 'max:255'],
             'mode' => ['required', Rule::enum(AssetMode::class)],
