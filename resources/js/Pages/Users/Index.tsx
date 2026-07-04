@@ -1,13 +1,25 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { useMemo, useState } from 'react';
-import { Search, UserPlus } from 'lucide-react';
+import { Input } from '@/Components/ui/input';
+import { Label } from '@/Components/ui/label';
+import InputError from '@/Components/InputError';
+import Modal from '@/Components/Modal';
+import { FormEvent, useMemo, useState } from 'react';
+import { Search, UserPlus, Pencil } from 'lucide-react';
+
+interface UserRow {
+    id: number;
+    name: string;
+    email: string;
+    roles: string[];
+}
 
 interface UsersIndexProps {
-    users: Array<{ id: number; name: string; email: string; roles: string[] }>;
-    can: { create: boolean };
+    users: UserRow[];
+    availableRoles: string[];
+    can: { create: boolean; edit: boolean };
 }
 
 const roleBadgeClass: Record<string, string> = {
@@ -24,9 +36,16 @@ function avatarColor(name: string) {
     return avatarColors[name.charCodeAt(0) % avatarColors.length];
 }
 
-export default function UsersIndex({ users, can }: UsersIndexProps) {
+export default function UsersIndex({ users, availableRoles, can }: UsersIndexProps) {
     const [search, setSearch] = useState('');
     const [activeFilter, setActiveFilter] = useState('All');
+    const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+
+    const editForm = useForm({
+        name: '',
+        email: '',
+        role: '',
+    });
 
     // unique roles present in the data, used to build filter pills dynamically
     const allRoles = useMemo(() => {
@@ -50,6 +69,32 @@ export default function UsersIndex({ users, can }: UsersIndexProps) {
             return matchesSearch && matchesFilter;
         });
     }, [users, search, activeFilter]);
+
+    function openEdit(user: UserRow) {
+        setEditingUser(user);
+        editForm.clearErrors();
+        editForm.setData({
+            name: user.name,
+            email: user.email,
+            role: user.roles[0] ?? '',
+        });
+    }
+
+    function closeEdit() {
+        setEditingUser(null);
+        editForm.clearErrors();
+        editForm.reset();
+    }
+
+    function submitEdit(e: FormEvent) {
+        e.preventDefault();
+        if (!editingUser) return;
+
+        editForm.put(route('users.update', editingUser.id), {
+            preserveScroll: true,
+            onSuccess: () => closeEdit(),
+        });
+    }
 
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">User Management</h2>}>
@@ -128,6 +173,11 @@ export default function UsersIndex({ users, can }: UsersIndexProps) {
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Name</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Email</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Roles</th>
+                                        {can.edit && (
+                                            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                                Actions
+                                            </th>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -165,12 +215,23 @@ export default function UsersIndex({ users, can }: UsersIndexProps) {
                                                     ))}
                                                 </div>
                                             </td>
+                                            {can.edit && (
+                                                <td className="px-4 py-3 text-right">
+                                                    <button
+                                                        onClick={() => openEdit(u)}
+                                                        className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 hover:text-emerald-700"
+                                                    >
+                                                        <Pencil className="h-3.5 w-3.5" />
+                                                        Edit
+                                                    </button>
+                                                </td>
+                                            )}
                                         </tr>
                                     ))}
 
                                     {filteredUsers.length === 0 && (
                                         <tr>
-                                            <td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-400">
+                                            <td colSpan={can.edit ? 5 : 4} className="px-4 py-10 text-center text-sm text-gray-400">
                                                 No users found.
                                             </td>
                                         </tr>
@@ -181,6 +242,75 @@ export default function UsersIndex({ users, can }: UsersIndexProps) {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Edit profile modal */}
+            <Modal show={editingUser !== null} onClose={closeEdit} maxWidth="md">
+                {editingUser && (
+                    <form onSubmit={submitEdit} className="p-6">
+                        <h2 className="text-lg font-medium text-gray-900">Edit User</h2>
+                        <p className="mt-1 text-sm text-gray-600">
+                            Update profile information for <span className="font-medium">{editingUser.name}</span>.
+                        </p>
+
+                        <div className="mt-6 space-y-4">
+                            <div>
+                                <Label htmlFor="edit_name">Name</Label>
+                                <Input
+                                    id="edit_name"
+                                    className="mt-1 w-full"
+                                    value={editForm.data.name}
+                                    onChange={(e) => editForm.setData('name', e.target.value)}
+                                    required
+                                />
+                                <InputError message={editForm.errors.name} className="mt-1" />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="edit_email">Email</Label>
+                                <Input
+                                    id="edit_email"
+                                    type="email"
+                                    className="mt-1 w-full"
+                                    value={editForm.data.email}
+                                    onChange={(e) => editForm.setData('email', e.target.value)}
+                                    required
+                                />
+                                <InputError message={editForm.errors.email} className="mt-1" />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="edit_role">Role</Label>
+                                <select
+                                    id="edit_role"
+                                    value={editForm.data.role}
+                                    onChange={(e) => editForm.setData('role', e.target.value)}
+                                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    required
+                                >
+                                    <option value="" disabled>
+                                        Select a role
+                                    </option>
+                                    {availableRoles.map((role) => (
+                                        <option key={role} value={role}>
+                                            {role}
+                                        </option>
+                                    ))}
+                                </select>
+                                <InputError message={editForm.errors.role} className="mt-1" />
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
+                            <Button type="button" variant="outline" onClick={closeEdit}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={editForm.processing}>
+                                Save Changes
+                            </Button>
+                        </div>
+                    </form>
+                )}
+            </Modal>
         </AuthenticatedLayout>
     );
 }
