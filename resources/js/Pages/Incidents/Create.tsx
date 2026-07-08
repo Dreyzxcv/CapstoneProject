@@ -18,6 +18,7 @@ interface CreateProps {
     types: Option[];
     modes: Option[];
     municipalities: Option[];
+    barangaysByMunicipality: Record<string, string[]>;
 }
 
 interface AssetRow {
@@ -59,7 +60,7 @@ function emptyAssetRow(defaults: { municipality: string; agency: string; mode: s
 const selectClass =
     'flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600';
 
-export default function IncidentsCreate({ types, modes, municipalities }: CreateProps) {
+export default function IncidentsCreate({ types, modes, municipalities, barangaysByMunicipality }: CreateProps) {
     const defaultMunicipality = municipalities[0]?.value ?? '';
     const defaultAgency = 'PENRO Catanduanes MES';
     const defaultMode = 'apprehended';
@@ -81,6 +82,9 @@ export default function IncidentsCreate({ types, modes, municipalities }: Create
     function updateAsset(index: number, field: keyof AssetRow, value: string | boolean) {
         const next = [...data.assets];
         next[index] = { ...next[index], [field]: value };
+        if (field === 'municipality_of_origin') {
+            next[index].location_apprehended = ''; 
+        }
         setData('assets', next);
     }
 
@@ -392,13 +396,19 @@ export default function IncidentsCreate({ types, modes, municipalities }: Create
 
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label htmlFor={`location_apprehended-${index}`}>Location Apprehended</Label>
-                                            <Input
+                                            <Label htmlFor={`location_apprehended-${index}`}>Barangay Apprehended</Label>
+                                            <select
                                                 id={`location_apprehended-${index}`}
                                                 value={asset.location_apprehended}
                                                 onChange={(e) => updateAsset(index, 'location_apprehended', e.target.value)}
+                                                className={selectClass}
                                                 required
-                                            />
+                                            >
+                                                <option value="" disabled>Select barangay…</option>
+                                                {(barangaysByMunicipality[asset.municipality_of_origin] ?? []).map((brgy) => (
+                                                    <option key={brgy} value={brgy}>{brgy}</option>
+                                                ))}
+                                            </select>
                                             <InputError message={assetError(index, 'location_apprehended')} />
                                         </div>
                                         <div className="space-y-2">
