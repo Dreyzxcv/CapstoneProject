@@ -16,6 +16,7 @@ import {
     LogOut,
     Menu,
     X,
+    ClipboardPlus,
 } from 'lucide-react';
 
 function hasPermission(permissions: string[], permission: string): boolean {
@@ -69,6 +70,13 @@ export default function Authenticated({
                     active: route().current('assets.*'),
                     show: hasPermission(permissions, 'assets.view'),
                     icon: <Package className={iconClass} />,
+                },
+                {
+                    href: route('incidents.create'),
+                    label: 'New Incident',
+                    active: route().current('incidents.*'),
+                    show: hasPermission(permissions, 'incidents.create'),
+                    icon: <ClipboardPlus className={iconClass} />,
                 },
                 {
                     href: route('scan.index'),
