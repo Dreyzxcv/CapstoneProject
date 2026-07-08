@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { FormEventHandler } from 'react';
+import { FormEventHandler, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 
 interface Option {
     value: string;
@@ -75,6 +76,8 @@ export default function IncidentsCreate({ types, modes, municipalities }: Create
         assets: [emptyAssetRow({ municipality: defaultMunicipality, agency: defaultAgency, mode: defaultMode })] as AssetRow[],
     });
 
+    const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
+
     function updateAsset(index: number, field: keyof AssetRow, value: string | boolean) {
         const next = [...data.assets];
         next[index] = { ...next[index], [field]: value };
@@ -101,6 +104,8 @@ export default function IncidentsCreate({ types, modes, municipalities }: Create
     function assetError(index: number, field: string): string | undefined {
         return (errors as Record<string, string>)[`assets.${index}.${field}`];
     }
+
+    
 
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">MES Apprehension Intake</h2>}>
@@ -167,12 +172,17 @@ export default function IncidentsCreate({ types, modes, municipalities }: Create
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="coordinates">Coordinates</Label>
-                                    <Input
-                                        id="coordinates"
-                                        placeholder="e.g. 13.5833° N, 124.2333° E"
-                                        value={data.coordinates}
-                                        onChange={(e) => setData('coordinates', e.target.value)}
-                                    />
+                                    <div className="flex gap-2">
+                                        <Input
+                                            id="coordinates"
+                                            placeholder="e.g. 13.5833, 124.2333"
+                                            value={data.coordinates}
+                                            onChange={(e) => setData('coordinates', e.target.value)}
+                                        />
+                                        <Button type="button" variant="outline" onClick={() => setShowCoordinatesPicker(true)}>
+                                            Pick on Map
+                                        </Button>
+                                    </div>
                                     <InputError message={errors.coordinates} />
                                 </div>
                                 <div className="space-y-2">
@@ -441,6 +451,12 @@ export default function IncidentsCreate({ types, modes, municipalities }: Create
                     </div>
                 </form>
             </div>
+            <CoordinatesPickerModal
+                show={showCoordinatesPicker}
+                onClose={() => setShowCoordinatesPicker(false)}
+                onSelect={(coords) => setData('coordinates', coords)}
+                initialCoordinates={data.coordinates}
+            />
         </AuthenticatedLayout>
     );
 }
