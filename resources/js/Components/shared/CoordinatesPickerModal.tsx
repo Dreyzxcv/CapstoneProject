@@ -5,10 +5,9 @@ import { Label } from '@/Components/ui/label';
 import { useEffect, useRef, useState } from 'react';
 import type { Map as LeafletMap, Marker as LeafletMarker } from 'leaflet';
 
-// Rough bounding box covering the province of Catanduanes.
 const CATANDUANES_BOUNDS: [[number, number], [number, number]] = [
-    [13.45, 123.95], // southwest
-    [13.95, 124.45], // northeast
+    [13.45, 123.95],
+    [13.95, 124.45],
 ];
 const CATANDUANES_CENTER: [number, number] = [13.7, 124.24];
 
@@ -41,69 +40,129 @@ export default function CoordinatesPickerModal({
     const [lng, setLng] = useState(parsed.lng);
     const [error, setError] = useState<string | null>(null);
 
-    // Build the map once the modal is open and the container div exists.
+    // --- DEBUG PANEL STATE ---
+    const [debugLog, setDebugLog] = useState<string[]>([]);
+    const log = (msg: string) => {
+        const line = `${new Date().toISOString().split('T')[1].slice(0, 12)}  ${msg}`;
+        console.log('[MAP DEBUG]', msg);
+        setDebugLog((prev) => [...prev.slice(-30), line]);
+    };
+
     useEffect(() => {
         if (!show || !mapContainerRef.current || mapRef.current) return;
 
+        const container = mapContainerRef.current;
+        log(`effect fired. container size at start: ${container.offsetWidth}x${container.offsetHeight}`);
+
         let cancelled = false;
+        let resizeObserver: ResizeObserver | null = null;
 
-        import('leaflet').then((L) => {
-            if (cancelled || !mapContainerRef.current || mapRef.current) return;
+        import('leaflet')
+            .then((L) => {
+                log(`leaflet module loaded, version ${L.version ?? 'unknown'}`);
 
-            // Fix Leaflet's default marker icons breaking under Vite bundling.
-            delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
-            L.Icon.Default.mergeOptions({
-                iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-                iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-                shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+                if (cancelled) {
+                    log('aborted: effect cancelled before leaflet finished loading');
+                    return;
+                }
+                if (!container) {
+                    log('aborted: container ref is null');
+                    return;
+                }
+                if (mapRef.current) {
+                    log('aborted: map already exists');
+                    return;
+                }
+
+                log(`container size right before map init: ${container.offsetWidth}x${container.offsetHeight}`);
+
+                delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
+                L.Icon.Default.mergeOptions({
+                    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+                    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+                    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+                });
+
+                let map: LeafletMap;
+                try {
+                    map = L.map(container, {
+                        center: CATANDUANES_CENTER,
+                        zoom: 10,
+                        minZoom: 9,
+                        maxZoom: 17,
+                        maxBounds: CATANDUANES_BOUNDS,
+                        maxBoundsViscosity: 1.0,
+                    });
+                    log('L.map() succeeded');
+                } catch (mapErr) {
+                    log(`L.map() THREW: ${String(mapErr)}`);
+                    return;
+                }
+
+                log(`map size per leaflet: ${JSON.stringify(map.getSize())}`);
+
+                const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                });
+
+                tileLayer.on('loading', () => log('tileLayer: loading started'));
+                tileLayer.on('load', () => log('tileLayer: all visible tiles loaded'));
+                tileLayer.on('tileloadstart', (e: any) => log(`tile load start: ${e.coords?.x},${e.coords?.y},${e.coords?.z}`));
+                tileLayer.on('tileerror', (e: any) => log(`TILE ERROR: ${e.coords?.x},${e.coords?.y},${e.coords?.z} - ${e.error ?? 'unknown error'}`));
+
+                tileLayer.addTo(map);
+                log('tileLayer.addTo(map) called');
+
+                map.fitBounds(CATANDUANES_BOUNDS);
+                log(`after fitBounds, map size: ${JSON.stringify(map.getSize())}, zoom: ${map.getZoom()}`);
+
+                map.on('click', (e) => {
+                    const { lat: clickLat, lng: clickLng } = e.latlng;
+                    placeMarker(L, map, clickLat, clickLng);
+                    setLat(clickLat.toFixed(6));
+                    setLng(clickLng.toFixed(6));
+                    setError(null);
+                });
+
+                mapRef.current = map;
+
+                const initLat = parseFloat(parsed.lat);
+                const initLng = parseFloat(parsed.lng);
+                if (!Number.isNaN(initLat) && !Number.isNaN(initLng)) {
+                    placeMarker(L, map, initLat, initLng);
+                    map.setView([initLat, initLng], 14);
+                }
+
+                resizeObserver = new ResizeObserver((entries) => {
+                    const { width, height } = entries[0].contentRect;
+                    log(`ResizeObserver fired: ${width}x${height}`);
+                    if (width > 0 && height > 0) {
+                        map.invalidateSize();
+                        log(`invalidateSize() called, map size now: ${JSON.stringify(map.getSize())}`);
+                    }
+                });
+                resizeObserver.observe(container);
+                log('ResizeObserver attached');
+            })
+            .catch((err) => {
+                log(`IMPORT FAILED: ${String(err)}`);
+                console.error('Failed to load map:', err);
+                setError('Could not load the map. Please try again.');
             });
-
-            const map = L.map(mapContainerRef.current, {
-                center: CATANDUANES_CENTER,
-                zoom: 10,
-                minZoom: 9,
-                maxZoom: 17,
-                maxBounds: CATANDUANES_BOUNDS,
-                maxBoundsViscosity: 1.0,
-            });
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors',
-            }).addTo(map);
-
-            map.fitBounds(CATANDUANES_BOUNDS);
-
-            map.on('click', (e) => {
-                const { lat: clickLat, lng: clickLng } = e.latlng;
-                placeMarker(L, map, clickLat, clickLng);
-                setLat(clickLat.toFixed(6));
-                setLng(clickLng.toFixed(6));
-                setError(null);
-            });
-
-            mapRef.current = map;
-
-            const initLat = parseFloat(parsed.lat);
-            const initLng = parseFloat(parsed.lng);
-            if (!Number.isNaN(initLat) && !Number.isNaN(initLng)) {
-                placeMarker(L, map, initLat, initLng);
-                map.setView([initLat, initLng], 14);
-            }
-        });
 
         return () => {
             cancelled = true;
+            resizeObserver?.disconnect();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [show]);
 
-    // Tear the map instance down on close so it re-initializes cleanly
-    // (and re-measures its container size) the next time it's opened.
     useEffect(() => {
         if (show) return;
         mapRef.current?.remove();
         mapRef.current = null;
         markerRef.current = null;
+        if (show === false) log('modal closed, map torn down');
     }, [show]);
 
     function placeMarker(L: typeof import('leaflet'), map: LeafletMap, latVal: number, lngVal: number) {
@@ -193,8 +252,17 @@ export default function CoordinatesPickerModal({
 
                 <div
                     ref={mapContainerRef}
-                    className="mt-4 h-80 w-full overflow-hidden rounded-lg border border-gray-200"
+                    className="mt-4 h-80 w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-100"
                 />
+
+                {/* DEBUG PANEL — remove once diagnosed */}
+                <div className="mt-3 max-h-40 overflow-y-auto rounded-md border border-amber-300 bg-amber-50 p-2 font-mono text-[10px] leading-tight text-amber-900">
+                    <p className="mb-1 font-bold">DEBUG LOG:</p>
+                    {debugLog.length === 0 && <p>waiting for effect to fire...</p>}
+                    {debugLog.map((line, i) => (
+                        <p key={i}>{line}</p>
+                    ))}
+                </div>
 
                 <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
                     <Button type="button" variant="outline" onClick={onClose}>
