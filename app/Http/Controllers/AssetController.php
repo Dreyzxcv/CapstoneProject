@@ -68,6 +68,7 @@ class AssetController extends Controller
                 'value' => $m->value,
                 'label' => $m->value,
             ]),
+            'barangaysByMunicipality' => config('barangays'),
         ]);
     }
 
