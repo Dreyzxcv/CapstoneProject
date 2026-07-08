@@ -32,6 +32,7 @@ class IncidentController extends Controller
                 'value' => $m->value,
                 'label' => $m->value,
             ]),
+            'barangaysByMunicipality' => config('barangays'),
         ]);
     }
 
@@ -50,4 +51,6 @@ class IncidentController extends Controller
         return redirect()->route('assets.show', $firstAsset)
             ->with('success', "Incident {$incident->incident_code} recorded with {$incident->assets->count()} asset(s).");
     }
+
+    
 }
