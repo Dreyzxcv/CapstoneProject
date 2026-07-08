@@ -40,7 +40,7 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                     <h2 className="text-xl font-semibold text-gray-800">Assets</h2>
                     {canCreate && (
                         <Button asChild>
-                            <Link href={route('assets.create')}>
+                            <Link href={route('incidents.create')}>
                                 <Plus className="mr-1.5 h-4 w-4" />
                                 New Intake
                             </Link>

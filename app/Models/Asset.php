@@ -94,4 +94,18 @@ class Asset extends Model
     {
         return $this->morphMany(Document::class, 'attachable');
     }
+
+    public function custodyReceipt(): ?AcknowledgementReceipt
+    {
+        if ($this->acknowledgementReceipt) {
+            return $this->acknowledgementReceipt;
+        }
+
+        return $this->incident
+            ?->assets()
+            ->whereHas('acknowledgementReceipt')
+            ->with('acknowledgementReceipt')
+            ->first()
+            ?->acknowledgementReceipt;
+    }
 }

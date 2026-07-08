@@ -27,9 +27,16 @@ class CreateAsset
         protected AssetCodeService $assetCodeService,
     ) {}
 
-    public function execute(array $data, User $user): Asset
+    /**
+     * @param bool $issueReceipt Whether to generate a standalone custody
+     *     receipt for this single asset. When an asset is part of an
+     *     incident with multiple items, pass false here and let
+     *     CreateIncidentWithAssets issue one shared receipt after all
+     *     assets in the incident have been created.
+     */
+    public function execute(array $data, User $user, bool $issueReceipt = true): Asset
     {
-        return DB::transaction(function () use ($data, $user) {
+        return DB::transaction(function () use ($data, $user, $issueReceipt) {
             $mode = AssetMode::from($data['mode']);
             $hasConfiscationOrder = $mode === AssetMode::Abandoned
                 || ($data['has_confiscation_order'] ?? false);
@@ -63,14 +70,9 @@ class CreateAsset
                 'asset_code' => $this->assetCodeService->generate($asset, $municipality, $hasOngoingCase),
             ]);
 
-            $receiptNumber = 'AR-'.now()->format('Y').'-'.str_pad((string) $asset->id, 5, '0', STR_PAD_LEFT);
-
-            $receipt = AcknowledgementReceipt::create([
-                'asset_id' => $asset->id,
-                'receipt_number' => $receiptNumber,
-            ]);
-
-            $this->pdfDocumentService->generateAcknowledgementReceipt($asset, $receipt);
+            if ($issueReceipt) {
+                $this->issueReceiptFor($asset);
+            }
 
             $this->lifecycleService->transition(
                 $asset->fresh(),
@@ -84,5 +86,19 @@ class CreateAsset
 
             return $asset->fresh(['acknowledgementReceipt', 'creator', 'incident']);
         });
+    }
+
+    public function issueReceiptFor(Asset $asset): AcknowledgementReceipt
+    {
+        $receiptNumber = 'AR-'.now()->format('Y').'-'.str_pad((string) $asset->id, 5, '0', STR_PAD_LEFT);
+
+        $receipt = AcknowledgementReceipt::create([
+            'asset_id' => $asset->id,
+            'receipt_number' => $receiptNumber,
+        ]);
+
+        $this->pdfDocumentService->generateAcknowledgementReceipt($asset, $receipt);
+
+        return $receipt;
     }
 }

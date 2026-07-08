@@ -42,12 +42,20 @@ class CreateIncidentWithAssets
 
             foreach ($assetsData as $assetData) {
                 $assetData['incident_id'] = $incident->id;
-                $this->createAsset->execute($assetData, $user);
+                // Don't issue a per-asset receipt here — one shared custody
+                // receipt covering every item is issued below, once all
+                // assets for this incident exist.
+                $this->createAsset->execute($assetData, $user, issueReceipt: false);
             }
+
+            $incident->load('assets');
+
+            $firstAsset = $incident->assets->first();
+            $this->createAsset->issueReceiptFor($firstAsset);
 
             $this->auditLogService->log('incident.created', $incident, null, $incident->toArray(), $user->id);
 
-            return $incident->fresh('assets');
+            return $incident->fresh('assets.acknowledgementReceipt');
         });
     }
 

@@ -16,10 +16,17 @@ class PdfDocumentService
 {
     public function generateAcknowledgementReceipt(Asset $asset, AcknowledgementReceipt $receipt): string
     {
+        $asset->loadMissing('incident.assets');
+
+        $items = $asset->incident
+            ? $asset->incident->assets
+            : collect([$asset]);
+
         $pdf = Pdf::loadView('pdf.acknowledgement-receipt', [
             'asset' => $asset,
             'receipt' => $receipt,
-        ]);
+            'items' => $items,
+        ])->setPaper('legal', 'portrait');
 
         $path = $this->storePdf($pdf->output(), 'receipts', $receipt->receipt_number);
 
