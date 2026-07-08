@@ -8,16 +8,16 @@ use App\Enums\AssetMode;
 use App\Enums\AssetType;
 use App\Enums\Municipality;
 use App\Http\Requests\StoreIncidentRequest;
-use App\Models\Asset;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class IncidentController extends Controller
 {
-    public function create(): Response
+    public function create(Request $request): Response
     {
-        $this->authorize('create', Asset::class);
+        abort_unless($request->user()?->can('incidents.create'), 403);
 
         return Inertia::render('Incidents/Create', [
             'types' => collect(AssetType::cases())->map(fn ($t) => [

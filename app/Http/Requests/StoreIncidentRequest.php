@@ -12,7 +12,7 @@ class StoreIncidentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('assets.create');
+        return $this->user()?->can('incidents.create') ?? false;
     }
 
     public function rules(): array

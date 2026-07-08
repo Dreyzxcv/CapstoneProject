@@ -21,6 +21,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'assets.generate_qr',
             'assets.update_case',
             'assets.scan',
+            'incidents.create',
             'jev.create',
             'jev.upload',
             'disposals.view',
@@ -38,7 +39,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $rolePermissions = [
             'System Admin' => $permissions,
             'MES Officer' => [
-                'assets.view', 'assets.create', 'assets.update_case', 'assets.scan',
+                'assets.view', 'assets.create', 'assets.update_case', 'assets.scan', 'incidents.create',
                 'jev.upload', 'disposals.view', 'reports.view',
             ],
             'Property Custodian' => [
