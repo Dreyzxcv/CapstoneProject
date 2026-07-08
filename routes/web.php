@@ -27,6 +27,9 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/assets/{asset}/jev', [JevController::class, 'store'])->name('assets.jev.store');
     Route::post('/assets/{asset}/jev/upload', [JevController::class, 'upload'])->name('assets.jev.upload');
 
+    Route::get('/incidents/create', [\App\Http\Controllers\IncidentController::class, 'create'])->name('incidents.create');
+    Route::post('/incidents', [\App\Http\Controllers\IncidentController::class, 'store'])->name('incidents.store');
+
     Route::get('/disposals', [DisposalController::class, 'index'])->name('disposals.index');
     Route::get('/assets/{asset}/disposals/create', [DisposalController::class, 'create'])->name('disposals.create');
     Route::post('/assets/{asset}/disposals', [DisposalController::class, 'store'])->name('disposals.store');
@@ -39,6 +42,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::get('/users', [\App\Http\Controllers\UsersController::class, 'index'])->name('users.index');
     Route::get('/users/create', [\App\Http\Controllers\UsersController::class, 'create'])->name('users.create');
     Route::post('/users', [\App\Http\Controllers\UsersController::class, 'store'])->name('users.store');
+    Route::put('/users/{user}', [\App\Http\Controllers\UsersController::class, 'update'])->name('users.update');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/inventory.csv', [ReportController::class, 'inventory'])->name('reports.inventory');

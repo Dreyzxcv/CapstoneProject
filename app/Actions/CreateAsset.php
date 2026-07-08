@@ -1,4 +1,5 @@
 <?php
+// app/Actions/CreateAsset.php
 
 namespace App\Actions;
 
@@ -36,10 +37,16 @@ class CreateAsset
             $municipality = Municipality::from($data['municipality_of_origin']);
 
             $asset = Asset::create([
+                'incident_id' => $data['incident_id'] ?? null,
                 'asset_code' => 'PENDING', // placeholder; replaced below once we have the DB id
                 'type' => AssetType::from($data['type']),
                 'species' => $data['species'] ?? null,
                 'description' => $data['description'] ?? null,
+                'quantity' => $data['quantity'] ?? 1,
+                'volume_bd_ft' => $data['volume_bd_ft'] ?? null,
+                'volume_cu_m' => $data['volume_cu_m'] ?? null,
+                'estimated_value' => $data['estimated_value'] ?? null,
+                'plate_number' => $data['plate_number'] ?? null,
                 'municipality_of_origin' => $municipality->value,
                 'location_apprehended' => $data['location_apprehended'],
                 'apprehending_agency' => $data['apprehending_agency'],
@@ -75,7 +82,7 @@ class CreateAsset
 
             $this->auditLogService->log('asset.intake_created', $asset, null, $asset->toArray(), $user->id);
 
-            return $asset->fresh(['acknowledgementReceipt', 'creator']);
+            return $asset->fresh(['acknowledgementReceipt', 'creator', 'incident']);
         });
     }
 }

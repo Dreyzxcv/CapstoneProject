@@ -1,4 +1,5 @@
 <?php
+// app/Models/Asset.php
 
 namespace App\Models;
 
@@ -14,10 +15,16 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 class Asset extends Model
 {
     protected $fillable = [
+        'incident_id',
         'asset_code',
         'type',
         'species',
         'description',
+        'quantity',
+        'volume_bd_ft',
+        'volume_cu_m',
+        'estimated_value',
+        'plate_number',
         'municipality_of_origin',
         'location_apprehended',
         'apprehending_agency',
@@ -41,7 +48,16 @@ class Asset extends Model
             'has_confiscation_order' => 'boolean',
             'appeal_deadline' => 'datetime',
             'metadata' => 'array',
+            'quantity' => 'integer',
+            'volume_bd_ft' => 'decimal:2',
+            'volume_cu_m' => 'decimal:4',
+            'estimated_value' => 'decimal:2',
         ];
+    }
+
+    public function incident(): BelongsTo
+    {
+        return $this->belongsTo(Incident::class);
     }
 
     public function creator(): BelongsTo
