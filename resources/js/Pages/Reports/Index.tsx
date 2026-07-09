@@ -14,6 +14,7 @@ import {
     YAxis,
 } from 'recharts';
 import { Boxes } from 'lucide-react';
+import { IncidentsMap, IncidentLocation } from '@/Components/shared/IncidentsMap';
 
 interface TrendPoint {
     key: string;
@@ -45,6 +46,7 @@ interface ReportsIndexProps {
         asset?: { asset_code: string; id: number };
         changed_by?: { name: string };
     }>;
+    incidentLocations: IncidentLocation[];
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -98,6 +100,7 @@ export default function ReportsIndex({
     typeLabels,
     statusLabels,
     recentActivity,
+    incidentLocations,
 }: ReportsIndexProps) {
     const typeChartData = byType.map((row) => ({
         name: row.label,
@@ -265,6 +268,18 @@ export default function ReportsIndex({
                         </CardContent>
                     </Card>
                 </div>
+                {/* Incident map */}
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base font-semibold text-gray-900">Confiscation Locations</CardTitle>
+                        <p className="text-sm text-gray-500">
+                            Where each incident was apprehended, based on coordinates MES logged at intake. Click a marker for details.
+                        </p>
+                    </CardHeader>
+                    <CardContent className="pt-2">
+                        <IncidentsMap incidents={incidentLocations} />
+                    </CardContent>
+                </Card>
 
                 {/* Recent activity */}
                 <Card>
