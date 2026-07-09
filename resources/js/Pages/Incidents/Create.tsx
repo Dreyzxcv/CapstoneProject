@@ -1,5 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import InputError from '@/Components/InputError';
+import Modal from '@/Components/Modal';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
@@ -78,12 +79,13 @@ export default function IncidentsCreate({ types, modes, municipalities, barangay
     });
 
     const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
 
     function updateAsset(index: number, field: keyof AssetRow, value: string | boolean) {
         const next = [...data.assets];
         next[index] = { ...next[index], [field]: value };
         if (field === 'municipality_of_origin') {
-            next[index].location_apprehended = ''; 
+            next[index].location_apprehended = '';
         }
         setData('assets', next);
     }
@@ -100,23 +102,34 @@ export default function IncidentsCreate({ types, modes, municipalities, barangay
         setData('assets', data.assets.filter((_, i) => i !== index));
     }
 
-    const submit: FormEventHandler = (e) => {
+    // Instead of submitting immediately, open the confirmation modal.
+    // Native "required" validation still runs first, so this only fires
+    // once the visible required fields are actually filled in.
+    const handleReviewClick: FormEventHandler = (e) => {
         e.preventDefault();
-        post(route('incidents.store'));
+        setShowConfirmModal(true);
     };
+
+    function confirmAndSubmit() {
+        post(route('incidents.store'), {
+            onSuccess: () => setShowConfirmModal(false),
+        });
+    }
 
     function assetError(index: number, field: string): string | undefined {
         return (errors as Record<string, string>)[`assets.${index}.${field}`];
     }
 
-    
+    function labelFor(options: Option[], value: string): string {
+        return options.find((o) => o.value === value)?.label ?? value;
+    }
 
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">MES Apprehension Intake</h2>}>
             <Head title="New Apprehension Intake" />
 
             <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-                <form onSubmit={submit} className="space-y-6">
+                <form onSubmit={handleReviewClick} className="space-y-6">
                     {/* Incident-level details */}
                     <Card className="border-0 shadow-sm">
                         <CardHeader className="border-b border-gray-100">
@@ -461,12 +474,149 @@ export default function IncidentsCreate({ types, modes, municipalities, barangay
                     </div>
                 </form>
             </div>
+
             <CoordinatesPickerModal
                 show={showCoordinatesPicker}
                 onClose={() => setShowCoordinatesPicker(false)}
                 onSelect={(coords) => setData('coordinates', coords)}
                 initialCoordinates={data.coordinates}
             />
+
+            {/* Confirmation modal */}
+            <Modal show={showConfirmModal} onClose={() => setShowConfirmModal(false)} maxWidth="2xl">
+                <div className="max-h-[85vh] overflow-y-auto p-6">
+                    <h2 className="text-lg font-medium text-gray-900">Confirm Apprehension Intake</h2>
+                    <p className="mt-1 text-sm text-gray-600">
+                        Please review the details below before recording this incident. Once submitted,
+                        an acknowledgement receipt will be generated for each item.
+                    </p>
+
+                    <div className="mt-6 space-y-6">
+                        {/* Incident-level summary */}
+                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <h3 className="text-sm font-semibold text-gray-700">Apprehension Details</h3>
+                            <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm md:grid-cols-2">
+                                <div>
+                                    <dt className="text-gray-500">Date of Apprehension</dt>
+                                    <dd className="font-medium text-gray-900">{data.date_of_apprehension || '—'}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-gray-500">Date Submitted</dt>
+                                    <dd className="font-medium text-gray-900">{data.date_report_submitted || '—'}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-gray-500">Place of Apprehension</dt>
+                                    <dd className="font-medium text-gray-900">{data.place_of_apprehension || '—'}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-gray-500">Area</dt>
+                                    <dd className="font-medium text-gray-900">{data.area || '—'}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-gray-500">Coordinates</dt>
+                                    <dd className="font-medium text-gray-900">{data.coordinates || '—'}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-gray-500">Apprehending Party</dt>
+                                    <dd className="font-medium text-gray-900">{data.apprehending_party || '—'}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-gray-500">Claimant / Offender</dt>
+                                    <dd className="font-medium text-gray-900">
+                                        {data.is_abandoned ? 'Abandoned (no known claimant)' : (data.claimant_offender_name || '—')}
+                                    </dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        {/* Per-item summary */}
+                        <div className="space-y-3">
+                            <h3 className="text-sm font-semibold text-gray-700">
+                                Items ({data.assets.length})
+                            </h3>
+                            {data.assets.map((asset, index) => (
+                                <div key={index} className="rounded-lg border border-gray-200 p-4">
+                                    <p className="text-sm font-semibold text-gray-800">
+                                        Item {index + 1} — {labelFor(types, asset.type)}
+                                    </p>
+                                    <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-sm md:grid-cols-2">
+                                        <div>
+                                            <dt className="text-gray-500">Mode</dt>
+                                            <dd className="text-gray-900">{labelFor(modes, asset.mode)}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-gray-500">No. of pcs</dt>
+                                            <dd className="text-gray-900">{asset.quantity || '—'}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-gray-500">Species</dt>
+                                            <dd className="text-gray-900">{asset.species || '—'}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-gray-500">Municipality of Origin</dt>
+                                            <dd className="text-gray-900">{labelFor(municipalities, asset.municipality_of_origin)}</dd>
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <dt className="text-gray-500">Description</dt>
+                                            <dd className="text-gray-900">{asset.description || '—'}</dd>
+                                        </div>
+
+                                        {asset.type === 'log' && (
+                                            <>
+                                                <div>
+                                                    <dt className="text-gray-500">Volume (bd.ft)</dt>
+                                                    <dd className="text-gray-900">{asset.volume_bd_ft || '—'}</dd>
+                                                </div>
+                                                <div>
+                                                    <dt className="text-gray-500">Volume (cu.m)</dt>
+                                                    <dd className="text-gray-900">{asset.volume_cu_m || '—'}</dd>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {asset.type === 'vehicle' && (
+                                            <div>
+                                                <dt className="text-gray-500">Conveyance / Plate No.</dt>
+                                                <dd className="text-gray-900">{asset.plate_number || '—'}</dd>
+                                            </div>
+                                        )}
+
+                                        <div>
+                                            <dt className="text-gray-500">Estimated Value (php)</dt>
+                                            <dd className="text-gray-900">{asset.estimated_value || '—'}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-gray-500">Barangay Apprehended</dt>
+                                            <dd className="text-gray-900">{asset.location_apprehended || '—'}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-gray-500">Apprehending Agency</dt>
+                                            <dd className="text-gray-900">{asset.apprehending_agency || '—'}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-gray-500">Ongoing Case</dt>
+                                            <dd className="text-gray-900">{asset.has_ongoing_case ? 'Yes' : 'No'}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-gray-500">Confiscation / Forfeiture Order</dt>
+                                            <dd className="text-gray-900">{asset.has_confiscation_order ? 'Yes' : 'No'}</dd>
+                                        </div>
+                                    </dl>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
+                        <Button type="button" variant="outline" onClick={() => setShowConfirmModal(false)}>
+                            Go Back &amp; Edit
+                        </Button>
+                        <Button type="button" onClick={confirmAndSubmit} disabled={processing}>
+                            {processing ? 'Recording…' : 'Confirm & Record Incident'}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </AuthenticatedLayout>
     );
 }
