@@ -10,6 +10,7 @@ import { Asset, PageProps } from '@/types';
 import { documentUrl } from '@/lib/utils';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { FormEvent, useState, useRef, useEffect } from 'react';
+import { FileText, MapPin } from 'lucide-react';
 
 interface ShowProps {
     asset: Asset;
@@ -164,9 +165,16 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
 
                 <div className="grid gap-6 lg:grid-cols-3">
                     <Card className="lg:col-span-2">
-                        <CardHeader><CardTitle className="text-base">Overview</CardTitle></CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="text-base">Overview</CardTitle>
+                            {asset.incident && (
+                                <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                                    {asset.incident.incident_code}
+                                </span>
+                            )}
+                        </CardHeader>
                         <CardContent className="grid gap-3 text-sm md:grid-cols-2">
-                            <p><span className="font-medium">Type:</span> {asset.type}</p>
+                            <p><span className="font-medium">Types:</span> {asset.type}</p>
                             <p><span className="font-medium">Mode:</span> {asset.mode}</p>
                             <p><span className="font-medium">Species:</span> {asset.species ?? '—'}</p>
                             <p><span className="font-medium">Municipality:</span> {asset.municipality_of_origin}</p>
@@ -175,6 +183,45 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                             <p><span className="font-medium">Agency:</span> {asset.apprehending_agency}</p>
                             <p><span className="font-medium">Ongoing case:</span> {asset.has_ongoing_case ? 'Yes' : 'No'}</p>
                             <p><span className="font-medium">Confiscation order:</span> {asset.has_confiscation_order ? 'Yes' : 'No'}</p>
+
+                            {asset.incident && (
+                                <>
+                                    <div className="md:col-span-2 mt-1 border-t border-gray-100 pt-3">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                            From Incident Report
+                                        </p>
+                                    </div>
+                                    <p>
+                                        <span className="font-medium">Date of Apprehension:</span>{' '}
+                                        {new Date(asset.incident.date_of_apprehension).toLocaleDateString()}
+                                    </p>
+                                    <p>
+                                        <span className="font-medium">Place of Apprehension:</span>{' '}
+                                        {asset.incident.place_of_apprehension}
+                                    </p>
+                                    {asset.incident.area && (
+                                        <p><span className="font-medium">Area:</span> {asset.incident.area}</p>
+                                    )}
+                                    {asset.incident.coordinates && (
+                                        <p className="flex items-center gap-1">
+                                            <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                                            <span className="font-medium">Coordinates:</span> {asset.incident.coordinates}
+                                        </p>
+                                    )}
+                                    <p>
+                                        <span className="font-medium">
+                                            {asset.incident.is_abandoned ? 'Status:' : 'Claimant / Offender:'}
+                                        </span>{' '}
+                                        {asset.incident.is_abandoned
+                                            ? 'Abandoned (no known claimant)'
+                                            : asset.incident.claimant_offender_name ?? '—'}
+                                    </p>
+                                    <p>
+                                        <span className="font-medium">Apprehending Party:</span>{' '}
+                                        {asset.incident.apprehending_party}
+                                    </p>
+                                </>
+                            )}
                         </CardContent>
                     </Card>
 

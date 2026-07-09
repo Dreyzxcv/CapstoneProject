@@ -19,6 +19,19 @@ export type PageProps<
     };
 };
 
+export interface Incident {
+    id: number;
+    incident_code: string;
+    date_of_apprehension: string;
+    place_of_apprehension: string;
+    area: string | null;
+    coordinates: string | null;
+    claimant_offender_name: string | null;
+    is_abandoned: boolean;
+    apprehending_party: string;
+    date_report_submitted: string | null;
+}
+
 export interface Asset {
     id: number;
     asset_code: string;
@@ -35,6 +48,7 @@ export interface Asset {
     current_status: string;
     qr_code_token: string;
     created_at: string;
+    incident?: Incident;
     creator?: User;
     acknowledgement_receipt?: AcknowledgementReceipt;
     status_history?: StatusHistoryEntry[];
