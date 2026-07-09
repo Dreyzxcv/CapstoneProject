@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Models\Incident;
 
 class ReportController extends Controller
 {
@@ -42,6 +43,22 @@ class ReportController extends Controller
             fn ($s) => [$s->value => $s->label()]
         );
 
+        $incidentLocations = Incident::query()
+            ->whereNotNull('coordinates')
+            ->withCount('assets')
+            ->latest('date_of_apprehension')
+            ->limit(300)
+            ->get(['id', 'incident_code', 'coordinates', 'place_of_apprehension', 'date_of_apprehension', 'is_abandoned'])
+            ->map(fn (Incident $incident) => [
+                'id' => $incident->id,
+                'incident_code' => $incident->incident_code,
+                'coordinates' => $incident->coordinates,
+                'place_of_apprehension' => $incident->place_of_apprehension,
+                'date_of_apprehension' => $incident->date_of_apprehension?->toDateString(),
+                'is_abandoned' => $incident->is_abandoned,
+                'asset_count' => $incident->assets_count,
+            ]);
+
         return Inertia::render('Reports/Index', [
             'summary' => [
                 'total' => Asset::count(),
@@ -69,6 +86,7 @@ class ReportController extends Controller
             'typeLabels' => $typeLabels,
             'statusLabels' => $statusLabels,
             'recentActivity' => $recentActivity,
+            'incidentLocations' => $incidentLocations,
             'can' => [
                 'export' => $request->user()?->can('reports.export') ?? false,
                 'viewAudit' => $request->user()?->can('viewAny', AuditLog::class) ?? false,
