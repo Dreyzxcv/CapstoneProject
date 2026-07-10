@@ -4,10 +4,10 @@ import { MapPin, Maximize2, Minimize2 } from 'lucide-react';
 
 // Same bounding box used by CoordinatesPickerModal, so the two stay visually consistent.
 const CATANDUANES_BOUNDS: [[number, number], [number, number]] = [
-    [13.45, 123.95],
-    [13.95, 124.45],
+    [13.40, 124.05],
+    [14.10, 124.45],
 ];
-const CATANDUANES_CENTER: [number, number] = [13.7, 124.24];
+const CATANDUANES_CENTER: [number, number] = [13.75, 124.24];
 
 export interface IncidentLocation {
     id: number;
