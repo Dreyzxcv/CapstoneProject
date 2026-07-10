@@ -11,6 +11,7 @@ import { documentUrl } from '@/lib/utils';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { FormEvent, useState, useRef, useEffect } from 'react';
 import { FileText, MapPin } from 'lucide-react';
+import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
 
 interface ShowProps {
     asset: Asset;
@@ -224,6 +225,19 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                             )}
                         </CardContent>
                     </Card>
+
+                    {asset.incident?.coordinates && (
+                        <Card>
+                            <CardHeader><CardTitle className="text-base">Apprehension Location</CardTitle></CardHeader>
+                            <CardContent>
+                                <IncidentLocationMap
+                                    coordinates={asset.incident.coordinates}
+                                    placeName={asset.incident.place_of_apprehension}
+                                    areaName={asset.incident.area}
+                                />
+                            </CardContent>
+                        </Card>
+                    )}
 
                     <Card>
                         <CardHeader><CardTitle className="text-base">Actions</CardTitle></CardHeader>
