@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('assets', function (Blueprint $table) {
             $table->id();
-            $table->uuid('asset_code')->unique();
+            $table->string('asset_code')->unique();
             $table->string('type');
             $table->string('species')->nullable();
             $table->text('description')->nullable();

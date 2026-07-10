@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Map as LeafletMap } from 'leaflet';
-import { MapPin } from 'lucide-react';
+import { MapPin, Maximize2, Minimize2 } from 'lucide-react';
 
 // Same bounding box used by CoordinatesPickerModal, so the two stay visually consistent.
 const CATANDUANES_BOUNDS: [[number, number], [number, number]] = [
@@ -31,6 +31,7 @@ function parseCoordinates(value: string): { lat: number; lng: number } | null {
 export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<LeafletMap | null>(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     const plottable = incidents
         .map((incident) => ({ incident, point: parseCoordinates(incident.coordinates) }))
@@ -107,6 +108,48 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Leaflet measures its container on init/resize, but it has no way to
+    // know we've just changed the container's CSS position/size via the
+    // fullscreen toggle below, so we have to explicitly nudge it.
+    const refreshMapSize = useCallback(() => {
+        // Wait a tick for the fullscreen layout change (fixed positioning,
+        // new width/height) to actually apply to the DOM before Leaflet
+        // re-measures, otherwise it captures the pre-toggle dimensions.
+        requestAnimationFrame(() => {
+            mapRef.current?.invalidateSize();
+        });
+    }, []);
+
+    const toggleFullscreen = useCallback(() => {
+        setIsFullscreen((prev) => {
+            const next = !prev;
+            return next;
+        });
+    }, []);
+
+    useEffect(() => {
+        refreshMapSize();
+
+        if (!isFullscreen) return;
+
+        // Prevent the page behind the fullscreen map from scrolling.
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        function handleKeyDown(e: KeyboardEvent) {
+            if (e.key === 'Escape') {
+                setIsFullscreen(false);
+            }
+        }
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isFullscreen, refreshMapSize]);
+
     if (plottable.length === 0) {
         return (
             <div className="flex h-80 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-center">
@@ -140,7 +183,40 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
                     100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
                 }
             `}</style>
-            <div ref={containerRef} className="h-80 w-full overflow-hidden rounded-lg border border-gray-200" />
+
+            {/* Backdrop behind the fullscreen map */}
+            {isFullscreen && (
+                <div className="fixed inset-0 z-[9998] bg-gray-900/60" onClick={toggleFullscreen} />
+            )}
+
+            <div
+                className={
+                    isFullscreen
+                        ? 'fixed inset-4 z-[9999] overflow-hidden rounded-lg border border-gray-200 shadow-2xl sm:inset-8'
+                        : 'relative h-80 w-full overflow-hidden rounded-lg border border-gray-200'
+                }
+            >
+                <div ref={containerRef} className="h-full w-full" />
+
+                <button
+                    type="button"
+                    onClick={toggleFullscreen}
+                    className="absolute right-3 top-3 z-[1000] flex items-center gap-1.5 rounded-md bg-white/95 px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-md ring-1 ring-black/5 transition hover:bg-white"
+                    aria-label={isFullscreen ? 'Exit fullscreen' : 'View fullscreen'}
+                >
+                    {isFullscreen ? (
+                        <>
+                            <Minimize2 className="h-3.5 w-3.5" />
+                            Exit Fullscreen
+                        </>
+                    ) : (
+                        <>
+                            <Maximize2 className="h-3.5 w-3.5" />
+                            Fullscreen
+                        </>
+                    )}
+                </button>
+            </div>
         </>
     );
 }
