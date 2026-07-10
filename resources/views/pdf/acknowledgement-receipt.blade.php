@@ -184,7 +184,7 @@
 <table class="header-table">
     <tr>
         <td class="header-logo-left">
-            <img src="{{ $denrLogo }}">
+            <img src="public\images\denr-logo.jpg">
         </td>
 
         <td style="width:70%;">
@@ -198,7 +198,7 @@
         </td>
 
         <td class="header-logo-right">
-            <img src="{{ $bagongPilipinasLogo }}">
+            <img src="public\images\bagong-pilipinas-logo.png">
         </td>
     </tr>
 </table>
