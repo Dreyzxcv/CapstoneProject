@@ -85,6 +85,7 @@ class AssetController extends Controller
         $this->authorize('view', $asset);
 
         $asset->load([
+            'incident',
             'creator',
             'acknowledgementReceipt.signedByCustodian',
             'statusHistory.changedBy',

@@ -17,7 +17,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => 'pgsql',
 
     /*
     |--------------------------------------------------------------------------
@@ -29,6 +29,20 @@ return [
     | is supported by Laravel. You're free to add / remove connections.
     |
     */
+
+    'pgsql' => [
+        'driver' => 'pgsql',
+        'host' => '127.0.0.1',
+        'port' => '5432',
+        'database' => 'logtrack_insight',
+        'username' => 'postgres',
+        'password' => 'secret',
+        'charset' => 'utf8',
+        'prefix' => '',
+        'prefix_indexes' => true,
+        'search_path' => 'public',
+        'sslmode' => 'prefer',
+    ],
 
     'connections' => [
 
