@@ -57,6 +57,8 @@ class ReportController extends Controller
                 'date_of_apprehension' => $incident->date_of_apprehension?->toDateString(),
                 'is_abandoned' => $incident->is_abandoned,
                 'asset_count' => $incident->assets_count,
+                'asset_ids' => $incident->assets->pluck('id'),
+                'asset_types' => $incident->assets->pluck('type')->map(fn ($t) => $t->value)->unique()->values(),
             ]);
 
         return Inertia::render('Reports/Index', [
