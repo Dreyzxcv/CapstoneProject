@@ -2,7 +2,7 @@ import ApplicationLogo from '@/Components/ApplicationLogo';
 import Dropdown from '@/Components/Dropdown';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import { Link, usePage } from '@inertiajs/react';
-import { PropsWithChildren, ReactNode, useState } from 'react';
+import { PropsWithChildren, ReactNode, useEffect, useState } from 'react';
 import { PageProps } from '@/types';
 import {
     LayoutDashboard,
@@ -17,6 +17,8 @@ import {
     Menu,
     X,
     ClipboardPlus,
+    PanelLeftClose,
+    PanelLeftOpen,
 } from 'lucide-react';
 
 function hasPermission(permissions: string[], permission: string): boolean {
@@ -36,6 +38,8 @@ type NavSection = {
     items: NavItem[];
 };
 
+const SIDEBAR_COLLAPSED_KEY = 'logtrack-sidebar-collapsed';
+
 export default function Authenticated({
     header,
     children,
@@ -45,8 +49,23 @@ export default function Authenticated({
     const permissions = user.permissions ?? [];
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
+    const [collapsed, setCollapsed] = useState(false);
 
-    const iconClass = 'h-[18px] w-[18px]';
+    // Load persisted preference once on mount (avoids SSR/hydration mismatch).
+    useEffect(() => {
+        const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+        if (stored === '1') setCollapsed(true);
+    }, []);
+
+    function toggleCollapsed() {
+        setCollapsed((prev) => {
+            const next = !prev;
+            window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? '1' : '0');
+            return next;
+        });
+    }
+
+    const iconClass = 'h-[18px] w-[18px] shrink-0';
 
     const sections: NavSection[] = [
         {
@@ -165,16 +184,39 @@ export default function Authenticated({
             <div className="flex min-h-screen flex-col lg:flex-row">
                 <aside
                     className={
-                        'fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-hidden border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out ' +
+                        'fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-visible border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out ' +
                         (showingNavigationDropdown ? 'translate-x-0' : '-translate-x-full') +
-                        ' lg:sticky lg:top-0 lg:h-screen lg:w-72 lg:translate-x-0'
+                        ' lg:sticky lg:top-0 lg:relative lg:h-screen lg:translate-x-0 lg:transition-[width] lg:duration-200 lg:ease-in-out ' +
+                        (collapsed ? 'lg:w-20' : 'lg:w-65')
                     }
                 >
+                    {/* Collapse toggle — desktop only, floats on the sidebar's edge */}
+                    <button
+                        onClick={toggleCollapsed}
+                        className="absolute right-0 top-6 z-10 hidden h-7 w-7 translate-x-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:bg-gray-50 hover:text-emerald-700 lg:flex"
+                        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    >
+                        {collapsed ? (
+                            <PanelLeftOpen className="h-3.5 w-3.5" />
+                        ) : (
+                            <PanelLeftClose className="h-3.5 w-3.5" />
+                        )}
+                    </button>
+
                     {/* Logo */}
-                    <div className="flex h-16 items-center justify-between px-4 lg:h-20 lg:px-6">
-                        <Link href={route('dashboard')} className="flex items-center gap-3">
-                            <ApplicationLogo className="block h-9 w-auto fill-current text-emerald-800" />
-                            <span className="flex flex-col leading-tight">
+                    <div className={'flex h-16 items-center justify-between px-4 lg:h-20 ' + (collapsed ? 'lg:px-3' : 'lg:px-6')}>
+                        <Link
+                            href={route('dashboard')}
+                            className={'flex items-center gap-3 overflow-hidden ' + (collapsed ? 'lg:gap-0' : '')}
+                        >
+                            <ApplicationLogo className="block h-9 w-auto shrink-0 fill-current text-emerald-800" />
+                            <span
+                                className={
+                                    'flex flex-col leading-tight whitespace-nowrap ' +
+                                    (collapsed ? 'lg:hidden' : '')
+                                }
+                            >
                                 <span className="text-sm font-bold text-emerald-900">
                                     LogTrack Insight
                                 </span>
@@ -199,7 +241,12 @@ export default function Authenticated({
                     <nav className="space-y-6 overflow-y-auto px-4 pb-6 lg:flex-1 lg:px-4 lg:pb-8">
                         {sections.map((section) => (
                             <div key={section.label}>
-                                <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                                <p
+                                    className={
+                                        'mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 ' +
+                                        (collapsed ? 'lg:hidden' : '')
+                                    }
+                                >
                                     {section.label}
                                 </p>
                                 <div className="space-y-1">
@@ -208,15 +255,18 @@ export default function Authenticated({
                                             key={item.href}
                                             href={item.href}
                                             onClick={() => setShowingNavigationDropdown(false)}
+                                            title={collapsed ? item.label : undefined}
                                             className={
                                                 'flex items-center gap-3 rounded-md border-l-[3px] py-2 pl-[9px] pr-3 text-sm font-medium transition duration-150 ease-in-out ' +
+                                                (collapsed ? 'lg:justify-center lg:gap-0 lg:pl-[9px] lg:pr-[9px]' : '') +
+                                                ' ' +
                                                 (item.active
                                                     ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
                                                     : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-emerald-700')
                                             }
                                         >
                                             {item.icon}
-                                            {item.label}
+                                            <span className={collapsed ? 'lg:hidden' : ''}>{item.label}</span>
                                         </Link>
                                     ))}
                                 </div>
@@ -225,41 +275,72 @@ export default function Authenticated({
                     </nav>
 
                     {/* Account - desktop */}
-                    <div className="hidden border-t border-gray-200 px-4 py-4 lg:block">
-                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                            <Dropdown>
-                                <Dropdown.Trigger>
-                                    <span className="inline-flex w-full rounded-md">
+                    <div className={'hidden border-t border-gray-200 lg:block ' + (collapsed ? 'px-2 py-4' : 'px-4 py-4')}>
+                        {collapsed ? (
+                            <div className="flex flex-col items-center gap-2">
+                                <Dropdown>
+                                    <Dropdown.Trigger>
                                         <button
                                             type="button"
-                                            className="flex w-full items-center justify-between rounded-md border border-transparent bg-transparent px-0 py-1 text-left text-sm font-medium leading-4 text-gray-600 transition duration-150 ease-in-out hover:text-gray-800 focus:outline-none"
+                                            title={user.name}
+                                            className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-800 hover:bg-emerald-200"
                                         >
-                                            <span>
-                                                <span className="block text-gray-900">{user.name}</span>
-                                                <span className="block text-xs text-gray-500">{user.roles?.join(', ')}</span>
-                                            </span>
-                                            <ChevronDown className="h-4 w-4" />
+                                            {user.name.charAt(0).toUpperCase()}
                                         </button>
-                                    </span>
-                                </Dropdown.Trigger>
-                                <Dropdown.Content>
-                                    <Dropdown.Link href={route('profile.edit')}>Profile</Dropdown.Link>
-                                    <Dropdown.Link href={route('logout')} method="post" as="button">
-                                        Log Out
-                                    </Dropdown.Link>
-                                </Dropdown.Content>
-                            </Dropdown>
+                                    </Dropdown.Trigger>
+                                    <Dropdown.Content>
+                                        <Dropdown.Link href={route('profile.edit')}>Profile</Dropdown.Link>
+                                        <Dropdown.Link href={route('logout')} method="post" as="button">
+                                            Log Out
+                                        </Dropdown.Link>
+                                    </Dropdown.Content>
+                                </Dropdown>
+                                <Link
+                                    href={route('logout')}
+                                    method="post"
+                                    as="button"
+                                    title="Sign Out"
+                                    className="flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-red-600"
+                                >
+                                    <LogOut className="h-4 w-4" />
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                <Dropdown>
+                                    <Dropdown.Trigger>
+                                        <span className="inline-flex w-full rounded-md">
+                                            <button
+                                                type="button"
+                                                className="flex w-full items-center justify-between rounded-md border border-transparent bg-transparent px-0 py-1 text-left text-sm font-medium leading-4 text-gray-600 transition duration-150 ease-in-out hover:text-gray-800 focus:outline-none"
+                                            >
+                                                <span>
+                                                    <span className="block text-gray-900">{user.name}</span>
+                                                    <span className="block text-xs text-gray-500">{user.roles?.join(', ')}</span>
+                                                </span>
+                                                <ChevronDown className="h-4 w-4" />
+                                            </button>
+                                        </span>
+                                    </Dropdown.Trigger>
+                                    <Dropdown.Content>
+                                        <Dropdown.Link href={route('profile.edit')}>Profile</Dropdown.Link>
+                                        <Dropdown.Link href={route('logout')} method="post" as="button">
+                                            Log Out
+                                        </Dropdown.Link>
+                                    </Dropdown.Content>
+                                </Dropdown>
 
-                            <Link
-                                href={route('logout')}
-                                method="post"
-                                as="button"
-                                className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-gray-200 bg-white py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-red-600"
-                            >
-                                <LogOut className="h-4 w-4" />
-                                Sign Out
-                            </Link>
-                        </div>
+                                <Link
+                                    href={route('logout')}
+                                    method="post"
+                                    as="button"
+                                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-gray-200 bg-white py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-red-600"
+                                >
+                                    <LogOut className="h-4 w-4" />
+                                    Sign Out
+                                </Link>
+                            </div>
+                        )}
                     </div>
 
                     {/* Account - mobile */}
