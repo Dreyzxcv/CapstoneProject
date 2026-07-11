@@ -79,8 +79,8 @@ export default function DashboardIndex({
     const { auth } = usePage<PageProps>().props;
     const permissions = auth.user?.permissions ?? [];
 
-    const primaryAction = permissions.includes('assets.create')
-        ? { label: 'New Intake', href: route('assets.create') }
+    const primaryAction = permissions.includes('incident.create')
+        ? { label: 'New Intake', href: route('incident.create') }
         : permissions.includes('reports.view')
             ? { label: 'View Reports', href: route('reports.index') }
             : permissions.includes('disposals.view')
@@ -96,7 +96,7 @@ export default function DashboardIndex({
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 className="text-xl font-semibold leading-tight text-gray-900">
-                            Inventory Dashboard
+                            Dashboard
                         </h2>
                         <p className="text-sm text-gray-500">{roleContext.description}</p>
                     </div>
