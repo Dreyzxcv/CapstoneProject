@@ -30,20 +30,6 @@ return [
     |
     */
 
-    'pgsql' => [
-        'driver' => 'pgsql',
-        'host' => '127.0.0.1',
-        'port' => '5432',
-        'database' => 'logtrack_insight',
-        'username' => 'postgres',
-        'password' => 'secret',
-        'charset' => 'utf8',
-        'prefix' => '',
-        'prefix_indexes' => true,
-        'search_path' => 'public',
-        'sslmode' => 'prefer',
-    ],
-
     'connections' => [
 
         'sqlite' => [
