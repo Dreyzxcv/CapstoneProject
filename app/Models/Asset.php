@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Asset extends Model
 {
+    protected $hidden = ['qr_code_token'];
+
     protected $fillable = [
         'incident_id',
         'asset_code',
