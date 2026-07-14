@@ -26,6 +26,8 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
 
     Route::post('/assets/{asset}/jev', [JevController::class, 'store'])->name('assets.jev.store');
     Route::post('/assets/{asset}/jev/upload', [JevController::class, 'upload'])->name('assets.jev.upload');
+    Route::post('/assets/{asset}/case-details', [AssetController::class, 'updateCaseDetails'])->name('assets.case-details.update');
+    Route::post('/assets/{asset}/documents', [DocumentController::class, 'store'])->name('assets.documents.store');
 
     Route::get('/incidents/create', [\App\Http\Controllers\IncidentController::class, 'create'])->name('incidents.create');
     Route::post('/incidents', [\App\Http\Controllers\IncidentController::class, 'store'])->name('incidents.store');
