@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Actions\CreateAsset;
 use App\Actions\MarkAssetStored;
 use App\Actions\SignAcknowledgementReceipt;
+use App\Actions\UpdateCaseDetails;
+use App\Http\Requests\UpdateCaseDetailsRequest;
 use App\Enums\AssetMode;
 use App\Enums\AssetStatus;
 use App\Enums\AssetType;
@@ -118,6 +120,8 @@ class AssetController extends Controller
                 'resolveCase' => $request->user()?->can('updateCaseStatus', $asset) ?? false,
                 'releaseDonation' => $request->user()?->can('disposals.process') ?? false,
                 'processDisposal' => $request->user()?->can('create', \App\Models\Disposal::class) ?? false,
+                'updateCaseDetails' => $asset->has_ongoing_case && ($request->user()?->can('assets.update_case') ?? false),
+                'uploadEvidence' => $request->user()?->can('documents.upload') ?? false,
             ],
         ]);
     }
@@ -147,5 +151,12 @@ class AssetController extends Controller
         $action->execute($asset, request()->user());
 
         return back()->with('success', 'Case resolved. Asset cleared for accounting.');
+    }
+
+    public function updateCaseDetails(UpdateCaseDetailsRequest $request, Asset $asset, UpdateCaseDetails $action): RedirectResponse
+    {
+        $action->execute($asset, $request->validated(), $request->user());
+
+        return back()->with('success', 'Case details updated.');
     }
 }
