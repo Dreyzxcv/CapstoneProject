@@ -33,6 +33,9 @@ class Asset extends Model
         'mode',
         'has_ongoing_case',
         'has_confiscation_order',
+        'case_number',
+        'court_branch',
+        'next_hearing_date',
         'appeal_deadline',
         'current_status',
         'qr_code_token',
@@ -54,6 +57,7 @@ class Asset extends Model
             'volume_bd_ft' => 'decimal:2',
             'volume_cu_m' => 'decimal:4',
             'estimated_value' => 'decimal:2',
+            'next_hearing_date' => 'date',
         ];
     }
 
