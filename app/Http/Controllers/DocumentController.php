@@ -9,6 +9,8 @@ use App\Models\Document;
 use App\Models\IcsRecord;
 use App\Models\Jev;
 use App\Models\ParRecord;
+use App\Http\Requests\UploadEvidenceRequest;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -74,5 +76,26 @@ class DocumentController extends Controller
                     ? Document::where('file_path', $path)->first()->attachable->asset
                     : Document::where('file_path', $path)->first()?->attachable,
         };
+    }
+
+    public function store(UploadEvidenceRequest $request, Asset $asset): RedirectResponse
+    {
+        $this->authorize('view', $asset);
+
+        foreach ($request->file('photos', []) as $file) {
+            $path = $file->store("documents/evidence/{$asset->id}", 'local');
+
+            Document::create([
+                'attachable_type' => Asset::class,
+                'attachable_id' => $asset->id,
+                'file_path' => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getClientMimeType(),
+                'uploaded_by' => $request->user()->id,
+                'uploaded_at' => now(),
+            ]);
+        }
+
+        return back()->with('success', 'Evidence photo(s) uploaded.');
     }
 }
