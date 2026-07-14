@@ -52,6 +52,10 @@ export interface Asset {
     creator?: User;
     acknowledgement_receipt?: AcknowledgementReceipt;
     status_history?: StatusHistoryEntry[];
+    case_number: string | null;
+    court_branch: string | null;
+    next_hearing_date: string | null;
+    documents?: DocumentItem[];
     jev?: Jev;
     disposal?: Disposal;
     qr_scans?: QrScan[];
@@ -120,4 +124,13 @@ export interface QrScan {
     resulting_status: string;
     scanned_at: string;
     scanned_by?: User;
+}
+
+export interface DocumentItem {
+    id: number;
+    file_path: string;
+    original_name: string;
+    mime_type: string | null;
+    uploaded_at: string;
+    uploaded_by?: User;
 }
