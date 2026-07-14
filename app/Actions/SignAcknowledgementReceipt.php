@@ -16,7 +16,7 @@ class SignAcknowledgementReceipt
 
     public function execute(Asset $asset, User $user): Asset
     {
-        $receipt = $asset->acknowledgementReceipt;
+        $receipt = $asset->custodyReceipt();
 
         if (! $receipt) {
             throw new DomainException('Acknowledgement receipt not found.');
