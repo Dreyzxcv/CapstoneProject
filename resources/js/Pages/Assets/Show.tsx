@@ -12,6 +12,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { FormEvent, useState, useRef, useEffect } from 'react';
 import { FileText, MapPin } from 'lucide-react';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
+import { EvidenceUploader } from '@/Components/shared/EvidenceUploader';
 
 interface ShowProps {
     asset: Asset;
@@ -25,6 +26,8 @@ interface ShowProps {
         releaseDonation: boolean;
         processDisposal: boolean;
         resolveCase: boolean;
+        updateCaseDetails: boolean;
+        uploadEvidence: boolean;
     };
 }
 
@@ -63,6 +66,17 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
             { account_title: 'Accumulated Surplus/(Deficit)', account_code: '30101010', sub_object_code: '00', debit: '', credit: '' },
         ],
     });
+
+    const caseForm = useForm({
+        case_number: asset.case_number ?? '',
+        court_branch: asset.court_branch ?? '',
+        next_hearing_date: asset.next_hearing_date ? asset.next_hearing_date.slice(0, 10) : '',
+    });
+
+    function submitCaseDetails(e: FormEvent) {
+        e.preventDefault();
+        caseForm.post(route('assets.case-details.update', asset.id), { preserveScroll: true });
+    }
 
     function updateLineItem(index: number, field: 'debit' | 'credit', value: string) {
         const items = [...jevForm.data.line_items];
@@ -647,6 +661,55 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                         </CardContent>
                     </Card>
                 )}
+
+                {asset.has_ongoing_case && (
+                <Card>
+                    <CardHeader><CardTitle className="text-base">Case Details</CardTitle></CardHeader>
+                    <CardContent>
+                        {can.updateCaseDetails ? (
+                            <form onSubmit={submitCaseDetails} className="grid gap-4 md:grid-cols-3">
+                                <div className="space-y-2">
+                                    <Label htmlFor="case_number">Case Number</Label>
+                                    <Input
+                                        id="case_number"
+                                        value={caseForm.data.case_number}
+                                        onChange={(e) => caseForm.setData('case_number', e.target.value)}
+                                    />
+                                    <InputError message={caseForm.errors.case_number} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="court_branch">Court / Branch</Label>
+                                    <Input
+                                        id="court_branch"
+                                        value={caseForm.data.court_branch}
+                                        onChange={(e) => caseForm.setData('court_branch', e.target.value)}
+                                    />
+                                    <InputError message={caseForm.errors.court_branch} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="next_hearing_date">Next Hearing Date</Label>
+                                    <Input
+                                        id="next_hearing_date"
+                                        type="date"
+                                        value={caseForm.data.next_hearing_date}
+                                        onChange={(e) => caseForm.setData('next_hearing_date', e.target.value)}
+                                    />
+                                    <InputError message={caseForm.errors.next_hearing_date} />
+                                </div>
+                                <div className="md:col-span-3">
+                                    <Button type="submit" size="sm" disabled={caseForm.processing}>Save Case Details</Button>
+                                </div>
+                            </form>
+                        ) : (
+                            <dl className="grid gap-3 text-sm md:grid-cols-3">
+                                <div><dt className="text-gray-500">Case Number</dt><dd>{asset.case_number ?? '—'}</dd></div>
+                                <div><dt className="text-gray-500">Court / Branch</dt><dd>{asset.court_branch ?? '—'}</dd></div>
+                                <div><dt className="text-gray-500">Next Hearing</dt><dd>{asset.next_hearing_date ? new Date(asset.next_hearing_date).toLocaleDateString() : '—'}</dd></div>
+                            </dl>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
 
                 <Card>
                     <CardHeader><CardTitle className="text-base">Status History</CardTitle></CardHeader>
