@@ -14,7 +14,19 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->trustProxies(at: '*');
+        // Only trust proxy IPs explicitly listed in TRUSTED_PROXIES (comma
+        // separated, e.g. "10.0.0.1,10.0.0.2"). Previously this trusted
+        // '*' (every client), which lets any device on the local network
+        // spoof X-Forwarded-For / X-Forwarded-Proto — affecting both the
+        // HTTPS-scheme detection in AppServiceProvider and the IP address
+        // recorded by AuditLogService. Leave TRUSTED_PROXIES unset to
+        // trust no proxies at all, which is the correct default for a
+        // single-server local-network deployment with no reverse proxy.
+        $trustedProxies = array_filter(explode(',', (string) env('TRUSTED_PROXIES', '')));
+
+        if ($trustedProxies !== []) {
+            $middleware->trustProxies(at: $trustedProxies);
+        }
 
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,

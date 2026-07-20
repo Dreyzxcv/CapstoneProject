@@ -20,7 +20,7 @@ class QrScanController extends Controller
         return Inertia::render('Scan/Index');
     }
 
-    public function resolve(Request $request, string $token): Response|RedirectResponse
+    public function resolve(Request $request, string $token): Response
     {
         if (! $request->hasValidSignature()) {
             abort(403, 'Invalid or expired QR code.');
@@ -28,10 +28,9 @@ class QrScanController extends Controller
 
         $asset = Asset::where('qr_code_token', $token)->firstOrFail();
 
-        if (! auth()->check()) {
-            return redirect()->route('login', ['intended' => $request->fullUrl()]);
-        }
-
+        // Auth and active-account checks are handled by the route's
+        // middleware group ('auth', 'verified', 'active') before this
+        // method ever runs.
         $this->authorize('view', $asset);
 
         return Inertia::render('Scan/Result', [

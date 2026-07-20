@@ -17,7 +17,7 @@ Route::get('/', function () {
         : redirect()->route('login');
 });
 
-Route::middleware(['auth', 'verified', 'active', 'throttle:120,1'])->group(function () {
+Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     Route::resource('assets', AssetController::class)->only(['index', 'create', 'store', 'show']);
@@ -26,8 +26,6 @@ Route::middleware(['auth', 'verified', 'active', 'throttle:120,1'])->group(funct
 
     Route::post('/assets/{asset}/jev', [JevController::class, 'store'])->name('assets.jev.store');
     Route::post('/assets/{asset}/jev/upload', [JevController::class, 'upload'])->name('assets.jev.upload');
-    Route::post('/assets/{asset}/case-details', [AssetController::class, 'updateCaseDetails'])->name('assets.case-details.update');
-    Route::post('/assets/{asset}/documents', [DocumentController::class, 'store'])->name('assets.documents.store');
 
     Route::get('/incidents/create', [\App\Http\Controllers\IncidentController::class, 'create'])->name('incidents.create');
     Route::post('/incidents', [\App\Http\Controllers\IncidentController::class, 'store'])->name('incidents.store');
@@ -40,6 +38,15 @@ Route::middleware(['auth', 'verified', 'active', 'throttle:120,1'])->group(funct
 
     Route::get('/scan', [QrScanController::class, 'index'])->name('scan.index');
     Route::post('/scan', [QrScanController::class, 'store'])->name('scan.store');
+
+    // Moved inside the protected group (with 'active' middleware) so a
+    // deactivated user's still-valid session can no longer resolve QR
+    // codes and view asset records. Previously this route sat outside
+    // the group and only checked auth()->check() manually, which let
+    // deactivated accounts bypass EnsureUserIsActive entirely.
+    Route::get('/scan/{token}', [QrScanController::class, 'resolve'])
+        ->middleware('signed')
+        ->name('scan.resolve');
 
     Route::get('/users', [\App\Http\Controllers\UsersController::class, 'index'])->name('users.index');
     Route::get('/users/create', [\App\Http\Controllers\UsersController::class, 'create'])->name('users.create');
@@ -59,8 +66,5 @@ Route::middleware(['auth', 'verified', 'active', 'throttle:120,1'])->group(funct
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
-
-Route::get('/scan/{token}', [QrScanController::class, 'resolve'])
-    ->name('scan.resolve');
 
 require __DIR__.'/auth.php';
