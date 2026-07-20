@@ -254,6 +254,39 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                     )}
 
                     <Card>
+                        <CardHeader><CardTitle className="text-base">Evidence & Documents</CardTitle></CardHeader>
+                        <CardContent className="space-y-4">
+                            {can.uploadEvidence && <EvidenceUploader assetId={asset.id} />}
+                            {(asset.documents ?? []).length === 0 ? (
+                                <p className="text-sm text-gray-500">No supporting documents uploaded yet.</p>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                    {(asset.documents ?? []).map((doc) => {
+                                        const url = documentUrl(doc.file_path);
+                                        const isImage = doc.mime_type?.startsWith('image/');
+                                        return (
+                                            <a
+                                                key={doc.id}
+                                                href={url ?? '#'}
+                                                className="group block overflow-hidden rounded-md border border-gray-200"
+                                            >
+                                                {isImage ? (
+                                                    <img src={url ?? ''} className="h-24 w-full object-cover" />
+                                                ) : (
+                                                    <div className="flex h-24 items-center justify-center bg-gray-50 text-xs text-gray-400">
+                                                        {doc.original_name}
+                                                    </div>
+                                                )}
+                                                <p className="truncate px-2 py-1 text-xs text-gray-600">{doc.original_name}</p>
+                                            </a>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
                         <CardHeader><CardTitle className="text-base">Actions</CardTitle></CardHeader>
                         <CardContent className="space-y-3">
                             {can.signReceipt && (

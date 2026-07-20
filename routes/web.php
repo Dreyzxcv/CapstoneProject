@@ -17,7 +17,7 @@ Route::get('/', function () {
         : redirect()->route('login');
 });
 
-Route::middleware(['auth', 'verified', 'active'])->group(function () {
+Route::middleware(['auth', 'verified', 'active', 'throttle:120,1'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     Route::resource('assets', AssetController::class)->only(['index', 'create', 'store', 'show']);
