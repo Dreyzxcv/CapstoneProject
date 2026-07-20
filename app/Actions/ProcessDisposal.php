@@ -52,6 +52,8 @@ class ProcessDisposal
                 DisposalType::Donation => $this->handleDonation($asset, $disposal, $details),
                 DisposalType::Decayed => $this->pdfDocumentService->generateDecayReport($asset, $disposal),
                 DisposalType::Fabricated => $this->handleFabricated($asset, $disposal, $user, $details),
+                DisposalType::Released => $this->pdfDocumentService->generateVehicleRelease($asset, $disposal),
+                DisposalType::Forfeited => $this->pdfDocumentService->generateVehicleForfeiture($asset, $disposal),
                 default => null,
             };
 

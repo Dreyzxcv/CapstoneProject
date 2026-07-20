@@ -9,6 +9,7 @@ use App\Enums\AssetType;
 use App\Enums\Municipality;
 use App\Models\AcknowledgementReceipt;
 use App\Models\Asset;
+use App\Models\Document;
 use App\Models\User;
 use App\Services\AssetCodeService;
 use App\Services\AssetLifecycleService;
@@ -27,16 +28,9 @@ class CreateAsset
         protected AssetCodeService $assetCodeService,
     ) {}
 
-    /**
-     * @param bool $issueReceipt Whether to generate a standalone custody
-     *     receipt for this single asset. When an asset is part of an
-     *     incident with multiple items, pass false here and let
-     *     CreateIncidentWithAssets issue one shared receipt after all
-     *     assets in the incident have been created.
-     */
-    public function execute(array $data, User $user, bool $issueReceipt = true): Asset
+    public function execute(array $data, User $user): Asset
     {
-        return DB::transaction(function () use ($data, $user, $issueReceipt) {
+        return DB::transaction(function () use ($data, $user) {
             $mode = AssetMode::from($data['mode']);
             $hasConfiscationOrder = $mode === AssetMode::Abandoned
                 || ($data['has_confiscation_order'] ?? false);
@@ -70,8 +64,43 @@ class CreateAsset
                 'asset_code' => $this->assetCodeService->generate($asset, $municipality, $hasOngoingCase),
             ]);
 
-            if ($issueReceipt) {
-                $this->issueReceiptFor($asset);
+            $receiptNumber = 'AR-'.now()->format('Y').'-'.str_pad((string) $asset->id, 5, '0', STR_PAD_LEFT);
+
+            $receipt = AcknowledgementReceipt::create([
+                'asset_id' => $asset->id,
+                'receipt_number' => $receiptNumber,
+            ]);
+
+            $this->pdfDocumentService->generateAcknowledgementReceipt($asset, $receipt);
+
+            // Per DAO 97-32: abandoned items get an automatic Confiscation
+            // Order; other intakes flagged with a confiscation/forfeiture
+            // order get a Forfeiture Order. These are distinct documents
+            // per the system flow's document legend.
+            if ($mode === AssetMode::Abandoned) {
+                $orderPath = $this->pdfDocumentService->generateConfiscationOrder($asset);
+
+                Document::create([
+                    'attachable_type' => Asset::class,
+                    'attachable_id' => $asset->id,
+                    'file_path' => $orderPath,
+                    'original_name' => "Confiscation Order - {$asset->asset_code}.pdf",
+                    'mime_type' => 'application/pdf',
+                    'uploaded_by' => $user->id,
+                    'uploaded_at' => now(),
+                ]);
+            } elseif ($hasConfiscationOrder) {
+                $orderPath = $this->pdfDocumentService->generateForfeitureOrder($asset);
+
+                Document::create([
+                    'attachable_type' => Asset::class,
+                    'attachable_id' => $asset->id,
+                    'file_path' => $orderPath,
+                    'original_name' => "Forfeiture Order - {$asset->asset_code}.pdf",
+                    'mime_type' => 'application/pdf',
+                    'uploaded_by' => $user->id,
+                    'uploaded_at' => now(),
+                ]);
             }
 
             $this->lifecycleService->transition(
@@ -84,21 +113,7 @@ class CreateAsset
 
             $this->auditLogService->log('asset.intake_created', $asset, null, $asset->toArray(), $user->id);
 
-            return $asset->fresh(['acknowledgementReceipt', 'creator', 'incident']);
+            return $asset->fresh(['acknowledgementReceipt', 'creator', 'incident', 'documents']);
         });
-    }
-
-    public function issueReceiptFor(Asset $asset): AcknowledgementReceipt
-    {
-        $receiptNumber = 'AR-'.now()->format('Y').'-'.str_pad((string) $asset->id, 5, '0', STR_PAD_LEFT);
-
-        $receipt = AcknowledgementReceipt::create([
-            'asset_id' => $asset->id,
-            'receipt_number' => $receiptNumber,
-        ]);
-
-        $this->pdfDocumentService->generateAcknowledgementReceipt($asset, $receipt);
-
-        return $receipt;
     }
 }

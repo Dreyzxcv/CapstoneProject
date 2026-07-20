@@ -321,6 +321,31 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                     </Card>
                 </div>
 
+                {asset.documents && asset.documents.length > 0 && (
+                    <Card>
+                        <CardHeader><CardTitle className="text-base">Generated Documents</CardTitle></CardHeader>
+                        <CardContent>
+                            <div className="divide-y divide-gray-100">
+                                {asset.documents.map((doc) => {
+                                    const url = documentUrl(doc.file_path);
+                                    return (
+                                        <div key={doc.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                                            <span className="text-gray-700">{doc.original_name}</span>
+                                            {url ? (
+                                                <a href={url} className="text-emerald-700 hover:underline">
+                                                    Download
+                                                </a>
+                                            ) : (
+                                                <span className="text-gray-400">Unavailable</span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {qrSvg && (
                     <Card>
                         <CardHeader><CardTitle className="text-base">QR Code Label</CardTitle></CardHeader>

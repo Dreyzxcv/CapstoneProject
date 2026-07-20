@@ -59,6 +59,12 @@ export interface Asset {
     jev?: Jev;
     disposal?: Disposal;
     qr_scans?: QrScan[];
+    documents?: Array<{
+        id: number;
+        file_path: string;
+        original_name: string;
+        uploaded_at: string;
+    }>;
 }
 
 export interface AcknowledgementReceipt {
