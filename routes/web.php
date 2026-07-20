@@ -34,6 +34,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::get('/assets/{asset}/disposals/create', [DisposalController::class, 'create'])->name('disposals.create');
     Route::post('/assets/{asset}/disposals', [DisposalController::class, 'store'])->name('disposals.store');
     Route::post('/assets/{asset}/resolve-trial', [AssetController::class, 'resolveTrial'])->name('assets.resolve-trial');
+    Route::post('/assets/{asset}/documents', [DocumentController::class, 'store'])->name('assets.documents.store');
     Route::post('/disposals/{disposal}/release-donation', [DisposalController::class, 'releaseDonation'])->name('disposals.release-donation');
 
     Route::get('/scan', [QrScanController::class, 'index'])->name('scan.index');
