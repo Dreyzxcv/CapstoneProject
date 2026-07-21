@@ -40,7 +40,16 @@ class DocumentController extends Controller
 
         $this->authorize('view', $asset);
 
-        return Storage::disk('local')->download($decodedPath);
+        // Uploaded evidence files are stored under a randomly generated
+        // filename (Laravel's default when no name is given to store()).
+        // The human-readable name lives in documents.original_name, so use
+        // it as the download filename instead of exposing the random one.
+        // Generated PDFs (receipts, JEVs, etc.) already have a readable
+        // slug as their stored basename, so this falls back to null and
+        // Storage::download() just uses that basename as-is.
+        $downloadName = $this->resolveDownloadName($decodedPath);
+
+        return Storage::disk('local')->download($decodedPath, $downloadName);
     }
 
     /**
@@ -76,6 +85,15 @@ class DocumentController extends Controller
                     ? Document::where('file_path', $path)->first()->attachable->asset
                     : Document::where('file_path', $path)->first()?->attachable,
         };
+    }
+
+    /**
+     * The original filename to present on download, if this path belongs
+     * to an uploaded (as opposed to system-generated) document.
+     */
+    protected function resolveDownloadName(string $path): ?string
+    {
+        return Document::where('file_path', $path)->value('original_name');
     }
 
     public function store(UploadEvidenceRequest $request, Asset $asset): RedirectResponse
