@@ -16,7 +16,7 @@ class UploadEvidenceRequest extends FormRequest
     {
         return [
             'photos' => ['required', 'array', 'min:1', 'max:10'],
-            'photos.*' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            'photos.*' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:8192'],
         ];
     }
 }
