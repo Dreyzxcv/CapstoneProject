@@ -13,6 +13,7 @@ import { FormEvent, useState, useRef, useEffect } from 'react';
 import { FileText, MapPin } from 'lucide-react';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
 import { EvidenceUploader } from '@/Components/shared/EvidenceUploader';
+import { PdfBadge } from '@/Components/shared/PdfBadge';
 
 interface ShowProps {
     asset: Asset;
@@ -268,16 +269,19 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                                             <a
                                                 key={doc.id}
                                                 href={url ?? '#'}
+                                                title={doc.original_name}
                                                 className="group block overflow-hidden rounded-md border border-gray-200"
                                             >
                                                 {isImage ? (
                                                     <img src={url ?? ''} className="h-24 w-full object-cover" />
                                                 ) : (
-                                                    <div className="flex h-24 items-center justify-center bg-gray-50 text-xs text-gray-400">
-                                                        {doc.original_name}
+                                                    <div className="flex h-24 w-full flex-col items-center justify-center gap-1 overflow-hidden bg-gray-50 px-1 text-center">
+                                                        <PdfBadge className="h-7 w-7 shrink-0" />
+                                                        <p className="w-full truncate px-1 text-[10px] text-gray-500">
+                                                            {doc.original_name}
+                                                        </p>
                                                     </div>
                                                 )}
-                                                <p className="truncate px-2 py-1 text-xs text-gray-600">{doc.original_name}</p>
                                             </a>
                                         );
                                     })}
