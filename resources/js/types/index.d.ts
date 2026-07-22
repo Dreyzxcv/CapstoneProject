@@ -38,6 +38,7 @@ export interface Asset {
     type: string;
     species: string | null;
     description: string | null;
+    quantity: number;
     municipality_of_origin: string;
     location_apprehended: string;
     apprehending_agency: string;
