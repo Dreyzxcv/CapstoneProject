@@ -113,7 +113,11 @@ export interface Jev {
 export interface Donation {
     id: number;
     requester_name: string;
+    organization_type: string | null;
+    organization_type_other: string | null;
+    agency_name: string | null;
     deed_of_donation_path: string | null;
+    release_photo_path: string | null;
     released_at: string | null;
 }
 
