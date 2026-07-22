@@ -57,9 +57,16 @@ class DisposalController extends Controller
             'notes' => $request->validated('notes'),
             'appeal_filed' => $request->boolean('appeal_filed'),
             'appeal_deadline' => $asset->appeal_deadline?->toIso8601String(),
+            'delivery_coordinates' => $request->validated('delivery_coordinates'),
         ], fn ($value) => $value !== null && $value !== '');
 
-        $processDisposal->execute($asset, $type, $request->user(), $details);
+        $processDisposal->execute(
+            $asset,
+            $type,
+            $request->user(),
+            $details,
+            $request->validated('quantity'),
+        );
 
         return redirect()->route('assets.show', $asset)
             ->with('success', 'Disposal processed successfully.');
