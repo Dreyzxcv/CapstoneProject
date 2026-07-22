@@ -12,6 +12,7 @@ use App\Services\AssetLifecycleService;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Http\Request;
 
 class DisposalController extends Controller
 {
@@ -54,6 +55,9 @@ class DisposalController extends Controller
         $type = DisposalType::from($request->validated('disposal_type'));
         $details = array_filter([
             'requester_name' => $request->validated('requester_name'),
+            'organization_type' => $request->validated('organization_type'),
+            'organization_type_other' => $request->validated('organization_type_other'),
+            'agency_name' => $request->validated('agency_name'),
             'notes' => $request->validated('notes'),
             'appeal_filed' => $request->boolean('appeal_filed'),
             'appeal_deadline' => $asset->appeal_deadline?->toIso8601String(),
@@ -72,11 +76,13 @@ class DisposalController extends Controller
             ->with('success', 'Disposal processed successfully.');
     }
 
-    public function releaseDonation(Disposal $disposal, ReleaseDonation $releaseDonation): RedirectResponse
+    public function releaseDonation(Request $request, Disposal $disposal, ReleaseDonation $releaseDonation): RedirectResponse
     {
         $this->authorize('create', Disposal::class);
 
-        $releaseDonation->execute($disposal, request()->user());
+        $request->validate(['photo' => ['nullable', 'file', 'image', 'max:8192']]);
+
+        $releaseDonation->execute($disposal, $request->user(), $request->file('photo'));
 
         return back()->with('success', 'Donation marked as released.');
     }
