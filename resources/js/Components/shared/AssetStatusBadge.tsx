@@ -8,6 +8,7 @@ const statusVariants: Record<string, string> = {
     under_trial: 'blue',
     cleared_for_accounting: 'amber',
     for_disposal: 'amber',
+    pending_release: 'amber',
     donated: 'green',
     decayed: 'gray',
     fabricated: 'green',
