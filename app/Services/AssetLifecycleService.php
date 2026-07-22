@@ -34,12 +34,15 @@ class AssetLifecycleService
             AssetStatus::ForDisposal,
         ],
         AssetStatus::ForDisposal->value => [
-            AssetStatus::Donated,
+            AssetStatus::PendingRelease,
             AssetStatus::Decayed,
             AssetStatus::Fabricated,
             AssetStatus::Released,
             AssetStatus::Forfeited,
             AssetStatus::Damaged,
+        ],
+        AssetStatus::PendingRelease->value => [
+            AssetStatus::Donated,
         ],
     ];
 
@@ -148,6 +151,11 @@ class AssetLifecycleService
                 'title' => 'Disposal Processing',
                 'summary' => 'The asset is ready for disposal based on the item type and legal pathway.',
                 'nextAction' => 'Process the appropriate disposal action for lumber, conveyance, or tools.',
+            ],
+            AssetStatus::PendingRelease => [
+                'title' => 'Awaiting Release',
+                'summary' => 'Deed of Donation is on file; the item is awaiting confirmed delivery to the donee.',
+                'nextAction' => 'Confirm release once the item has been physically handed over.',
             ],
             default => [
                 'title' => 'Completed Workflow',
