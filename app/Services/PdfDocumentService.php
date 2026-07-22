@@ -54,15 +54,20 @@ class PdfDocumentService
         return $path;
     }
 
-    public function generateDeedOfDonation(Asset $asset, Disposal $disposal, string $requesterName): string
+    public function generateDeedOfDonation(Asset $asset, Disposal $disposal, \App\Models\Donation $donation): string
     {
         $pdf = Pdf::loadView('pdf.deed-of-donation', [
             'asset' => $asset,
             'disposal' => $disposal,
-            'requesterName' => $requesterName,
+            'donation' => $donation,
+            'requesterName' => $donation->requester_name,
         ]);
 
-        return $this->storePdf($pdf->output(), 'donations', 'deed-'.$asset->asset_code);
+        $path = $this->storePdf($pdf->output(), 'donations', 'deed-'.$asset->asset_code);
+
+        $donation->update(['deed_of_donation_path' => $path]);
+
+        return $path;
     }
 
     public function generateIcs(Asset $asset, IcsRecord $ics): string
