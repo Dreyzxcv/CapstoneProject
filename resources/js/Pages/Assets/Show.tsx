@@ -730,6 +730,43 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                     </Card>
                 )}
 
+                {asset.disposal?.donation?.released_at && (
+                    <Card>
+                        <CardHeader><CardTitle className="text-base">Donation Released</CardTitle></CardHeader>
+                        <CardContent className="space-y-3">
+                            <p className="text-sm text-gray-600">
+                                Released to <span className="font-medium">{asset.disposal.donation.requester_name}</span>
+                                {asset.disposal.donation.agency_name ? ` (${asset.disposal.donation.agency_name})` : ''}
+                                {' '}on {new Date(asset.disposal.donation.released_at).toLocaleString()}.
+                            </p>
+
+                            {asset.disposal.donation.release_photo_path && (
+                                <a
+                                    href={documentUrl(asset.disposal.donation.release_photo_path) ?? '#'}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block w-fit"
+                                >
+                                    <img
+                                        src={documentUrl(asset.disposal.donation.release_photo_path) ?? ''}
+                                        alt="Release confirmation"
+                                        className="h-40 w-40 rounded-lg border border-gray-200 object-cover"
+                                    />
+                                </a>
+                            )}
+
+                            {documentUrl(asset.disposal.donation.deed_of_donation_path) && (
+                                <a
+                                    href={documentUrl(asset.disposal.donation.deed_of_donation_path) ?? '#'}
+                                    className="block text-sm text-emerald-700 hover:underline"
+                                >
+                                    Download Deed of Donation
+                                </a>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
                 {asset.has_ongoing_case && (
                 <Card>
                     <CardHeader><CardTitle className="text-base">Case Details</CardTitle></CardHeader>
