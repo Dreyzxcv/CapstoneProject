@@ -96,7 +96,7 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
                 },
             );
 
-            // Satellite basemap — Esri World Imagery, free, no API key.
+            // Satellite basemap
             const satelliteLayer = L.tileLayer(
                 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                 {
@@ -400,7 +400,7 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
 
             <div
                 className={
-                    'incident-map-shell ' +
+                    'incident-map-shell isolate ' +
                     (isFullscreen
                         ? 'fixed inset-4 z-[9999] overflow-hidden rounded-xl border border-gray-200 shadow-2xl sm:inset-8'
                         : 'relative h-96 w-full overflow-hidden rounded-xl border border-gray-200 shadow-sm')
