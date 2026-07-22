@@ -45,7 +45,7 @@ export function IncidentLocationMap({ coordinates, placeName, areaName }: Incide
                 const map = L.map(mapContainerRef.current, {
                     center: [parsed.lat, parsed.lng],
                     zoom: 15,
-                    scrollWheelZoom: false,
+                    scrollWheelZoom: true,
                     dragging: true,
                 });
 
