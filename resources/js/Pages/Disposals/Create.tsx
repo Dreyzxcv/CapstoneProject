@@ -18,10 +18,22 @@ interface DisposalsCreateProps {
 export default function DisposalsCreate({ asset, disposalTypes }: DisposalsCreateProps) {
     const assetQuantity = asset.quantity ?? 1;
 
+    const ORG_TYPES = [
+        { value: 'academe', label: 'Academe' },
+        { value: 'national_agency', label: 'National Agency' },
+        { value: 'lgu', label: 'LGU' },
+        { value: 'individual', label: 'Individual' },
+        { value: 'other', label: 'Other' },
+    ];
+
+
     const { data, setData, post, processing, errors } = useForm({
         disposal_type: disposalTypes[0]?.value ?? '',
         quantity: String(assetQuantity),
         requester_name: '',
+        organization_type: 'individual',
+        organization_type_other: '',
+        agency_name: '',
         delivery_coordinates: '',
         appeal_filed: false as boolean,
         notes: '',
@@ -99,7 +111,44 @@ export default function DisposalsCreate({ asset, disposalTypes }: DisposalsCreat
                     {isDonation && (
                         <>
                             <div>
-                                <Label htmlFor="requester_name">Requester / Donee Name</Label>
+                                <Label htmlFor="organization_type">Organization Type</Label>
+                                <select
+                                    id="organization_type"
+                                    value={data.organization_type}
+                                    onChange={(e) => setData('organization_type', e.target.value)}
+                                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                                >
+                                    {ORG_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </select>
+                                <InputError message={errors.organization_type} />
+                            </div>
+
+                            {data.organization_type === 'other' && (
+                                <div>
+                                    <Label htmlFor="organization_type_other">Specify Type</Label>
+                                    <Input
+                                        id="organization_type_other"
+                                        value={data.organization_type_other}
+                                        onChange={(e) => setData('organization_type_other', e.target.value)}
+                                    />
+                                    <InputError message={errors.organization_type_other} />
+                                </div>
+                            )}
+
+                            {data.organization_type !== 'individual' && (
+                                <div>
+                                    <Label htmlFor="agency_name">Agency / Organization Name</Label>
+                                    <Input
+                                        id="agency_name"
+                                        value={data.agency_name}
+                                        onChange={(e) => setData('agency_name', e.target.value)}
+                                    />
+                                    <InputError message={errors.agency_name} />
+                                </div>
+                            )}
+
+                            <div>
+                                <Label htmlFor="requester_name">Representative Name</Label>
                                 <Input
                                     id="requester_name"
                                     value={data.requester_name}
