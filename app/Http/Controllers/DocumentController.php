@@ -49,7 +49,12 @@ class DocumentController extends Controller
         // Storage::download() just uses that basename as-is.
         $downloadName = $this->resolveDownloadName($decodedPath);
 
-        return Storage::disk('local')->download($decodedPath, $downloadName);
+        $mimeType = Storage::disk('local')->mimeType($decodedPath);
+        $isImage = str_starts_with((string) $mimeType, 'image/');
+
+        return Storage::disk('local')->download($decodedPath, $downloadName, $isImage
+        ? ['Content-Disposition' => 'inline']
+        : []);
     }
 
     /**
@@ -74,6 +79,9 @@ class DocumentController extends Controller
 
             str_starts_with($path, 'documents/par/') =>
                 ParRecord::where('pdf_path', $path)->first()?->disposal?->asset,
+
+            str_starts_with($path, 'documents/donations/release-photos/') =>
+                \App\Models\Donation::where('release_photo_path', $path)->first()?->disposal?->asset,
 
             str_starts_with($path, 'documents/donations/') =>
                 \App\Models\Donation::where('deed_of_donation_path', $path)
