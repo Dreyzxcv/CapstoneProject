@@ -162,7 +162,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                     </CardContent>
                 </Card>
 
-                <div className="grid gap-6 lg:grid-cols-3">
+                <div className="grid items-start gap-6 lg:grid-cols-3">
                     <Card className="lg:col-span-2">
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle className="text-base">Overview</CardTitle>
