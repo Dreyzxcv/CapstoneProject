@@ -692,6 +692,13 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                                 Deed of Donation is on file for <span className="font-medium">{asset.disposal.donation.requester_name}</span>.
                                 Mark as released once the item has been handed over.
                             </p>
+                            {(asset.disposal.details as { delivery_coordinates?: string })?.delivery_coordinates && (
+                                <IncidentLocationMap
+                                    coordinates={(asset.disposal.details as { delivery_coordinates?: string }).delivery_coordinates}
+                                    placeName={asset.disposal.donation.requester_name}
+                                    areaName="Delivery location"
+                                />
+                            )}
                             {can.releaseDonation && (
                                 <Button onClick={handleReleaseDonation}>Mark Donation Released</Button>
                             )}
