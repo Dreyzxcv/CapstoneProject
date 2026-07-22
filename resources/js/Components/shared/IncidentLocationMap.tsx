@@ -86,7 +86,7 @@ export function IncidentLocationMap({ coordinates, placeName, areaName }: Incide
             ) : (
                 <div
                     ref={mapContainerRef}
-                    className="h-64 w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-100"
+                    className="relative isolate z-0 h-64 w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-100"
                 />
             )}
         </div>
