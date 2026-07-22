@@ -224,9 +224,8 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                         </CardContent>
                     </Card>
 
-                    {/* Sidebar stack — single grid child so internal order is stable
-                        and never reshuffled by grid auto-flow, regardless of which
-                        conditional cards render */}
+                    {/* Sidebar — map only. Evidence/Actions/JEV moved to the
+                        dedicated three-column row below. */}
                     <div className="space-y-6">
                         {asset.incident?.coordinates && (
                             <Card>
@@ -240,122 +239,143 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                                 </CardContent>
                             </Card>
                         )}
-
-                        <Card>
-                            <CardHeader><CardTitle className="text-base">Evidence & Documents</CardTitle></CardHeader>
-                            <CardContent className="space-y-4">
-                                {can.uploadEvidence && <EvidenceUploader assetId={asset.id} />}
-                                {(asset.documents ?? []).length === 0 ? (
-                                    <p className="text-sm text-gray-500">No supporting documents uploaded yet.</p>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-3">
-                                        {(asset.documents ?? []).map((doc) => {
-                                            const url = documentUrl(doc.file_path);
-                                            const isImage = doc.mime_type?.startsWith('image/');
-                                            return (
-                                                <a
-                                                    key={doc.id}
-                                                    href={url ?? '#'}
-                                                    title={doc.original_name}
-                                                    className="group block overflow-hidden rounded-md border border-gray-200"
-                                                >
-                                                    {isImage ? (
-                                                        <img src={url ?? ''} className="h-24 w-full object-cover" />
-                                                    ) : (
-                                                        <div className="flex h-24 w-full flex-col items-center justify-center gap-1 overflow-hidden bg-gray-50 px-1 text-center">
-                                                            <PdfBadge className="h-7 w-7 shrink-0" />
-                                                            <p className="w-full truncate px-1 text-[10px] text-gray-500">
-                                                                {doc.original_name}
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </a>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader><CardTitle className="text-base">Actions</CardTitle></CardHeader>
-                            <CardContent className="space-y-3">
-                                {can.signReceipt && (
-                                    <Button className="w-full" onClick={handleSignReceipt}>
-                                        Sign Acknowledgement Receipt
-                                    </Button>
-                                )}
-                                {can.markStored && (
-                                    <Button className="w-full" variant="secondary" onClick={handleMarkStored}>
-                                        Mark as Stored
-                                    </Button>
-                                )}
-                                {can.resolveCase && (
-                                    <Button className="w-full" variant="secondary" onClick={handleResolveTrial}>
-                                        Resolve Case — Clear for Accounting
-                                    </Button>
-                                )}
-                                {can.processDisposal && asset.current_status === 'for_disposal' && (
-                                    <Link href={route('disposals.create', asset.id)}>
-                                        <Button className="w-full" variant="outline">Process Disposal</Button>
-                                    </Link>
-                                )}
-                                {!can.signReceipt && !can.markStored && !can.resolveCase && !(can.processDisposal && asset.current_status === 'for_disposal') && !receiptUrl && (
-                                    <p className="text-sm text-gray-500">No actions available for your role at this stage.</p>
-                                )}
-                                {receiptUrl && (
-                                    <a href={receiptUrl} className="block text-center text-sm text-emerald-700 hover:underline">
-                                        Download Acknowledgement Receipt
-                                    </a>
-                                )}
-                            </CardContent>
-                        </Card>
                     </div>
                 </div>
 
-                {qrSvg && (
+                {/* Evidence, Actions, JEV — side by side on desktop, stacked on mobile */}
+                <div className="grid items-start gap-6 lg:grid-cols-3">
                     <Card>
-                        <CardHeader><CardTitle className="text-base">QR Code Label</CardTitle></CardHeader>
-                        <CardContent className="flex flex-col items-center gap-4">
-                            <style>{`
-                                @media print {
-                                    body * { visibility: hidden; }
-                                    #qr-print-area, #qr-print-area * { visibility: visible; }
-                                    #qr-print-area {
-                                        position: absolute;
-                                        top: 0;
-                                        left: 0;
-                                        width: 100%;
-                                        display: flex;
-                                        flex-direction: column;
-                                        align-items: center;
-                                        gap: 8px;
-                                    }
-                                }
-                            `}</style>
-                            <div id="qr-print-area" className="flex flex-col items-center gap-2">
-                                <div ref={qrContainerRef} dangerouslySetInnerHTML={{ __html: qrSvg }} />
-                                <p className="text-sm font-medium text-gray-700">{asset.asset_code}</p>
-                            </div>
-                            <Button variant="outline" onClick={() => window.print()}>Print Label</Button>
+                        <CardHeader><CardTitle className="text-base">Evidence & Documents</CardTitle></CardHeader>
+                        <CardContent className="space-y-4">
+                            {can.uploadEvidence && <EvidenceUploader assetId={asset.id} />}
+                            {(asset.documents ?? []).length === 0 ? (
+                                <p className="text-sm text-gray-500">No supporting documents uploaded yet.</p>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-3">
+                                    {(asset.documents ?? []).map((doc) => {
+                                        const url = documentUrl(doc.file_path);
+                                        const isImage = doc.mime_type?.startsWith('image/');
+                                        return (
+                                            <a
+                                                key={doc.id}
+                                                href={url ?? '#'}
+                                                title={doc.original_name}
+                                                className="group block overflow-hidden rounded-md border border-gray-200"
+                                            >
+                                                {isImage ? (
+                                                    <img src={url ?? ''} className="h-24 w-full object-cover" />
+                                                ) : (
+                                                    <div className="flex h-24 w-full flex-col items-center justify-center gap-1 overflow-hidden bg-gray-50 px-1 text-center">
+                                                        <PdfBadge className="h-7 w-7 shrink-0" />
+                                                        <p className="w-full truncate px-1 text-[10px] text-gray-500">
+                                                            {doc.original_name}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </a>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
-                )}
 
-                {asset.current_status === 'cleared_for_accounting' && !asset.jev && (
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">Create JEV</CardTitle>
-                            <p className="text-sm text-gray-500">
-                                This asset is cleared for accounting and needs a Journal Entry Voucher before
-                                it can move to disposal processing.
-                            </p>
-                        </CardHeader>
-                        <CardContent>
-                            <Button onClick={() => setShowJevModal(true)}>Fill Out JEV Form</Button>
+                        <CardHeader><CardTitle className="text-base">Actions</CardTitle></CardHeader>
+                        <CardContent className="space-y-3">
+                            {can.signReceipt && (
+                                <Button className="w-full" onClick={handleSignReceipt}>
+                                    Sign Acknowledgement Receipt
+                                </Button>
+                            )}
+                            {can.markStored && (
+                                <Button className="w-full" variant="secondary" onClick={handleMarkStored}>
+                                    Mark as Stored
+                                </Button>
+                            )}
+                            {can.resolveCase && (
+                                <Button className="w-full" variant="secondary" onClick={handleResolveTrial}>
+                                    Resolve Case — Clear for Accounting
+                                </Button>
+                            )}
+                            {can.processDisposal && asset.current_status === 'for_disposal' && (
+                                <Link href={route('disposals.create', asset.id)}>
+                                    <Button className="w-full" variant="outline">Process Disposal</Button>
+                                </Link>
+                            )}
+                            {!can.signReceipt && !can.markStored && !can.resolveCase && !(can.processDisposal && asset.current_status === 'for_disposal') && !receiptUrl && (
+                                <p className="text-sm text-gray-500">No actions available for your role at this stage.</p>
+                            )}
+                            {receiptUrl && (
+                                <a href={receiptUrl} className="block text-center text-sm text-emerald-700 hover:underline">
+                                    Download Acknowledgement Receipt
+                                </a>
+                            )}
                         </CardContent>
                     </Card>
-                )}
+
+                    <div className="space-y-6">
+                        {asset.current_status === 'cleared_for_accounting' && !asset.jev && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-base">Create JEV</CardTitle>
+                                    <p className="text-sm text-gray-500">
+                                        This asset is cleared for accounting and needs a Journal Entry Voucher before
+                                        it can move to disposal processing.
+                                    </p>
+                                </CardHeader>
+                                <CardContent>
+                                    <Button onClick={() => setShowJevModal(true)}>Fill Out JEV Form</Button>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {asset.jev && !asset.jev.uploaded_at && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-base">JEV Awaiting Upload</CardTitle>
+                                    <p className="text-sm text-gray-500">
+                                        Accounting issued this JEV. Confirm the upload to move the asset to disposal processing.
+                                    </p>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <p className="text-sm">
+                                        <span className="font-medium">JEV Number:</span> {asset.jev.jev_number}
+                                    </p>
+
+                                    {can.uploadJev && (
+                                        <div className="border-t border-gray-100 pt-4">
+                                            <Button onClick={handleUploadJev}>Confirm JEV Upload</Button>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {asset.jev && asset.jev.uploaded_at && (
+                            <Card>
+                                <CardHeader><CardTitle className="text-base">Journal Entry Voucher</CardTitle></CardHeader>
+                                <CardContent className="space-y-2">
+                                    <p className="text-sm text-gray-600">
+                                        JEV <span className="font-medium">{asset.jev.jev_number}</span> uploaded by MES.
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {!(asset.current_status === 'cleared_for_accounting' && !asset.jev) && !asset.jev && (
+                            <Card>
+                                <CardHeader><CardTitle className="text-base">Journal Entry Voucher</CardTitle></CardHeader>
+                                <CardContent>
+                                    <p className="text-sm text-gray-500">
+                                        No JEV has been issued for this asset yet.
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
+                </div>
+
                 <Modal show={showJevModal} onClose={closeJevModal} maxWidth="md">
                     <form onSubmit={submitJev} className="p-6">
                         <h2 className="text-lg font-medium text-gray-900">Journal Entry Voucher</h2>
@@ -388,35 +408,31 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                     </form>
                 </Modal>
 
-                {asset.jev && !asset.jev.uploaded_at && (
+                {qrSvg && (
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">JEV Awaiting Upload</CardTitle>
-                            <p className="text-sm text-gray-500">
-                                Accounting issued this JEV. Confirm the upload to move the asset to disposal processing.
-                            </p>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <p className="text-sm">
-                                <span className="font-medium">JEV Number:</span> {asset.jev.jev_number}
-                            </p>
-
-                            {can.uploadJev && (
-                                <div className="border-t border-gray-100 pt-4">
-                                    <Button onClick={handleUploadJev}>Confirm JEV Upload</Button>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
-
-                {asset.jev && asset.jev.uploaded_at && (
-                    <Card>
-                        <CardHeader><CardTitle className="text-base">Journal Entry Voucher</CardTitle></CardHeader>
-                        <CardContent className="space-y-2">
-                            <p className="text-sm text-gray-600">
-                                JEV <span className="font-medium">{asset.jev.jev_number}</span> uploaded by MES.
-                            </p>
+                        <CardHeader><CardTitle className="text-base">QR Code Label</CardTitle></CardHeader>
+                        <CardContent className="flex flex-col items-center gap-4">
+                            <style>{`
+                                @media print {
+                                    body * { visibility: hidden; }
+                                    #qr-print-area, #qr-print-area * { visibility: visible; }
+                                    #qr-print-area {
+                                        position: absolute;
+                                        top: 0;
+                                        left: 0;
+                                        width: 100%;
+                                        display: flex;
+                                        flex-direction: column;
+                                        align-items: center;
+                                        gap: 8px;
+                                    }
+                                }
+                            `}</style>
+                            <div id="qr-print-area" className="flex flex-col items-center gap-2">
+                                <div ref={qrContainerRef} dangerouslySetInnerHTML={{ __html: qrSvg }} />
+                                <p className="text-sm font-medium text-gray-700">{asset.asset_code}</p>
+                            </div>
+                            <Button variant="outline" onClick={() => window.print()}>Print Label</Button>
                         </CardContent>
                     </Card>
                 )}
