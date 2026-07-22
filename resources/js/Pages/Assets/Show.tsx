@@ -34,7 +34,7 @@ interface ShowProps {
 
 export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) {
     const { auth } = usePage<PageProps>().props;
-    const [confirmAction, setConfirmAction] = useState<string | null>(null);    
+    const [confirmAction, setConfirmAction] = useState<string | null>(null);
     const [showJevModal, setShowJevModal] = useState(false);
     const qrContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -49,7 +49,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
             svg.style.display = 'block';
         }
     }, [qrSvg]);
-    
+
     const jevForm = useForm({
         jev_number: '',
     });
@@ -80,10 +80,10 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
     }
 
     function handleResolveTrial() {
-    if (confirm('Confirm the case has been resolved and this asset can proceed to accounting?')) {
-        router.post(route('assets.resolve-trial', asset.id));
+        if (confirm('Confirm the case has been resolved and this asset can proceed to accounting?')) {
+            router.post(route('assets.resolve-trial', asset.id));
+        }
     }
-}
 
     function handleUploadJev() {
         if (confirm('Confirm the JEV has been uploaded? This will move the asset to disposal processing.')) {
@@ -224,88 +224,93 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                         </CardContent>
                     </Card>
 
-                    {asset.incident?.coordinates && (
+                    {/* Sidebar stack — single grid child so internal order is stable
+                        and never reshuffled by grid auto-flow, regardless of which
+                        conditional cards render */}
+                    <div className="space-y-6">
+                        {asset.incident?.coordinates && (
+                            <Card>
+                                <CardHeader><CardTitle className="text-base">Apprehension Location</CardTitle></CardHeader>
+                                <CardContent>
+                                    <IncidentLocationMap
+                                        coordinates={asset.incident.coordinates}
+                                        placeName={asset.incident.place_of_apprehension}
+                                        areaName={asset.incident.area}
+                                    />
+                                </CardContent>
+                            </Card>
+                        )}
+
                         <Card>
-                            <CardHeader><CardTitle className="text-base">Apprehension Location</CardTitle></CardHeader>
-                            <CardContent>
-                                <IncidentLocationMap
-                                    coordinates={asset.incident.coordinates}
-                                    placeName={asset.incident.place_of_apprehension}
-                                    areaName={asset.incident.area}
-                                />
+                            <CardHeader><CardTitle className="text-base">Evidence & Documents</CardTitle></CardHeader>
+                            <CardContent className="space-y-4">
+                                {can.uploadEvidence && <EvidenceUploader assetId={asset.id} />}
+                                {(asset.documents ?? []).length === 0 ? (
+                                    <p className="text-sm text-gray-500">No supporting documents uploaded yet.</p>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-3">
+                                        {(asset.documents ?? []).map((doc) => {
+                                            const url = documentUrl(doc.file_path);
+                                            const isImage = doc.mime_type?.startsWith('image/');
+                                            return (
+                                                <a
+                                                    key={doc.id}
+                                                    href={url ?? '#'}
+                                                    title={doc.original_name}
+                                                    className="group block overflow-hidden rounded-md border border-gray-200"
+                                                >
+                                                    {isImage ? (
+                                                        <img src={url ?? ''} className="h-24 w-full object-cover" />
+                                                    ) : (
+                                                        <div className="flex h-24 w-full flex-col items-center justify-center gap-1 overflow-hidden bg-gray-50 px-1 text-center">
+                                                            <PdfBadge className="h-7 w-7 shrink-0" />
+                                                            <p className="w-full truncate px-1 text-[10px] text-gray-500">
+                                                                {doc.original_name}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
-                    )}
 
-                    <Card>
-                        <CardHeader><CardTitle className="text-base">Evidence & Documents</CardTitle></CardHeader>
-                        <CardContent className="space-y-4">
-                            {can.uploadEvidence && <EvidenceUploader assetId={asset.id} />}
-                            {(asset.documents ?? []).length === 0 ? (
-                                <p className="text-sm text-gray-500">No supporting documents uploaded yet.</p>
-                            ) : (
-                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                    {(asset.documents ?? []).map((doc) => {
-                                        const url = documentUrl(doc.file_path);
-                                        const isImage = doc.mime_type?.startsWith('image/');
-                                        return (
-                                            <a
-                                                key={doc.id}
-                                                href={url ?? '#'}
-                                                title={doc.original_name}
-                                                className="group block overflow-hidden rounded-md border border-gray-200"
-                                            >
-                                                {isImage ? (
-                                                    <img src={url ?? ''} className="h-24 w-full object-cover" />
-                                                ) : (
-                                                    <div className="flex h-24 w-full flex-col items-center justify-center gap-1 overflow-hidden bg-gray-50 px-1 text-center">
-                                                        <PdfBadge className="h-7 w-7 shrink-0" />
-                                                        <p className="w-full truncate px-1 text-[10px] text-gray-500">
-                                                            {doc.original_name}
-                                                        </p>
-                                                    </div>
-                                                )}
-                                            </a>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader><CardTitle className="text-base">Actions</CardTitle></CardHeader>
-                        <CardContent className="space-y-3">
-                            {can.signReceipt && (
-                                <Button className="w-full" onClick={handleSignReceipt}>
-                                    Sign Acknowledgement Receipt
-                                </Button>
-                            )}
-                            {can.markStored && (
-                                <Button className="w-full" variant="secondary" onClick={handleMarkStored}>
-                                    Mark as Stored
-                                </Button>
-                            )}
-                            {can.resolveCase && (
-                                <Button className="w-full" variant="secondary" onClick={handleResolveTrial}>
-                                    Resolve Case — Clear for Accounting
-                                </Button>
-                            )}
-                            {can.processDisposal && asset.current_status === 'for_disposal' && (
-                                <Link href={route('disposals.create', asset.id)}>
-                                    <Button className="w-full" variant="outline">Process Disposal</Button>
-                                </Link>
-                            )}
-                            {!can.signReceipt && !can.markStored && !can.resolveCase && !(can.processDisposal && asset.current_status === 'for_disposal') && !receiptUrl && (
-                                <p className="text-sm text-gray-500">No actions available for your role at this stage.</p>
-                            )}
-                            {receiptUrl && (
-                                <a href={receiptUrl} className="block text-center text-sm text-emerald-700 hover:underline">
-                                    Download Acknowledgement Receipt
-                                </a>
-                            )}
-                        </CardContent>
-                    </Card>
+                        <Card>
+                            <CardHeader><CardTitle className="text-base">Actions</CardTitle></CardHeader>
+                            <CardContent className="space-y-3">
+                                {can.signReceipt && (
+                                    <Button className="w-full" onClick={handleSignReceipt}>
+                                        Sign Acknowledgement Receipt
+                                    </Button>
+                                )}
+                                {can.markStored && (
+                                    <Button className="w-full" variant="secondary" onClick={handleMarkStored}>
+                                        Mark as Stored
+                                    </Button>
+                                )}
+                                {can.resolveCase && (
+                                    <Button className="w-full" variant="secondary" onClick={handleResolveTrial}>
+                                        Resolve Case — Clear for Accounting
+                                    </Button>
+                                )}
+                                {can.processDisposal && asset.current_status === 'for_disposal' && (
+                                    <Link href={route('disposals.create', asset.id)}>
+                                        <Button className="w-full" variant="outline">Process Disposal</Button>
+                                    </Link>
+                                )}
+                                {!can.signReceipt && !can.markStored && !can.resolveCase && !(can.processDisposal && asset.current_status === 'for_disposal') && !receiptUrl && (
+                                    <p className="text-sm text-gray-500">No actions available for your role at this stage.</p>
+                                )}
+                                {receiptUrl && (
+                                    <a href={receiptUrl} className="block text-center text-sm text-emerald-700 hover:underline">
+                                        Download Acknowledgement Receipt
+                                    </a>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
 
                 {qrSvg && (
@@ -506,53 +511,53 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                 )}
 
                 {asset.has_ongoing_case && (
-                <Card>
-                    <CardHeader><CardTitle className="text-base">Case Details</CardTitle></CardHeader>
-                    <CardContent>
-                        {can.updateCaseDetails ? (
-                            <form onSubmit={submitCaseDetails} className="grid gap-4 md:grid-cols-3">
-                                <div className="space-y-2">
-                                    <Label htmlFor="case_number">Case Number</Label>
-                                    <Input
-                                        id="case_number"
-                                        value={caseForm.data.case_number}
-                                        onChange={(e) => caseForm.setData('case_number', e.target.value)}
-                                    />
-                                    <InputError message={caseForm.errors.case_number} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="court_branch">Court / Branch</Label>
-                                    <Input
-                                        id="court_branch"
-                                        value={caseForm.data.court_branch}
-                                        onChange={(e) => caseForm.setData('court_branch', e.target.value)}
-                                    />
-                                    <InputError message={caseForm.errors.court_branch} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="next_hearing_date">Next Hearing Date</Label>
-                                    <Input
-                                        id="next_hearing_date"
-                                        type="date"
-                                        value={caseForm.data.next_hearing_date}
-                                        onChange={(e) => caseForm.setData('next_hearing_date', e.target.value)}
-                                    />
-                                    <InputError message={caseForm.errors.next_hearing_date} />
-                                </div>
-                                <div className="md:col-span-3">
-                                    <Button type="submit" size="sm" disabled={caseForm.processing}>Save Case Details</Button>
-                                </div>
-                            </form>
-                        ) : (
-                            <dl className="grid gap-3 text-sm md:grid-cols-3 break-words">
-                                <div><dt className="text-gray-500">Case Number</dt><dd>{asset.case_number ?? '—'}</dd></div>
-                                <div><dt className="text-gray-500">Court / Branch</dt><dd>{asset.court_branch ?? '—'}</dd></div>
-                                <div><dt className="text-gray-500">Next Hearing</dt><dd>{asset.next_hearing_date ? new Date(asset.next_hearing_date).toLocaleDateString() : '—'}</dd></div>
-                            </dl>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
+                    <Card>
+                        <CardHeader><CardTitle className="text-base">Case Details</CardTitle></CardHeader>
+                        <CardContent>
+                            {can.updateCaseDetails ? (
+                                <form onSubmit={submitCaseDetails} className="grid gap-4 md:grid-cols-3">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="case_number">Case Number</Label>
+                                        <Input
+                                            id="case_number"
+                                            value={caseForm.data.case_number}
+                                            onChange={(e) => caseForm.setData('case_number', e.target.value)}
+                                        />
+                                        <InputError message={caseForm.errors.case_number} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="court_branch">Court / Branch</Label>
+                                        <Input
+                                            id="court_branch"
+                                            value={caseForm.data.court_branch}
+                                            onChange={(e) => caseForm.setData('court_branch', e.target.value)}
+                                        />
+                                        <InputError message={caseForm.errors.court_branch} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="next_hearing_date">Next Hearing Date</Label>
+                                        <Input
+                                            id="next_hearing_date"
+                                            type="date"
+                                            value={caseForm.data.next_hearing_date}
+                                            onChange={(e) => caseForm.setData('next_hearing_date', e.target.value)}
+                                        />
+                                        <InputError message={caseForm.errors.next_hearing_date} />
+                                    </div>
+                                    <div className="md:col-span-3">
+                                        <Button type="submit" size="sm" disabled={caseForm.processing}>Save Case Details</Button>
+                                    </div>
+                                </form>
+                            ) : (
+                                <dl className="grid gap-3 text-sm md:grid-cols-3 break-words">
+                                    <div><dt className="text-gray-500">Case Number</dt><dd>{asset.case_number ?? '—'}</dd></div>
+                                    <div><dt className="text-gray-500">Court / Branch</dt><dd>{asset.court_branch ?? '—'}</dd></div>
+                                    <div><dt className="text-gray-500">Next Hearing</dt><dd>{asset.next_hearing_date ? new Date(asset.next_hearing_date).toLocaleDateString() : '—'}</dd></div>
+                                </dl>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
 
                 <Card>
                     <CardHeader><CardTitle className="text-base">Status History</CardTitle></CardHeader>
