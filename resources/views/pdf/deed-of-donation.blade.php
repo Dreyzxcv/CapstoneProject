@@ -5,9 +5,16 @@
 </head>
 <body>
 <h1>Deed of Donation</h1>
-<p><strong>Donor:</strong> DENR-PENRO Catanduanes</p>
-<p><strong>Donee:</strong> {{ $requesterName }}</p>
-<p><strong>Asset Code:</strong> {{ $asset->asset_code }}</p>
-<p><strong>Date:</strong> {{ now()->format('F d, Y') }}</p>
+<p><strong>Donee:</strong> {{ $donation->requester_name }}</p>
+@if($donation->agency_name)
+<p><strong>Agency/Organization:</strong> {{ $donation->agency_name }}</p>
+@endif
+@if($donation->organization_type)
+<p><strong>Organization Type:</strong>
+    {{ $donation->organization_type === \App\Enums\DonationOrganizationType::Other
+        ? $donation->organization_type_other
+        : $donation->organization_type->label() }}
+</p>
+@endif
 </body>
 </html>
