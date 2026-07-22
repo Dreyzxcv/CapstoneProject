@@ -154,15 +154,16 @@ class ProcessDisposal
 
     protected function handleDonation(Asset $asset, Disposal $disposal, array $details): void
     {
-        $requesterName = $details['requester_name'] ?? 'Unknown Requester';
-        $deedPath = $this->pdfDocumentService->generateDeedOfDonation($asset, $disposal, $requesterName);
-
-        Donation::create([
+        $donation = Donation::create([
             'disposal_id' => $disposal->id,
-            'requester_name' => $requesterName,
-            'deed_of_donation_path' => $deedPath,
+            'requester_name' => $details['requester_name'] ?? 'Unknown Requester',
+            'organization_type' => $details['organization_type'] ?? null,
+            'organization_type_other' => $details['organization_type_other'] ?? null,
+            'agency_name' => $details['agency_name'] ?? null,
             'released_at' => isset($details['released_at']) ? \Carbon\Carbon::parse($details['released_at']) : null,
         ]);
+
+        $this->pdfDocumentService->generateDeedOfDonation($asset, $disposal, $donation);
     }
 
     protected function handleFabricated(Asset $asset, Disposal $disposal, User $user, array $details): void
