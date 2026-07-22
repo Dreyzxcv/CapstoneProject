@@ -11,6 +11,7 @@ enum AssetStatus: string
     case UnderTrial = 'under_trial';
     case ClearedForAccounting = 'cleared_for_accounting';
     case ForDisposal = 'for_disposal';
+    case PendingRelease = 'pending_release';
     case Donated = 'donated';
     case Decayed = 'decayed';
     case Fabricated = 'fabricated';
@@ -28,6 +29,7 @@ enum AssetStatus: string
             self::UnderTrial => 'Under Trial',
             self::ClearedForAccounting => 'Cleared for Accounting',
             self::ForDisposal => 'For Disposal',
+            self::PendingRelease => 'Pending Release to Donee',
             self::Donated => 'Donated',
             self::Decayed => 'Decayed',
             self::Fabricated => 'Fabricated',
@@ -41,7 +43,7 @@ enum AssetStatus: string
     {
         return match ($this) {
             self::UnderTrial => 'blue',
-            self::PendingCustodyReview, self::ForDisposal, self::ClearedForAccounting => 'amber',
+            self::PendingCustodyReview, self::ForDisposal, self::ClearedForAccounting, self::PendingRelease => 'amber',
             self::Stored, self::Donated, self::Released, self::Fabricated => 'green',
             self::Forfeited, self::Decayed, self::Damaged => 'gray',
             default => 'default',
