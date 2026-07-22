@@ -135,6 +135,18 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
         });
     }
 
+    const releaseForm = useForm<{ photo: File | null }>({ photo: null });
+
+    function submitRelease(e: FormEvent) {
+        e.preventDefault();
+        if (!asset.disposal) return;
+        if (!confirm('Mark this donation as released to the requester?')) return;
+        releaseForm.post(route('disposals.release-donation', asset.disposal.id), {
+            forceFormData: true,
+            preserveScroll: true,
+        });
+    }
+
     function closeJevModal() {
         setShowJevModal(false);
         jevForm.clearErrors();
@@ -700,7 +712,19 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                                 />
                             )}
                             {can.releaseDonation && (
-                                <Button onClick={handleReleaseDonation}>Mark Donation Released</Button>
+                                <form onSubmit={submitRelease} className="space-y-3">
+                                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm text-gray-500 hover:border-emerald-400 hover:text-emerald-600">
+                                        {releaseForm.data.photo ? releaseForm.data.photo.name : 'Attach release photo (opens camera on mobile)'}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            capture="environment"
+                                            className="hidden"
+                                            onChange={(e) => releaseForm.setData('photo', e.target.files?.[0] ?? null)}
+                                        />
+                                    </label>
+                                    <Button type="submit" disabled={releaseForm.processing}>Mark Donation Released</Button>
+                                </form>
                             )}
                         </CardContent>
                     </Card>
