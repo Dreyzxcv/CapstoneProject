@@ -83,6 +83,9 @@ class DocumentController extends Controller
             str_starts_with($path, 'documents/donations/release-photos/') =>
                 \App\Models\Donation::where('release_photo_path', $path)->first()?->disposal?->asset,
 
+            str_starts_with($path, 'documents/donations/') && str_contains($path, '/waybill-') =>
+                \App\Models\Donation::where('waybill_pdf_path', $path)->first()?->disposal?->asset,
+
             str_starts_with($path, 'documents/donations/') =>
                 \App\Models\Donation::where('deed_of_donation_path', $path)
                     ->first()?->disposal?->asset,
