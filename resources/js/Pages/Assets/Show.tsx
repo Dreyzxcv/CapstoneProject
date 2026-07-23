@@ -463,6 +463,14 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                                 Deed of Donation is on file for <span className="font-medium">{asset.disposal.donation.requester_name}</span>.
                                 Mark as released once the item has been handed over.
                             </p>
+                            {documentUrl(asset.disposal.donation.waybill_pdf_path) && (
+                                <a
+                                    href={documentUrl(asset.disposal.donation.waybill_pdf_path) ?? '#'}
+                                    className="block text-sm text-emerald-700 hover:underline"
+                                >
+                                    Download Donation Waybill ({asset.quantity ?? 1} piece{(asset.quantity ?? 1) === 1 ? '' : 's'})
+                                </a>
+                            )}
                             {(asset.disposal.details as { delivery_coordinates?: string })?.delivery_coordinates && (
                                 <IncidentLocationMap
                                     coordinates={(asset.disposal.details as { delivery_coordinates?: string }).delivery_coordinates}
