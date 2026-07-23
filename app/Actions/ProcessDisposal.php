@@ -164,6 +164,7 @@ class ProcessDisposal
         ]);
 
         $this->pdfDocumentService->generateDeedOfDonation($asset, $disposal, $donation);
+        $this->pdfDocumentService->generateDonationWaybill($asset, $disposal, $donation);
     }
 
     protected function handleFabricated(Asset $asset, Disposal $disposal, User $user, array $details): void
