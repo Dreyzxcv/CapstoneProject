@@ -14,6 +14,10 @@ use Illuminate\Support\Str;
 
 class PdfDocumentService
 {
+    public function __construct(
+        protected QrCodeService $qrCodeService,
+    ) {}
+
     public function generateAcknowledgementReceipt(Asset $asset, AcknowledgementReceipt $receipt): string
     {
         $pdf = Pdf::loadView('pdf.acknowledgement-receipt', [
@@ -66,6 +70,43 @@ class PdfDocumentService
         $path = $this->storePdf($pdf->output(), 'donations', 'deed-'.$asset->asset_code);
 
         $donation->update(['deed_of_donation_path' => $path]);
+
+        return $path;
+    }
+
+    /**
+     * Donation waybill — a shipping-label-style document affixed to the
+     * physical item(s) being released to a donee. One page is generated
+     * per unit of the asset's quantity (e.g. "PIECE 2 / 5"), each page
+     * carrying the same QR code back to the asset's live record.
+     */
+    public function generateDonationWaybill(Asset $asset, Disposal $disposal, \App\Models\Donation $donation): string
+    {
+        $qrPayload = $this->qrCodeService->buildScanUrl($asset->qr_code_token);
+
+        // Use the PNG data-URI form here, not generateSvg(). dompdf's SVG
+        // renderer relies on the element having explicit width/height
+        // attributes to size itself — viewBox-only sizing (what the QR
+        // library emits) renders at zero size or is silently dropped.
+        // The acknowledgement receipt sidesteps the same class of issue by
+        // embedding its letterhead logos as base64 <img> tags; PNG QR +
+        // <img> is the equivalent fix here.
+        $qrPngDataUri = $this->qrCodeService->generatePngDataUri($qrPayload);
+
+        $totalPieces = max(1, (int) ($asset->quantity ?? 1));
+
+        $pdf = Pdf::loadView('pdf.donation-waybill', [
+            'asset' => $asset,
+            'disposal' => $disposal,
+            'donation' => $donation,
+            'qrPngDataUri' => $qrPngDataUri,
+            'totalPieces' => $totalPieces,
+            'maskedRequesterName' => $this->maskName($donation->requester_name),
+        ]);
+
+        $path = $this->storePdf($pdf->output(), 'donations', 'waybill-'.$asset->asset_code);
+
+        $donation->update(['waybill_pdf_path' => $path]);
 
         return $path;
     }
@@ -161,6 +202,26 @@ class PdfDocumentService
         $disposal->update(['report_pdf_path' => $path]);
 
         return $path;
+    }
+
+    protected function maskName(?string $name): string
+    {
+        if (! $name) {
+            return 'N/A';
+        }
+
+        return collect(preg_split('/\s+/', trim($name)))
+            ->filter()
+            ->map(function (string $word) {
+                $length = mb_strlen($word);
+
+                if ($length <= 2) {
+                    return $word;
+                }
+
+                return mb_substr($word, 0, 2).str_repeat('*', min($length - 2, 4));
+            })
+            ->implode(' ');
     }
 
     protected function storePdf(string $content, string $folder, string $basename): string
