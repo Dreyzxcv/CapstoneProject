@@ -83,16 +83,7 @@ class PdfDocumentService
     public function generateDonationWaybill(Asset $asset, Disposal $disposal, \App\Models\Donation $donation): string
     {
         $qrPayload = $this->qrCodeService->buildScanUrl($asset->qr_code_token);
-
-        // Use the PNG data-URI form here, not generateSvg(). dompdf's SVG
-        // renderer relies on the element having explicit width/height
-        // attributes to size itself — viewBox-only sizing (what the QR
-        // library emits) renders at zero size or is silently dropped.
-        // The acknowledgement receipt sidesteps the same class of issue by
-        // embedding its letterhead logos as base64 <img> tags; PNG QR +
-        // <img> is the equivalent fix here.
         $qrPngDataUri = $this->qrCodeService->generatePngDataUri($qrPayload);
-
         $totalPieces = max(1, (int) ($asset->quantity ?? 1));
 
         $pdf = Pdf::loadView('pdf.donation-waybill', [
@@ -105,7 +96,6 @@ class PdfDocumentService
         ]);
 
         $path = $this->storePdf($pdf->output(), 'donations', 'waybill-'.$asset->asset_code);
-
         $donation->update(['waybill_pdf_path' => $path]);
 
         return $path;
