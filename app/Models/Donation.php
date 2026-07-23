@@ -15,6 +15,7 @@ class Donation extends Model
         'agency_name',
         'deed_of_donation_path',
         'release_photo_path',
+        'waybill_pdf_path',
         'released_at',
     ];
 
