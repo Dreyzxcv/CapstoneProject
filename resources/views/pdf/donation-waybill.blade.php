@@ -165,7 +165,7 @@
 
 @php
     $piecesQty = max(1, (int) ($totalPieces ?? 1));
-    $coords = $disposal->details['delivery_coordinates'] ?? null;
+    $hasDoneeAddress = $donation->street || $donation->barangay || $donation->municipality;
 @endphp
 
 @for ($piece = 1; $piece <= $piecesQty; $piece++)
@@ -204,7 +204,14 @@
             @if($donation->agency_name)
                 {{ $donation->agency_name }}<br>
             @endif
-            {{ $coords ? "Delivery coordinates: {$coords}" : 'Delivery location: to be coordinated' }}
+            @if($hasDoneeAddress)
+                @if($donation->street)
+                    {{ $donation->street }}<br>
+                @endif
+                {{ collect([$donation->barangay, $donation->municipality?->value, 'Catanduanes'])->filter()->implode(', ') }}
+            @else
+                <em>Address not on file</em>
+            @endif
         </p>
     </div>
 
