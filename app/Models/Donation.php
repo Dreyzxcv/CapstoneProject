@@ -13,6 +13,9 @@ class Donation extends Model
         'organization_type',
         'organization_type_other',
         'agency_name',
+        'municipality',
+        'barangay',
+        'street',
         'deed_of_donation_path',
         'release_photo_path',
         'waybill_pdf_path',
@@ -23,13 +26,23 @@ class Donation extends Model
     {
         return [
             'organization_type' => \App\Enums\DonationOrganizationType::class,
+            'municipality' => \App\Enums\Municipality::class,
             'released_at' => 'datetime',
         ];
     }
 
-
     public function disposal(): BelongsTo
     {
         return $this->belongsTo(Disposal::class);
+    }
+
+    public function fullAddress(): string
+    {
+        return collect([
+            $this->street,
+            $this->barangay,
+            $this->municipality?->value,
+            'Catanduanes',
+        ])->filter()->implode(', ');
     }
 }
