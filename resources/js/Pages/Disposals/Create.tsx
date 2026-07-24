@@ -10,12 +10,21 @@ import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
 import { MapPin } from 'lucide-react';
 
-interface DisposalsCreateProps {
-    asset: Asset;
-    disposalTypes: Array<{ value: string; label: string }>;
+interface Option {
+    value: string;
+    label: string;
 }
 
-export default function DisposalsCreate({ asset, disposalTypes }: DisposalsCreateProps) {
+interface DisposalsCreateProps {
+    asset: Asset;
+    disposalTypes: Option[];
+    municipalities: Option[];
+    barangaysByMunicipality: Record<string, string[]>;
+}
+
+const selectClass = 'mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm';
+
+export default function DisposalsCreate({ asset, disposalTypes, municipalities, barangaysByMunicipality }: DisposalsCreateProps) {
     const assetQuantity = asset.quantity ?? 1;
 
     const ORG_TYPES = [
@@ -26,7 +35,6 @@ export default function DisposalsCreate({ asset, disposalTypes }: DisposalsCreat
         { value: 'other', label: 'Other' },
     ];
 
-
     const { data, setData, post, processing, errors } = useForm({
         disposal_type: disposalTypes[0]?.value ?? '',
         quantity: String(assetQuantity),
@@ -34,6 +42,9 @@ export default function DisposalsCreate({ asset, disposalTypes }: DisposalsCreat
         organization_type: 'individual',
         organization_type_other: '',
         agency_name: '',
+        municipality: municipalities[0]?.value ?? '',
+        barangay: '',
+        street: '',
         delivery_coordinates: '',
         appeal_filed: false as boolean,
         notes: '',
@@ -47,6 +58,11 @@ export default function DisposalsCreate({ asset, disposalTypes }: DisposalsCreat
 
     const quantityValue = Number(data.quantity) || 0;
     const remainder = assetQuantity - quantityValue;
+
+    function handleMunicipalityChange(value: string) {
+        setData('municipality', value);
+        setData('barangay', '');
+    }
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -75,7 +91,7 @@ export default function DisposalsCreate({ asset, disposalTypes }: DisposalsCreat
                             id="disposal_type"
                             value={data.disposal_type}
                             onChange={(e) => setData('disposal_type', e.target.value)}
-                            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                            className={selectClass}
                         >
                             {disposalTypes.map((t) => (
                                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -116,7 +132,7 @@ export default function DisposalsCreate({ asset, disposalTypes }: DisposalsCreat
                                     id="organization_type"
                                     value={data.organization_type}
                                     onChange={(e) => setData('organization_type', e.target.value)}
-                                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                                    className={selectClass}
                                 >
                                     {ORG_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                                 </select>
@@ -156,6 +172,56 @@ export default function DisposalsCreate({ asset, disposalTypes }: DisposalsCreat
                                     required
                                 />
                                 <InputError message={errors.requester_name} />
+                            </div>
+
+                            {/* Address block: Municipality, Barangay, Street */}
+                            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Donee Address
+                                </p>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div>
+                                        <Label htmlFor="municipality">Municipality</Label>
+                                        <select
+                                            id="municipality"
+                                            value={data.municipality}
+                                            onChange={(e) => handleMunicipalityChange(e.target.value)}
+                                            className={selectClass}
+                                            required
+                                        >
+                                            {municipalities.map((m) => (
+                                                <option key={m.value} value={m.value}>{m.label}</option>
+                                            ))}
+                                        </select>
+                                        <InputError message={errors.municipality} />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="barangay">Barangay</Label>
+                                        <select
+                                            id="barangay"
+                                            value={data.barangay}
+                                            onChange={(e) => setData('barangay', e.target.value)}
+                                            className={selectClass}
+                                            required
+                                        >
+                                            <option value="" disabled>Select barangay…</option>
+                                            {(barangaysByMunicipality[data.municipality] ?? []).map((brgy) => (
+                                                <option key={brgy} value={brgy}>{brgy}</option>
+                                            ))}
+                                        </select>
+                                        <InputError message={errors.barangay} />
+                                    </div>
+                                </div>
+                                <div className="mt-4">
+                                    <Label htmlFor="street">Street / House No.</Label>
+                                    <Input
+                                        id="street"
+                                        placeholder="e.g. Purok 3, Zone 2"
+                                        value={data.street}
+                                        onChange={(e) => setData('street', e.target.value)}
+                                    />
+                                    <InputError message={errors.street} />
+                                </div>
                             </div>
 
                             <div>
