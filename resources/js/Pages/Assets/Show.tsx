@@ -408,33 +408,216 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                     </form>
                 </Modal>
 
-                {qrSvg && (
-                    <Card>
-                        <CardHeader><CardTitle className="text-base">QR Code Label</CardTitle></CardHeader>
-                        <CardContent className="flex flex-col items-center gap-4">
-                            <style>{`
-                                @media print {
-                                    body * { visibility: hidden; }
-                                    #qr-print-area, #qr-print-area * { visibility: visible; }
-                                    #qr-print-area {
-                                        position: absolute;
-                                        top: 0;
-                                        left: 0;
-                                        width: 100%;
-                                        display: flex;
-                                        flex-direction: column;
-                                        align-items: center;
-                                        gap: 8px;
-                                    }
+                {/* QR + Donation */}
+                {(qrSvg || asset.disposal?.donation) && (
+                    <div className="grid items-start gap-6 lg:grid-cols-3">
+
+                        {asset.disposal?.donation && (
+                            <Card className="lg:col-span-2">
+                                <CardHeader>
+                                    <CardTitle className="text-base">
+                                        {asset.disposal.donation.released_at
+                                            ? 'Donation Released'
+                                            : 'Donation Release'}
+                                    </CardTitle>
+                                </CardHeader>
+
+                                <CardContent className="space-y-4">
+
+                                    {!asset.disposal.donation.released_at && (
+                                        <>
+                                            <p className="text-sm text-gray-600">
+                                                Deed of Donation is on file for{' '}
+                                                <span className="font-medium">
+                                                    {asset.disposal.donation.requester_name}
+                                                </span>.
+                                                {' '}Mark as released once the item has been handed over.
+                                            </p>
+
+                                            {documentUrl(asset.disposal.donation.waybill_pdf_path) && (
+                                                <a
+                                                    href={documentUrl(asset.disposal.donation.waybill_pdf_path) ?? '#'}
+                                                    className="block text-sm text-emerald-700 hover:underline"
+                                                >
+                                                    Download Donation Waybill (
+                                                    {asset.quantity ?? 1}
+                                                    {' '}
+                                                    piece
+                                                    {(asset.quantity ?? 1) === 1 ? '' : 's'})
+                                                </a>
+                                            )}
+
+                                            {(asset.disposal.details as { delivery_coordinates?: string })
+                                                ?.delivery_coordinates && (
+                                                <IncidentLocationMap
+                                                    coordinates={
+                                                        (
+                                                            asset.disposal.details as {
+                                                                delivery_coordinates?: string;
+                                                            }
+                                                        ).delivery_coordinates
+                                                    }
+                                                    placeName={asset.disposal.donation.requester_name}
+                                                    areaName="Delivery location"
+                                                />
+                                            )}
+
+                                            {can.releaseDonation && (
+                                                <form
+                                                    onSubmit={submitRelease}
+                                                    className="space-y-3"
+                                                >
+                                                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm text-gray-500 hover:border-emerald-400 hover:text-emerald-600">
+                                                        {releaseForm.data.photo
+                                                            ? releaseForm.data.photo.name
+                                                            : 'Attach release photo (opens camera on mobile)'}
+
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            capture="environment"
+                                                            className="hidden"
+                                                            onChange={(e) =>
+                                                                releaseForm.setData(
+                                                                    'photo',
+                                                                    e.target.files?.[0] ?? null,
+                                                                )
+                                                            }
+                                                        />
+                                                    </label>
+
+                                                    <Button
+                                                        type="submit"
+                                                        disabled={releaseForm.processing}
+                                                    >
+                                                        Mark Donation Released
+                                                    </Button>
+                                                </form>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {asset.disposal.donation.released_at && (
+                                        <>
+                                            <p className="text-sm text-gray-600">
+                                                Released to{' '}
+                                                <span className="font-medium">
+                                                    {asset.disposal.donation.requester_name}
+                                                </span>
+                                                {asset.disposal.donation.agency_name &&
+                                                    ` (${asset.disposal.donation.agency_name})`}
+                                                {' '}on{' '}
+                                                {new Date(
+                                                    asset.disposal.donation.released_at,
+                                                ).toLocaleString()}.
+                                            </p>
+
+                                            {asset.disposal.donation.release_photo_path && (
+                                                <a
+                                                    href={
+                                                        documentUrl(
+                                                            asset.disposal.donation.release_photo_path,
+                                                        ) ?? '#'
+                                                    }
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="block w-fit"
+                                                >
+                                                    <img
+                                                        src={
+                                                            documentUrl(
+                                                                asset.disposal.donation.release_photo_path,
+                                                            ) ?? ''
+                                                        }
+                                                        alt="Release confirmation"
+                                                        className="h-40 w-40 rounded-lg border border-gray-200 object-cover"
+                                                    />
+                                                </a>
+                                            )}
+
+                                            {documentUrl(asset.disposal.donation.deed_of_donation_path) && (
+                                                <a
+                                                    href={
+                                                        documentUrl(
+                                                            asset.disposal.donation.deed_of_donation_path,
+                                                        ) ?? '#'
+                                                    }
+                                                    className="block text-sm text-emerald-700 hover:underline"
+                                                >
+                                                    Download Deed of Donation
+                                                </a>
+                                            )}
+                                        </>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {qrSvg && (
+                            <Card
+                                className={
+                                    asset.disposal?.donation
+                                        ? ""
+                                        : "lg:col-span-3"
                                 }
-                            `}</style>
-                            <div id="qr-print-area" className="flex flex-col items-center gap-2">
-                                <div ref={qrContainerRef} dangerouslySetInnerHTML={{ __html: qrSvg }} />
-                                <p className="text-sm font-medium text-gray-700">{asset.asset_code}</p>
-                            </div>
-                            <Button variant="outline" onClick={() => window.print()}>Print Label</Button>
-                        </CardContent>
-                    </Card>
+                            >
+                                <CardHeader>
+                                    <CardTitle className="text-base">
+                                        QR Code Label
+                                    </CardTitle>
+                                </CardHeader>
+
+                                <CardContent className="flex flex-col items-center gap-4">
+                                    <style>{`
+                                        @media print {
+                                            body * {
+                                                visibility: hidden;
+                                            }
+
+                                            #qr-print-area,
+                                            #qr-print-area * {
+                                                visibility: visible;
+                                            }
+
+                                            #qr-print-area {
+                                                position: absolute;
+                                                top: 0;
+                                                left: 0;
+                                                width: 100%;
+                                                display: flex;
+                                                flex-direction: column;
+                                                align-items: center;
+                                                gap: 8px;
+                                            }
+                                        }
+                                    `}</style>
+
+                                    <div
+                                        id="qr-print-area"
+                                        className="flex flex-col items-center gap-2"
+                                    >
+                                        <div
+                                            ref={qrContainerRef}
+                                            dangerouslySetInnerHTML={{
+                                                __html: qrSvg,
+                                            }}
+                                        />
+
+                                        <p className="text-sm font-medium text-gray-700">
+                                            {asset.asset_code}
+                                        </p>
+                                    </div>
+
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => window.print()}
+                                    >
+                                        Print Label
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
                 )}
 
                 {asset.type === 'vehicle' && asset.appeal_deadline && (
@@ -451,85 +634,6 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                                     ? 'Appeal window is still open.'
                                     : 'Appeal window has closed.'}
                             </p>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {asset.disposal?.donation && !asset.disposal.donation.released_at && (
-                    <Card>
-                        <CardHeader><CardTitle className="text-base">Donation Release</CardTitle></CardHeader>
-                        <CardContent className="space-y-3 break-words">
-                            <p className="text-sm text-gray-600">
-                                Deed of Donation is on file for <span className="font-medium">{asset.disposal.donation.requester_name}</span>.
-                                Mark as released once the item has been handed over.
-                            </p>
-                            {documentUrl(asset.disposal.donation.waybill_pdf_path) && (
-                                <a
-                                    href={documentUrl(asset.disposal.donation.waybill_pdf_path) ?? '#'}
-                                    className="block text-sm text-emerald-700 hover:underline"
-                                >
-                                    Download Donation Waybill ({asset.quantity ?? 1} piece{(asset.quantity ?? 1) === 1 ? '' : 's'})
-                                </a>
-                            )}
-                            {(asset.disposal.details as { delivery_coordinates?: string })?.delivery_coordinates && (
-                                <IncidentLocationMap
-                                    coordinates={(asset.disposal.details as { delivery_coordinates?: string }).delivery_coordinates}
-                                    placeName={asset.disposal.donation.requester_name}
-                                    areaName="Delivery location"
-                                />
-                            )}
-                            {can.releaseDonation && (
-                                <form onSubmit={submitRelease} className="space-y-3">
-                                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm text-gray-500 hover:border-emerald-400 hover:text-emerald-600">
-                                        {releaseForm.data.photo ? releaseForm.data.photo.name : 'Attach release photo (opens camera on mobile)'}
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            capture="environment"
-                                            className="hidden"
-                                            onChange={(e) => releaseForm.setData('photo', e.target.files?.[0] ?? null)}
-                                        />
-                                    </label>
-                                    <Button type="submit" disabled={releaseForm.processing}>Mark Donation Released</Button>
-                                </form>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
-
-                {asset.disposal?.donation?.released_at && (
-                    <Card>
-                        <CardHeader><CardTitle className="text-base">Donation Released</CardTitle></CardHeader>
-                        <CardContent className="space-y-3 break-words">
-                            <p className="text-sm text-gray-600">
-                                Released to <span className="font-medium">{asset.disposal.donation.requester_name}</span>
-                                {asset.disposal.donation.agency_name ? ` (${asset.disposal.donation.agency_name})` : ''}
-                                {' '}on {new Date(asset.disposal.donation.released_at).toLocaleString()}.
-                            </p>
-
-                            {asset.disposal.donation.release_photo_path && (
-                                <a
-                                    href={documentUrl(asset.disposal.donation.release_photo_path) ?? '#'}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="block w-fit"
-                                >
-                                    <img
-                                        src={documentUrl(asset.disposal.donation.release_photo_path) ?? ''}
-                                        alt="Release confirmation"
-                                        className="h-40 w-40 rounded-lg border border-gray-200 object-cover"
-                                    />
-                                </a>
-                            )}
-
-                            {documentUrl(asset.disposal.donation.deed_of_donation_path) && (
-                                <a
-                                    href={documentUrl(asset.disposal.donation.deed_of_donation_path) ?? '#'}
-                                    className="block text-sm text-emerald-700 hover:underline"
-                                >
-                                    Download Deed of Donation
-                                </a>
-                            )}
                         </CardContent>
                     </Card>
                 )}
