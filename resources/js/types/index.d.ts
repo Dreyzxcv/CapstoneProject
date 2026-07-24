@@ -116,6 +116,9 @@ export interface Donation {
     organization_type: string | null;
     organization_type_other: string | null;
     agency_name: string | null;
+    municipality: string | null;
+    barangay: string | null;
+    street: string | null;
     deed_of_donation_path: string | null;
     release_photo_path: string | null;
     waybill_pdf_path: string | null;
