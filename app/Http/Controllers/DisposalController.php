@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\ProcessDisposal;
 use App\Actions\ReleaseDonation;
 use App\Enums\DisposalType;
+use App\Enums\Municipality;
 use App\Http\Requests\ProcessDisposalRequest;
 use App\Models\Asset;
 use App\Models\Disposal;
@@ -45,6 +46,11 @@ class DisposalController extends Controller
                 'value' => $t->value,
                 'label' => $t->label(),
             ]),
+            'municipalities' => collect(Municipality::cases())->map(fn ($m) => [
+                'value' => $m->value,
+                'label' => $m->value,
+            ]),
+            'barangaysByMunicipality' => config('barangays'),
         ]);
     }
 
@@ -58,6 +64,9 @@ class DisposalController extends Controller
             'organization_type' => $request->validated('organization_type'),
             'organization_type_other' => $request->validated('organization_type_other'),
             'agency_name' => $request->validated('agency_name'),
+            'municipality' => $request->validated('municipality'),
+            'barangay' => $request->validated('barangay'),
+            'street' => $request->validated('street'),
             'notes' => $request->validated('notes'),
             'appeal_filed' => $request->boolean('appeal_filed'),
             'appeal_deadline' => $asset->appeal_deadline?->toIso8601String(),
