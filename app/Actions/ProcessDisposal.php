@@ -30,13 +30,6 @@ class ProcessDisposal
         protected AssetCodeService $assetCodeService,
     ) {}
 
-    /**
-     * @param  int|null  $quantity  How many units of $asset are being disposed of
-     *                              this time. Defaults to the asset's full quantity.
-     *                              If less than the asset's quantity, the leftover
-     *                              is split off into a new asset record and sent
-     *                              back to storage rather than being disposed of.
-     */
     public function execute(Asset $asset, DisposalType $type, User $user, array $details = [], ?int $quantity = null): Disposal
     {
         if ($asset->current_status !== AssetStatus::ForDisposal) {
@@ -99,13 +92,6 @@ class ProcessDisposal
         });
     }
 
-    /**
-     * Split off the undisposed remainder of $original into a brand-new asset
-     * record, sent straight back to Stored. It gets its own asset_code and
-     * QR token — physically it's the same pile of logs, but from here on
-     * it's tracked as a separate inventory item that can go through its own
-     * disposal later.
-     */
     protected function splitRemainderToStorage(Asset $original, int $remainderQuantity, User $user): Asset
     {
         $remainder = Asset::create([
@@ -160,6 +146,9 @@ class ProcessDisposal
             'organization_type' => $details['organization_type'] ?? null,
             'organization_type_other' => $details['organization_type_other'] ?? null,
             'agency_name' => $details['agency_name'] ?? null,
+            'municipality' => $details['municipality'] ?? null,
+            'barangay' => $details['barangay'] ?? null,
+            'street' => $details['street'] ?? null,
             'released_at' => isset($details['released_at']) ? \Carbon\Carbon::parse($details['released_at']) : null,
         ]);
 
