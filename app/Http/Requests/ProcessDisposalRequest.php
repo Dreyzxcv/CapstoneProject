@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\DisposalType;
+use App\Enums\Municipality;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Enums\DonationOrganizationType;
 use Illuminate\Validation\Rule;
@@ -24,6 +25,28 @@ class ProcessDisposalRequest extends FormRequest
             'organization_type' => ['required_if:disposal_type,donation', Rule::enum(DonationOrganizationType::class)],
             'organization_type_other' => ['required_if:organization_type,other', 'nullable', 'string', 'max:255'],
             'agency_name' => ['nullable', 'required_unless:organization_type,individual', 'string', 'max:255'],
+
+            'municipality' => ['required_if:disposal_type,donation', 'nullable', Rule::enum(Municipality::class)],
+            'barangay' => [
+                'required_if:disposal_type,donation',
+                'nullable',
+                'string',
+                'max:255',
+                function ($attribute, $value, $fail) {
+                    if ($this->input('disposal_type') !== 'donation' || ! $value) {
+                        return;
+                    }
+
+                    $municipality = $this->input('municipality');
+                    $validBarangays = config('barangays')[$municipality] ?? [];
+
+                    if (! in_array($value, $validBarangays, true)) {
+                        $fail('The selected barangay is not valid for the chosen municipality.');
+                    }
+                },
+            ],
+            'street' => ['nullable', 'string', 'max:255'],
+
             'appeal_filed' => ['nullable', 'boolean'],
             'details' => ['nullable', 'array'],
             'notes' => ['nullable', 'string', 'max:1000'],
