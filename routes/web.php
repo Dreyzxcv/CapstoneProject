@@ -40,11 +40,6 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::get('/scan', [QrScanController::class, 'index'])->name('scan.index');
     Route::post('/scan', [QrScanController::class, 'store'])->name('scan.store');
 
-    // Moved inside the protected group (with 'active' middleware) so a
-    // deactivated user's still-valid session can no longer resolve QR
-    // codes and view asset records. Previously this route sat outside
-    // the group and only checked auth()->check() manually, which let
-    // deactivated accounts bypass EnsureUserIsActive entirely.
     Route::get('/scan/{token}', [QrScanController::class, 'resolve'])
         ->middleware('signed')
         ->name('scan.resolve');
@@ -65,6 +60,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile/other-browser-sessions', [ProfileController::class, 'destroyOtherSessions'])->name('profile.sessions.destroy-others');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
