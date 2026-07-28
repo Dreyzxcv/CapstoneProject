@@ -7,7 +7,7 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { FormEventHandler, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, X } from 'lucide-react';
 import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 
 interface Option {
@@ -26,6 +26,7 @@ interface CreateProps {
 interface AssetRow {
     type: string;
     species: string;
+    speciesIsOther: boolean;
     description: string;
     quantity: string;
     volume_bd_ft: string;
@@ -36,47 +37,70 @@ interface AssetRow {
     location_apprehended: string;
     apprehending_agency: string;
     mode: string;
-    has_ongoing_case: boolean;
-    has_confiscation_order: boolean;
 }
+
+// Common forest species/products confiscated in Catanduanes; "Others" lets
+// the user type a species not on this list.
+const SPECIES_OPTIONS = [
+    'Narra',
+    'Coco Lumber',
+    'Mahogany',
+    'Molave',
+    'Yakal',
+    'Ipil',
+    'Kamagong',
+    'Tanguile',
+    'Lauan',
+    'Apitong',
+    'Gmelina',
+    'Falcata',
+    'Bamboo',
+    'Others',
+];
+
+// 1 board foot = 0.002359737 cubic meters.
+const BD_FT_TO_CU_M = 0.002359737;
 
 function emptyAssetRow(defaults: { municipality: string; agency: string; mode: string }): AssetRow {
     return {
         type: 'log',
         species: '',
+        speciesIsOther: false,
         description: '',
         quantity: '1',
         volume_bd_ft: '',
         volume_cu_m: '',
         estimated_value: '',
         plate_number: '',
-        // Municipality/barangay are no longer picked per item — they follow
-        // the single Province/Municipality selection in Apprehension Details.
         municipality_of_origin: defaults.municipality,
         location_apprehended: defaults.municipality,
         apprehending_agency: defaults.agency,
         mode: defaults.mode,
-        has_ongoing_case: false,
-        has_confiscation_order: false,
     };
 }
 
 const selectClass =
     'flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600';
 
+function convertBdFtToCuM(bdFt: string): string {
+    const value = parseFloat(bdFt);
+    if (Number.isNaN(value) || value <= 0) return '';
+    return (value * BD_FT_TO_CU_M).toFixed(4);
+}
+
 export default function IncidentsCreate({ types, modes, municipalities, nextAssetSequence }: CreateProps) {
     const defaultMunicipality = municipalities[0]?.value ?? '';
     const defaultAgency = 'PENRO Catanduanes MES';
     const defaultMode = 'apprehended';
 
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors, transform } = useForm({
         date_of_apprehension: '',
         place_of_apprehension: defaultMunicipality,
         area: '',
         coordinates: '',
         claimant_offender_name: '',
         is_abandoned: false as boolean,
-        apprehending_party: 'PENRO Catanduanes MES',
+        apprehending_parties: ['PENRO Catanduanes MES'] as string[],
         date_report_submitted: '',
         assets: [emptyAssetRow({ municipality: defaultMunicipality, agency: defaultAgency, mode: defaultMode })] as AssetRow[],
     });
@@ -94,6 +118,27 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         const next = [...data.assets];
         next[index] = { ...next[index], [field]: value };
         setData('assets', next);
+    }
+
+    function handleSpeciesSelect(index: number, value: string) {
+        if (value === 'Others') {
+            updateAssetMultiple(index, { species: '', speciesIsOther: true });
+        } else {
+            updateAssetMultiple(index, { species: value, speciesIsOther: false });
+        }
+    }
+
+    function updateAssetMultiple(index: number, fields: Partial<AssetRow>) {
+        const next = [...data.assets];
+        next[index] = { ...next[index], ...fields };
+        setData('assets', next);
+    }
+
+    function handleVolumeBdFtChange(index: number, value: string) {
+        updateAssetMultiple(index, {
+            volume_bd_ft: value,
+            volume_cu_m: convertBdFtToCuM(value),
+        });
     }
 
     function handleMunicipalityChange(value: string) {
@@ -120,6 +165,31 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         setData('assets', data.assets.filter((_, i) => i !== index));
     }
 
+    function addApprehendingParty() {
+        setData('apprehending_parties', [...data.apprehending_parties, '']);
+    }
+
+    function updateApprehendingParty(index: number, value: string) {
+        const next = [...data.apprehending_parties];
+        next[index] = value;
+        setData('apprehending_parties', next);
+    }
+
+    function removeApprehendingParty(index: number) {
+        if (data.apprehending_parties.length === 1) return;
+        setData('apprehending_parties', data.apprehending_parties.filter((_, i) => i !== index));
+    }
+
+    function handleAbandonedToggle(checked: boolean) {
+        setData((prevData) => ({
+            ...prevData,
+            is_abandoned: checked,
+            // Clear any claimant name once the item is marked abandoned,
+            // since there's no claimant to record.
+            claimant_offender_name: checked ? '' : prevData.claimant_offender_name,
+        }));
+    }
+
     // Instead of submitting immediately, open the confirmation modal.
     // Native "required" validation still runs first, so this only fires
     // once the visible required fields are actually filled in.
@@ -129,6 +199,15 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
     };
 
     function confirmAndSubmit() {
+        // The backend column is a single `apprehending_party` string, so
+        // multiple entries are joined here rather than requiring a schema
+        // change; the asset-level `species` custom-text case is already
+        // stored directly in `species` by handleSpeciesSelect.
+        transform((formData) => ({
+            ...formData,
+            apprehending_party: formData.apprehending_parties.filter((p) => p.trim() !== '').join('; '),
+        }));
+
         post(route('incidents.store'), {
             onSuccess: () => setShowConfirmModal(false),
         });
@@ -163,7 +242,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     </span>
                                 ) : (
                                     <span className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500">
-                                        Reference No.
+                                        Reference No. will appear once the date of apprehension is set.
                                     </span>
                                 )}
                             </div>
@@ -244,15 +323,38 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     </div>
                                     <InputError message={errors.coordinates} />
                                 </div>
+
+                                {/* Apprehending Party — supports multiple entries */}
                                 <div className="space-y-2">
-                                    <Label htmlFor="apprehending_party">Apprehending Party</Label>
-                                    <Input
-                                        id="apprehending_party"
-                                        value={data.apprehending_party}
-                                        onChange={(e) => setData('apprehending_party', e.target.value)}
-                                        required
-                                    />
-                                    <InputError message={errors.apprehending_party} />
+                                    <Label>Apprehending Party</Label>
+                                    <div className="space-y-2">
+                                        {data.apprehending_parties.map((party, index) => (
+                                            <div key={index} className="flex gap-2">
+                                                <Input
+                                                    value={party}
+                                                    onChange={(e) => updateApprehendingParty(index, e.target.value)}
+                                                    placeholder="e.g. PENRO Catanduanes MES"
+                                                    required
+                                                />
+                                                {data.apprehending_parties.length > 1 && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => removeApprehendingParty(index)}
+                                                        aria-label="Remove apprehending party"
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <Button type="button" variant="outline" size="sm" onClick={addApprehendingParty}>
+                                        <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                        Add Another Apprehending Party
+                                    </Button>
+                                    <InputError message={(errors as Record<string, string>).apprehending_party} />
                                 </div>
                             </div>
 
@@ -262,9 +364,10 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                         <Label htmlFor="claimant_offender_name">Claimant / Offender Name</Label>
                                         <Input
                                             id="claimant_offender_name"
-                                            placeholder="Leave blank if unknown / abandoned"
+                                            placeholder={data.is_abandoned ? 'Not applicable — marked abandoned' : 'Leave blank if unknown / abandoned'}
                                             value={data.claimant_offender_name}
                                             onChange={(e) => setData('claimant_offender_name', e.target.value)}
+                                            disabled={data.is_abandoned}
                                         />
                                         <InputError message={errors.claimant_offender_name} />
                                     </div>
@@ -273,7 +376,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             type="checkbox"
                                             className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                                             checked={data.is_abandoned}
-                                            onChange={(e) => setData('is_abandoned', e.target.checked)}
+                                            onChange={(e) => handleAbandonedToggle(e.target.checked)}
                                         />
                                         Abandoned (no known claimant)
                                     </label>
@@ -346,11 +449,37 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
                                             <Label htmlFor={`species-${index}`}>Species</Label>
-                                            <Input
-                                                id={`species-${index}`}
-                                                value={asset.species}
-                                                onChange={(e) => updateAsset(index, 'species', e.target.value)}
-                                            />
+                                            {asset.speciesIsOther ? (
+                                                <div className="flex gap-2">
+                                                    <Input
+                                                        id={`species-${index}`}
+                                                        placeholder="Enter species"
+                                                        value={asset.species}
+                                                        onChange={(e) => updateAsset(index, 'species', e.target.value)}
+                                                        autoFocus
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => updateAssetMultiple(index, { speciesIsOther: false, species: '' })}
+                                                    >
+                                                        Choose from list
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <select
+                                                    id={`species-${index}`}
+                                                    value={asset.species}
+                                                    onChange={(e) => handleSpeciesSelect(index, e.target.value)}
+                                                    className={selectClass}
+                                                >
+                                                    <option value="" disabled>Select species…</option>
+                                                    {SPECIES_OPTIONS.map((s) => (
+                                                        <option key={s} value={s}>{s}</option>
+                                                    ))}
+                                                </select>
+                                            )}
                                             <InputError message={assetError(index, 'species')} />
                                         </div>
                                         <div className="space-y-2">
@@ -385,7 +514,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                     step="0.01"
                                                     min="0"
                                                     value={asset.volume_bd_ft}
-                                                    onChange={(e) => updateAsset(index, 'volume_bd_ft', e.target.value)}
+                                                    onChange={(e) => handleVolumeBdFtChange(index, e.target.value)}
                                                 />
                                                 <InputError message={assetError(index, 'volume_bd_ft')} />
                                             </div>
@@ -397,8 +526,11 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                     step="0.0001"
                                                     min="0"
                                                     value={asset.volume_cu_m}
-                                                    onChange={(e) => updateAsset(index, 'volume_cu_m', e.target.value)}
+                                                    readOnly
+                                                    disabled
+                                                    className="bg-gray-100"
                                                 />
+                                                <p className="text-xs text-gray-500">Auto-converted from bd.ft</p>
                                                 <InputError message={assetError(index, 'volume_cu_m')} />
                                             </div>
                                             <div className="space-y-2">
@@ -444,27 +576,6 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             <InputError message={assetError(index, 'estimated_value')} />
                                         </div>
                                     )}
-
-                                    <div className="flex flex-wrap gap-6">
-                                        <label className="flex items-center gap-2 text-sm text-gray-700">
-                                            <input
-                                                type="checkbox"
-                                                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                                                checked={asset.has_ongoing_case}
-                                                onChange={(e) => updateAsset(index, 'has_ongoing_case', e.target.checked)}
-                                            />
-                                            Ongoing case (Steady)
-                                        </label>
-                                        <label className="flex items-center gap-2 text-sm text-gray-700">
-                                            <input
-                                                type="checkbox"
-                                                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                                                checked={asset.has_confiscation_order}
-                                                onChange={(e) => updateAsset(index, 'has_confiscation_order', e.target.checked)}
-                                            />
-                                            Confiscation / Forfeiture Order
-                                        </label>
-                                    </div>
                                 </CardContent>
                             </Card>
                         ))}
@@ -536,9 +647,11 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     <dt className="text-gray-500">Coordinates</dt>
                                     <dd className="font-medium text-gray-900">{data.coordinates || '—'}</dd>
                                 </div>
-                                <div>
+                                <div className="md:col-span-2">
                                     <dt className="text-gray-500">Apprehending Party</dt>
-                                    <dd className="font-medium text-gray-900">{data.apprehending_party || '—'}</dd>
+                                    <dd className="font-medium text-gray-900">
+                                        {data.apprehending_parties.filter((p) => p.trim() !== '').join('; ') || '—'}
+                                    </dd>
                                 </div>
                                 <div>
                                     <dt className="text-gray-500">Claimant / Offender</dt>
@@ -604,14 +717,6 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                         <div>
                                             <dt className="text-gray-500">Estimated Value (php)</dt>
                                             <dd className="text-gray-900">{asset.estimated_value || '—'}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-gray-500">Ongoing Case</dt>
-                                            <dd className="text-gray-900">{asset.has_ongoing_case ? 'Yes' : 'No'}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-gray-500">Confiscation / Forfeiture Order</dt>
-                                            <dd className="text-gray-900">{asset.has_confiscation_order ? 'Yes' : 'No'}</dd>
                                         </div>
                                     </dl>
                                 </div>
