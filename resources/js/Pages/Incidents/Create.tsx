@@ -20,6 +20,7 @@ interface CreateProps {
     modes: Option[];
     municipalities: Option[];
     barangaysByMunicipality: Record<string, string[]>;
+    nextIncidentSequence: number;
 }
 
 interface AssetRow {
@@ -49,8 +50,10 @@ function emptyAssetRow(defaults: { municipality: string; agency: string; mode: s
         volume_cu_m: '',
         estimated_value: '',
         plate_number: '',
+        // Municipality/barangay are no longer picked per item — they follow
+        // the single Province/Municipality selection in Apprehension Details.
         municipality_of_origin: defaults.municipality,
-        location_apprehended: '',
+        location_apprehended: defaults.municipality,
         apprehending_agency: defaults.agency,
         mode: defaults.mode,
         has_ongoing_case: false,
@@ -61,14 +64,14 @@ function emptyAssetRow(defaults: { municipality: string; agency: string; mode: s
 const selectClass =
     'flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600';
 
-export default function IncidentsCreate({ types, modes, municipalities, barangaysByMunicipality }: CreateProps) {
+export default function IncidentsCreate({ types, modes, municipalities, nextIncidentSequence }: CreateProps) {
     const defaultMunicipality = municipalities[0]?.value ?? '';
     const defaultAgency = 'PENRO Catanduanes MES';
     const defaultMode = 'apprehended';
 
     const { data, setData, post, processing, errors } = useForm({
         date_of_apprehension: '',
-        place_of_apprehension: '',
+        place_of_apprehension: defaultMunicipality,
         area: '',
         coordinates: '',
         claimant_offender_name: '',
@@ -81,19 +84,39 @@ export default function IncidentsCreate({ types, modes, municipalities, barangay
     const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
 
+    // Reference code preview: AAP-FV-{year of apprehension}-{sequence}.
+    // Year tracks the date_of_apprehension field the user fills in, not
+    // today's date — the sequence is the number the backend will actually
+    // assign (passed in via props at page load).
+    const previewYear = data.date_of_apprehension
+        ? new Date(data.date_of_apprehension).getFullYear()
+        : null;
+    const previewCode = previewYear
+        ? `AAP-FV-${previewYear}-${String(nextIncidentSequence).padStart(5, '0')}`
+        : null;
+
     function updateAsset(index: number, field: keyof AssetRow, value: string | boolean) {
         const next = [...data.assets];
         next[index] = { ...next[index], [field]: value };
-        if (field === 'municipality_of_origin') {
-            next[index].location_apprehended = '';
-        }
         setData('assets', next);
+    }
+
+    function handleMunicipalityChange(value: string) {
+        setData('place_of_apprehension', value);
+        setData(
+            'assets',
+            data.assets.map((asset) => ({
+                ...asset,
+                municipality_of_origin: value,
+                location_apprehended: value,
+            })),
+        );
     }
 
     function addAssetRow() {
         setData('assets', [
             ...data.assets,
-            emptyAssetRow({ municipality: defaultMunicipality, agency: defaultAgency, mode: defaultMode }),
+            emptyAssetRow({ municipality: data.place_of_apprehension || defaultMunicipality, agency: defaultAgency, mode: defaultMode }),
         ]);
     }
 
@@ -137,6 +160,18 @@ export default function IncidentsCreate({ types, modes, municipalities, barangay
                             <p className="text-sm text-gray-600">
                                 Details shared across every item apprehended in this incident.
                             </p>
+
+                            <div className="mt-2">
+                                {previewCode ? (
+                                    <span className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-mono font-semibold text-emerald-800">
+                                        Reference No.: {previewCode}
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500">
+                                        Reference No. will appear once the date of apprehension is set.
+                                    </span>
+                                )}
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-6 pt-6">
                             <div className="grid gap-4 md:grid-cols-2">
@@ -163,15 +198,27 @@ export default function IncidentsCreate({ types, modes, municipalities, barangay
                                 </div>
                             </div>
 
-                            <div className="grid gap-4 md:grid-cols-2">
+                            <div className="grid gap-4 md:grid-cols-3">
                                 <div className="space-y-2">
-                                    <Label htmlFor="place_of_apprehension">Place of Apprehension</Label>
-                                    <Input
+                                    <Label htmlFor="province">Province</Label>
+                                    <select id="province" className={selectClass} value="Catanduanes" disabled>
+                                        <option value="Catanduanes">Catanduanes</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="place_of_apprehension">Municipality (Place of Apprehension)</Label>
+                                    <select
                                         id="place_of_apprehension"
                                         value={data.place_of_apprehension}
-                                        onChange={(e) => setData('place_of_apprehension', e.target.value)}
+                                        onChange={(e) => handleMunicipalityChange(e.target.value)}
+                                        className={selectClass}
                                         required
-                                    />
+                                    >
+                                        <option value="" disabled>Select municipality…</option>
+                                        {municipalities.map((m) => (
+                                            <option key={m.value} value={m.value}>{m.label}</option>
+                                        ))}
+                                    </select>
                                     <InputError message={errors.place_of_apprehension} />
                                 </div>
                                 <div className="space-y-2">
@@ -312,18 +359,14 @@ export default function IncidentsCreate({ types, modes, municipalities, barangay
                                             <InputError message={assetError(index, 'species')} />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor={`municipality-${index}`}>Municipality of Origin</Label>
-                                            <select
-                                                id={`municipality-${index}`}
-                                                value={asset.municipality_of_origin}
-                                                onChange={(e) => updateAsset(index, 'municipality_of_origin', e.target.value)}
-                                                className={selectClass}
-                                            >
-                                                {municipalities.map((m) => (
-                                                    <option key={m.value} value={m.value}>{m.label}</option>
-                                                ))}
-                                            </select>
-                                            <InputError message={assetError(index, 'municipality_of_origin')} />
+                                            <Label htmlFor={`apprehending_agency-${index}`}>Apprehending Agency</Label>
+                                            <Input
+                                                id={`apprehending_agency-${index}`}
+                                                value={asset.apprehending_agency}
+                                                onChange={(e) => updateAsset(index, 'apprehending_agency', e.target.value)}
+                                                required
+                                            />
+                                            <InputError message={assetError(index, 'apprehending_agency')} />
                                         </div>
                                     </div>
 
@@ -407,35 +450,6 @@ export default function IncidentsCreate({ types, modes, municipalities, barangay
                                         </div>
                                     )}
 
-                                    <div className="grid gap-4 md:grid-cols-2">
-                                        <div className="space-y-2">
-                                            <Label htmlFor={`location_apprehended-${index}`}>Barangay Apprehended</Label>
-                                            <select
-                                                id={`location_apprehended-${index}`}
-                                                value={asset.location_apprehended}
-                                                onChange={(e) => updateAsset(index, 'location_apprehended', e.target.value)}
-                                                className={selectClass}
-                                                required
-                                            >
-                                                <option value="" disabled>Select barangay…</option>
-                                                {(barangaysByMunicipality[asset.municipality_of_origin] ?? []).map((brgy) => (
-                                                    <option key={brgy} value={brgy}>{brgy}</option>
-                                                ))}
-                                            </select>
-                                            <InputError message={assetError(index, 'location_apprehended')} />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor={`apprehending_agency-${index}`}>Apprehending Agency</Label>
-                                            <Input
-                                                id={`apprehending_agency-${index}`}
-                                                value={asset.apprehending_agency}
-                                                onChange={(e) => updateAsset(index, 'apprehending_agency', e.target.value)}
-                                                required
-                                            />
-                                            <InputError message={assetError(index, 'apprehending_agency')} />
-                                        </div>
-                                    </div>
-
                                     <div className="flex flex-wrap gap-6">
                                         <label className="flex items-center gap-2 text-sm text-gray-700">
                                             <input
@@ -495,6 +509,11 @@ export default function IncidentsCreate({ types, modes, municipalities, barangay
                         {/* Incident-level summary */}
                         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                             <h3 className="text-sm font-semibold text-gray-700">Apprehension Details</h3>
+                            {previewCode && (
+                                <p className="mt-1 font-mono text-xs font-semibold text-emerald-700">
+                                    Reference No.: {previewCode}
+                                </p>
+                            )}
                             <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm md:grid-cols-2">
                                 <div>
                                     <dt className="text-gray-500">Date of Apprehension</dt>
@@ -505,8 +524,14 @@ export default function IncidentsCreate({ types, modes, municipalities, barangay
                                     <dd className="font-medium text-gray-900">{data.date_report_submitted || '—'}</dd>
                                 </div>
                                 <div>
-                                    <dt className="text-gray-500">Place of Apprehension</dt>
-                                    <dd className="font-medium text-gray-900">{data.place_of_apprehension || '—'}</dd>
+                                    <dt className="text-gray-500">Province</dt>
+                                    <dd className="font-medium text-gray-900">Catanduanes</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-gray-500">Municipality</dt>
+                                    <dd className="font-medium text-gray-900">
+                                        {labelFor(municipalities, data.place_of_apprehension) || '—'}
+                                    </dd>
                                 </div>
                                 <div>
                                     <dt className="text-gray-500">Area</dt>
@@ -553,8 +578,8 @@ export default function IncidentsCreate({ types, modes, municipalities, barangay
                                             <dd className="text-gray-900">{asset.species || '—'}</dd>
                                         </div>
                                         <div>
-                                            <dt className="text-gray-500">Municipality of Origin</dt>
-                                            <dd className="text-gray-900">{labelFor(municipalities, asset.municipality_of_origin)}</dd>
+                                            <dt className="text-gray-500">Apprehending Agency</dt>
+                                            <dd className="text-gray-900">{asset.apprehending_agency || '—'}</dd>
                                         </div>
                                         <div className="md:col-span-2">
                                             <dt className="text-gray-500">Description</dt>
@@ -584,14 +609,6 @@ export default function IncidentsCreate({ types, modes, municipalities, barangay
                                         <div>
                                             <dt className="text-gray-500">Estimated Value (php)</dt>
                                             <dd className="text-gray-900">{asset.estimated_value || '—'}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-gray-500">Barangay Apprehended</dt>
-                                            <dd className="text-gray-900">{asset.location_apprehended || '—'}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-gray-500">Apprehending Agency</dt>
-                                            <dd className="text-gray-900">{asset.apprehending_agency || '—'}</dd>
                                         </div>
                                         <div>
                                             <dt className="text-gray-500">Ongoing Case</dt>
