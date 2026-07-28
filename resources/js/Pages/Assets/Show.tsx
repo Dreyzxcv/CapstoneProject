@@ -168,7 +168,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                             <CardTitle className="text-base">Overview</CardTitle>
                             {asset.incident && (
                                 <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-                                    {asset.incident.incident_code}
+                                    {asset.asset_code}
                                 </span>
                             )}
                         </CardHeader>
