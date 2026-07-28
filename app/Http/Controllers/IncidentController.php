@@ -33,7 +33,7 @@ class IncidentController extends Controller
                 'label' => $m->value,
             ]),
             'barangaysByMunicipality' => config('barangays'),
-            'nextIncidentSequence' => \App\Models\Incident::count() + 1,
+            'nextAssetSequence' => (int) \App\Models\Asset::max('id') + 1,
         ]);
     }
 
