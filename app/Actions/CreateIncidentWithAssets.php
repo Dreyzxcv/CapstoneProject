@@ -28,7 +28,7 @@ class CreateIncidentWithAssets
 
         return DB::transaction(function () use ($incidentData, $assetsData, $user) {
             $incident = Incident::create([
-                'incident_code' => $this->generateIncidentCode(),
+                'incident_code' => $this->generateIncidentCode($incidentData['date_of_apprehension'] ?? null),
                 'date_of_apprehension' => $incidentData['date_of_apprehension'],
                 'place_of_apprehension' => $incidentData['place_of_apprehension'],
                 'area' => $incidentData['area'] ?? null,
@@ -42,9 +42,6 @@ class CreateIncidentWithAssets
 
             foreach ($assetsData as $assetData) {
                 $assetData['incident_id'] = $incident->id;
-                // Don't issue a per-asset receipt here — one shared custody
-                // receipt covering every item is issued below, once all
-                // assets for this incident exist.
                 $this->createAsset->execute($assetData, $user, issueReceipt: false);
             }
 
@@ -59,8 +56,14 @@ class CreateIncidentWithAssets
         });
     }
 
-    protected function generateIncidentCode(): string
+    protected function generateIncidentCode(?string $dateOfApprehension = null): string
     {
-        return 'INC-'.now()->format('Y').'-'.strtoupper(Str::random(6));
+        $year = $dateOfApprehension
+            ? \Illuminate\Support\Carbon::parse($dateOfApprehension)->format('Y')
+            : now()->format('Y');
+
+        $sequence = \App\Models\Incident::count() + 1;
+
+        return 'AAP-FV-'.$year.'-'.str_pad((string) $sequence, 5, '0', STR_PAD_LEFT);
     }
 }
