@@ -31,7 +31,8 @@ class AssetPolicy
     public function markStored(User $user, Asset $asset): bool
     {
         return $user->can('assets.mark_stored')
-            && $asset->current_status === \App\Enums\AssetStatus::ReceiptSigned;
+            && $asset->current_status === \App\Enums\AssetStatus::ReceiptSigned
+            && $asset->hasAllRequiredDocumentsVerified();
     }
 
     public function generateQr(User $user, Asset $asset): bool

@@ -98,6 +98,7 @@ class AssetController extends Controller
             'disposal.parRecord',
             'qrScans.scannedBy',
             'documents.uploadedBy',
+            'documents.verifiedBy',
         ]);
 
         $qrPayload = null;
@@ -112,6 +113,10 @@ class AssetController extends Controller
             'asset' => $asset,
             'qrPayload' => $qrPayload,
             'qrSvg' => $qrSvg,
+            'requiredDocumentTypes' => collect($asset->requiredDocumentTypes())->map(fn ($t) => [
+                'value' => $t->value,
+                'label' => $t->label(),
+            ]),
             'can' => [
                 'signReceipt' => $request->user()?->can('signReceipt', $asset) ?? false,
                 'markStored' => $request->user()?->can('markStored', $asset) ?? false,
@@ -122,6 +127,7 @@ class AssetController extends Controller
                 'processDisposal' => $request->user()?->can('create', \App\Models\Disposal::class) ?? false,
                 'updateCaseDetails' => $asset->has_ongoing_case && ($request->user()?->can('assets.update_case') ?? false),
                 'uploadEvidence' => $request->user()?->can('documents.upload') ?? false,
+                'verifyDocuments' => $request->user()?->can('documents.verify') ?? false,
             ],
         ]);
     }

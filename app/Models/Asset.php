@@ -114,4 +114,40 @@ class Asset extends Model
             ->first()
             ?->acknowledgementReceipt;
     }
+
+    public function requiredDocumentTypes(): array
+    {
+        if ($this->mode === AssetMode::Abandoned) {
+            return [\App\Enums\DocumentType::ConfiscationOrder];
+        }
+
+        if ($this->has_confiscation_order) {
+            return [\App\Enums\DocumentType::ForfeitureOrder];
+        }
+
+        return [];
+    }
+
+    public function hasAllRequiredDocumentsVerified(): bool
+    {
+        $required = $this->requiredDocumentTypes();
+
+        if (empty($required)) {
+            return true;
+        }
+
+        $verifiedTypes = $this->documents()
+            ->where('status', \App\Enums\DocumentStatus::Verified->value)
+            ->pluck('document_type')
+            ->map(fn ($t) => $t instanceof \App\Enums\DocumentType ? $t->value : $t)
+            ->unique();
+
+        foreach ($required as $type) {
+            if (! $verifiedTypes->contains($type->value)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

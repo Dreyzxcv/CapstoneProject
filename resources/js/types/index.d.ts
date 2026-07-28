@@ -60,12 +60,6 @@ export interface Asset {
     jev?: Jev;
     disposal?: Disposal;
     qr_scans?: QrScan[];
-    documents?: Array<{
-        id: number;
-        file_path: string;
-        original_name: string;
-        uploaded_at: string;
-    }>;
 }
 
 export interface AcknowledgementReceipt {
@@ -143,9 +137,14 @@ export interface QrScan {
 
 export interface DocumentItem {
     id: number;
+    document_type: string | null;
     file_path: string;
     original_name: string;
     mime_type: string | null;
+    status: 'pending' | 'verified' | 'rejected';
+    remarks: string | null;
     uploaded_at: string;
     uploaded_by?: User;
+    verified_by?: User;
+    verified_at: string | null;
 }

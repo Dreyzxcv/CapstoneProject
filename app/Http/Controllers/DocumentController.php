@@ -9,6 +9,11 @@ use App\Models\Document;
 use App\Models\IcsRecord;
 use App\Models\Jev;
 use App\Models\ParRecord;
+use App\Enums\DocumentStatus;
+use App\Enums\DocumentType;
+use App\Http\Requests\UploadRequiredDocumentRequest;
+use App\Http\Requests\VerifyDocumentRequest;
+use App\Services\AuditLogService;
 use App\Http\Requests\UploadEvidenceRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,13 +45,6 @@ class DocumentController extends Controller
 
         $this->authorize('view', $asset);
 
-        // Uploaded evidence files are stored under a randomly generated
-        // filename (Laravel's default when no name is given to store()).
-        // The human-readable name lives in documents.original_name, so use
-        // it as the download filename instead of exposing the random one.
-        // Generated PDFs (receipts, JEVs, etc.) already have a readable
-        // slug as their stored basename, so this falls back to null and
-        // Storage::download() just uses that basename as-is.
         $downloadName = $this->resolveDownloadName($decodedPath);
 
         $mimeType = Storage::disk('local')->mimeType($decodedPath);
@@ -98,10 +96,6 @@ class DocumentController extends Controller
         };
     }
 
-    /**
-     * The original filename to present on download, if this path belongs
-     * to an uploaded (as opposed to system-generated) document.
-     */
     protected function resolveDownloadName(string $path): ?string
     {
         return Document::where('file_path', $path)->value('original_name');
@@ -126,5 +120,56 @@ class DocumentController extends Controller
         }
 
         return back()->with('success', 'Evidence photo(s) uploaded.');
+    }
+
+    public function storeRequired(UploadRequiredDocumentRequest $request, Asset $asset): RedirectResponse
+    {
+        $this->authorize('view', $asset);
+
+        $file = $request->file('file');
+        $type = DocumentType::from($request->validated('document_type'));
+
+        $path = $file->store("documents/required/{$asset->id}", 'local');
+
+        Document::create([
+            'attachable_type' => Asset::class,
+            'attachable_id' => $asset->id,
+            'document_type' => $type,
+            'file_path' => $path,
+            'original_name' => $file->getClientOriginalName(),
+            'mime_type' => $file->getClientMimeType(),
+            'status' => DocumentStatus::Pending,
+            'uploaded_by' => $request->user()->id,
+            'uploaded_at' => now(),
+        ]);
+
+        return back()->with('success', "{$type->label()} uploaded for review.");
+    }
+
+    public function verify(VerifyDocumentRequest $request, Document $document, AuditLogService $auditLog): RedirectResponse
+    {
+        $this->authorize('verify', $document);
+
+        $before = $document->only(['status', 'remarks']);
+        $decision = $request->validated('decision');
+
+        $document->update([
+            'status' => $decision,
+            'remarks' => $decision === 'rejected' ? $request->validated('remarks') : null,
+            'verified_by' => $request->user()->id,
+            'verified_at' => now(),
+        ]);
+
+        $auditLog->log(
+            $decision === 'verified' ? 'document.verified' : 'document.rejected',
+            $document,
+            $before,
+            $document->fresh()->only(['status', 'remarks']),
+            $request->user()->id,
+        );
+
+        return back()->with('success', $decision === 'verified'
+            ? 'Document marked as verified.'
+            : 'Document rejected and sent back to MES with remarks.');
     }
 }

@@ -14,11 +14,13 @@ import { FileText, MapPin } from 'lucide-react';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
 import { EvidenceUploader } from '@/Components/shared/EvidenceUploader';
 import { PdfBadge } from '@/Components/shared/PdfBadge';
+import RequiredDocumentsModal from '@/Components/shared/RequiredDocumentsModal';
 
 interface ShowProps {
     asset: Asset;
     qrPayload: string | null;
     qrSvg: string | null;
+    requiredDocumentTypes: Array<{ value: string; label: string }>;
     can: {
         signReceipt: boolean;
         markStored: boolean;
@@ -29,14 +31,16 @@ interface ShowProps {
         resolveCase: boolean;
         updateCaseDetails: boolean;
         uploadEvidence: boolean;
+        verifyDocuments: boolean;
     };
 }
 
-export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) {
+export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTypes, can }: ShowProps) {
     const { auth } = usePage<PageProps>().props;
     const [confirmAction, setConfirmAction] = useState<string | null>(null);
     const [showJevModal, setShowJevModal] = useState(false);
     const qrContainerRef = useRef<HTMLDivElement | null>(null);
+    const [showRequiredDocsModal, setShowRequiredDocsModal] = useState(false);
 
     useEffect(() => {
         if (!qrContainerRef.current) return;
@@ -247,6 +251,20 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                     <Card>
                         <CardHeader><CardTitle className="text-base">Evidence & Documents</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
+                            {requiredDocumentTypes.length > 0 && (
+                                <div className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 p-3">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-800">Required Documents</p>
+                                        <p className="text-xs text-gray-500">
+                                            {requiredDocumentTypes.length} document{requiredDocumentTypes.length === 1 ? '' : 's'} required before storage.
+                                        </p>
+                                    </div>
+                                    <Button size="sm" variant="outline" onClick={() => setShowRequiredDocsModal(true)}>
+                                        Manage
+                                    </Button>
+                                </div>
+                            )}
+
                             {can.uploadEvidence && <EvidenceUploader assetId={asset.id} />}
                             {(asset.documents ?? []).length === 0 ? (
                                 <p className="text-sm text-gray-500">No supporting documents uploaded yet.</p>
@@ -260,8 +278,22 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                                                 key={doc.id}
                                                 href={url ?? '#'}
                                                 title={doc.original_name}
-                                                className="group block overflow-hidden rounded-md border border-gray-200"
+                                                className="group relative block overflow-hidden rounded-md border border-gray-200"
                                             >
+                                                {doc.document_type && (
+                                                    <span
+                                                        className={
+                                                            'absolute right-1 top-1 z-10 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ' +
+                                                            (doc.status === 'verified'
+                                                                ? 'bg-emerald-100 text-emerald-800'
+                                                                : doc.status === 'rejected'
+                                                                    ? 'bg-red-100 text-red-800'
+                                                                    : 'bg-amber-100 text-amber-800')
+                                                        }
+                                                    >
+                                                        {doc.status}
+                                                    </span>
+                                                )}
                                                 {isImage ? (
                                                     <img src={url ?? ''} className="h-24 w-full object-cover" />
                                                 ) : (
@@ -292,6 +324,11 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                                 <Button className="w-full" variant="secondary" onClick={handleMarkStored}>
                                     Mark as Stored
                                 </Button>
+                            )}
+                            {asset.current_status === 'receipt_signed' && !can.markStored && requiredDocumentTypes.length > 0 && (
+                                <p className="text-xs text-amber-700">
+                                    Waiting on required document verification before this asset can be marked as stored.
+                                </p>
                             )}
                             {can.resolveCase && (
                                 <Button className="w-full" variant="secondary" onClick={handleResolveTrial}>
@@ -407,6 +444,16 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, can }: ShowProps) 
                         </div>
                     </form>
                 </Modal>
+
+                <RequiredDocumentsModal
+                    show={showRequiredDocsModal}
+                    onClose={() => setShowRequiredDocsModal(false)}
+                    assetId={asset.id}
+                    requiredTypes={requiredDocumentTypes}
+                    documents={asset.documents ?? []}
+                    canUpload={can.uploadEvidence}
+                    canVerify={can.verifyDocuments}
+                />
 
                 {/* QR + Donation */}
                 {(qrSvg || asset.disposal?.donation) && (

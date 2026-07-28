@@ -1,6 +1,6 @@
 # LogTrack Insight
 
-**A QR-Based Forest Asset Inventory System with Data Analytics**
+**A QR-Based Forest Asset Inventory and GIS Mapping System with Data Analytics**
 Developed for DENR-PENRO Catanduanes (Provincial Environment and Natural Resources Office)
 
 ---
@@ -16,7 +16,10 @@ profile: confiscation details, origin, species, legal status, custody history,
 and every generated document. The system tracks each asset from **intake at
 MES** through **Property custody**, **Accounting (JEV processing)**, and
 **final disposition** (donation, decay, fabrication, release, or forfeiture),
-with a full audit trail at every step.
+with a full audit trail at every step. Apprehension locations are also
+captured and plotted on an interactive GIS map, giving PENRO staff and
+management spatial visibility into where confiscations are concentrated
+across Catanduanes.
 
 This project was built to close a documented accountability gap: COA audits
 have repeatedly flagged DENR field offices, including PENRO Catanduanes, for
@@ -41,8 +44,11 @@ untracked, in government custody.
 - **Real-time inventory dashboard** — role-specific views of asset counts,
   pipeline stages, and actionable alerts (appeal deadlines, decay risk,
   stalled paperwork)
-- **Incident mapping** — apprehension locations plotted on an interactive
-  map of Catanduanes, with asset-type and abandonment-status legends
+- **GIS incident mapping** — apprehension coordinates logged at intake are
+  plotted on an interactive Leaflet map of Catanduanes, with Normal/Satellite
+  basemap toggle, asset-type color coding, and abandonment-status markers;
+  donation delivery points and individual asset locations are similarly
+  mapped on their respective records
 - **Reports & analytics** — inventory summaries, municipality-based
   confiscation stats, and month-over-month trend charts
 - **Append-only audit log** — every create/update/status-change/scan is
@@ -51,7 +57,8 @@ untracked, in government custody.
 ## Domain Flow (summary)
 
 1. **MES Intake** — asset is received as Apprehended, Abandoned, or Turned
-   Over; MES encodes the details and generates an Acknowledgement Receipt
+   Over; MES encodes the details (including GPS coordinates of apprehension)
+   and generates an Acknowledgement Receipt
 2. **Property Custody** — the Property Custodian verifies documentation,
    signs the receipt, generates the QR tag, and marks the asset as stored
 3. **Case Branch** — assets with an ongoing court case remain in custody
@@ -74,7 +81,7 @@ untracked, in government custody.
 | Auth & RBAC | Laravel Breeze + Spatie `laravel-permission` |
 | PDF generation | `barryvdh/laravel-dompdf` |
 | QR codes | `chillerlan/php-qrcode` (generation), `html5-qrcode` (scanning) |
-| Maps | Leaflet |
+| GIS / Mapping | Leaflet, with CartoDB/Esri satellite and OpenStreetMap basemaps |
 | Charts | Recharts |
 
 ## User Roles
