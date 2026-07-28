@@ -33,6 +33,7 @@ class IncidentController extends Controller
                 'label' => $m->value,
             ]),
             'barangaysByMunicipality' => config('barangays'),
+            'nextIncidentSequence' => \App\Models\Incident::count() + 1,
         ]);
     }
 
