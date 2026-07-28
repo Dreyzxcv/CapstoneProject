@@ -20,7 +20,7 @@ interface CreateProps {
     modes: Option[];
     municipalities: Option[];
     barangaysByMunicipality: Record<string, string[]>;
-    nextIncidentSequence: number;
+    nextAssetSequence: number;
 }
 
 interface AssetRow {
@@ -64,7 +64,7 @@ function emptyAssetRow(defaults: { municipality: string; agency: string; mode: s
 const selectClass =
     'flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600';
 
-export default function IncidentsCreate({ types, modes, municipalities, nextIncidentSequence }: CreateProps) {
+export default function IncidentsCreate({ types, modes, municipalities, nextAssetSequence }: CreateProps) {
     const defaultMunicipality = municipalities[0]?.value ?? '';
     const defaultAgency = 'PENRO Catanduanes MES';
     const defaultMode = 'apprehended';
@@ -83,16 +83,11 @@ export default function IncidentsCreate({ types, modes, municipalities, nextInci
 
     const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
-
-    // Reference code preview: AAP-FV-{year of apprehension}-{sequence}.
-    // Year tracks the date_of_apprehension field the user fills in, not
-    // today's date — the sequence is the number the backend will actually
-    // assign (passed in via props at page load).
     const previewYear = data.date_of_apprehension
         ? new Date(data.date_of_apprehension).getFullYear()
         : null;
     const previewCode = previewYear
-        ? `AAP-FV-${previewYear}-${String(nextIncidentSequence).padStart(5, '0')}`
+        ? `AAP-FV-${previewYear}-${String(nextAssetSequence).padStart(5, '0')}`
         : null;
 
     function updateAsset(index: number, field: keyof AssetRow, value: string | boolean) {
@@ -168,7 +163,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextInci
                                     </span>
                                 ) : (
                                     <span className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500">
-                                        Reference No. will appear once the date of apprehension is set.
+                                        Reference No.
                                     </span>
                                 )}
                             </div>
