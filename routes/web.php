@@ -8,6 +8,7 @@ use App\Http\Controllers\JevController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QrScanController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\MarketPriceController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -54,6 +55,10 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::get('/reports/inventory.csv', [ReportController::class, 'inventory'])->name('reports.inventory');
     Route::get('/reports/compliance.pdf', [ReportController::class, 'compliance'])->name('reports.compliance');
     Route::get('/audit-logs', [ReportController::class, 'auditLogs'])->name('audit-logs.index');
+
+    Route::get('/settings/market-prices', [MarketPriceController::class, 'index'])->name('market-prices.index');
+    Route::post('/settings/market-prices', [MarketPriceController::class, 'store'])->name('market-prices.store');
+    Route::delete('/settings/market-prices/{marketPrice}', [MarketPriceController::class, 'destroy'])->name('market-prices.destroy');
 
     Route::get('/documents/{path}', [DocumentController::class, 'download'])
         ->where('path', '[A-Za-z0-9+/=]+')
