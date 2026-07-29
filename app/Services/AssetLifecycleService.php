@@ -18,9 +18,6 @@ class AssetLifecycleService
             AssetStatus::PendingCustodyReview,
         ],
         AssetStatus::PendingCustodyReview->value => [
-            AssetStatus::ReceiptSigned,
-        ],
-        AssetStatus::ReceiptSigned->value => [
             AssetStatus::Stored,
         ],
         AssetStatus::Stored->value => [
@@ -124,8 +121,8 @@ class AssetLifecycleService
             ],
             AssetStatus::PendingCustodyReview => [
                 'title' => 'Property Custody Review',
-                'summary' => 'The asset must be reviewed and signed before it is tagged for storage.',
-                'nextAction' => 'Sign the acknowledgement receipt and verify the documentation.',
+                'summary' => 'MES has uploaded the required documents; Property Custodian must verify them before the asset can be stored.',
+                'nextAction' => 'Verify the uploaded documents, then mark the asset as stored to generate the acknowledgement receipt and QR code.',
             ],
             AssetStatus::ReceiptSigned => [
                 'title' => 'Storage Preparation',

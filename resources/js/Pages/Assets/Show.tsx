@@ -314,11 +314,6 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                     <Card>
                         <CardHeader><CardTitle className="text-base">Actions</CardTitle></CardHeader>
                         <CardContent className="space-y-3">
-                            {can.signReceipt && (
-                                <Button className="w-full" onClick={handleSignReceipt}>
-                                    Sign Acknowledgement Receipt
-                                </Button>
-                            )}
                             {can.markStored && (
                                 <Button className="w-full" variant="secondary" onClick={handleMarkStored}>
                                     Mark as Stored

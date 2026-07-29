@@ -118,7 +118,6 @@ class AssetController extends Controller
                 'label' => $t->label(),
             ]),
             'can' => [
-                'signReceipt' => $request->user()?->can('signReceipt', $asset) ?? false,
                 'markStored' => $request->user()?->can('markStored', $asset) ?? false,
                 'generateQr' => $request->user()?->can('generateQr', $asset) ?? false,
                 'uploadJev' => $asset->jev ? ($request->user()?->can('upload', $asset->jev) ?? false) : false,
@@ -130,15 +129,6 @@ class AssetController extends Controller
                 'verifyDocuments' => $request->user()?->can('documents.verify') ?? false,
             ],
         ]);
-    }
-
-    public function signReceipt(Asset $asset, SignAcknowledgementReceipt $action): RedirectResponse
-    {
-        $this->authorize('signReceipt', $asset);
-
-        $action->execute($asset, request()->user());
-
-        return back()->with('success', 'Acknowledgement receipt signed.');
     }
 
     public function markStored(Asset $asset, MarkAssetStored $action): RedirectResponse

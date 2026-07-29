@@ -63,10 +63,6 @@ class CreateAsset
                 'asset_code' => $this->assetCodeService->generate($asset, $municipality, $hasOngoingCase),
             ]);
 
-            if ($issueReceipt) {
-                $this->issueReceiptFor($asset);
-            }
-
             $this->lifecycleService->transition(
                 $asset->fresh(),
                 AssetStatus::PendingCustodyReview,
@@ -81,13 +77,15 @@ class CreateAsset
         });
     }
 
-    public function issueReceiptFor(Asset $asset): AcknowledgementReceipt
+    public function issueReceiptFor(Asset $asset, ?User $custodian = null): AcknowledgementReceipt
     {
         $receiptNumber = 'AR-'.now()->format('Y').'-'.str_pad((string) $asset->id, 5, '0', STR_PAD_LEFT);
 
         $receipt = AcknowledgementReceipt::create([
             'asset_id' => $asset->id,
             'receipt_number' => $receiptNumber,
+            'signed_by_custodian_id' => $custodian?->id,
+            'signed_at' => $custodian ? now() : null,
         ]);
 
         $this->pdfDocumentService->generateAcknowledgementReceipt($asset, $receipt);

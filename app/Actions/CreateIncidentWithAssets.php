@@ -47,9 +47,6 @@ class CreateIncidentWithAssets
 
             $incident->load('assets');
 
-            $firstAsset = $incident->assets->first();
-            $this->createAsset->issueReceiptFor($firstAsset);
-
             $this->auditLogService->log('incident.created', $incident, null, $incident->toArray(), $user->id);
 
             return $incident->fresh('assets.acknowledgementReceipt');

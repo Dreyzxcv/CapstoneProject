@@ -12,19 +12,28 @@ class MarkAssetStored
 {
     public function __construct(
         protected AssetLifecycleService $lifecycleService,
+        protected CreateAsset $createAsset,
     ) {}
 
     public function execute(Asset $asset, User $user): Asset
     {
-        if ($asset->current_status !== AssetStatus::ReceiptSigned) {
-            throw new DomainException('Receipt must be signed before marking as stored.');
+        if ($asset->current_status !== AssetStatus::PendingCustodyReview) {
+            throw new DomainException('Asset must be pending custody review before it can be stored.');
+        }
+
+        if (! $asset->hasAllRequiredDocumentsVerified()) {
+            throw new DomainException('All required documents must be verified before marking as stored.');
+        }
+
+        if (! $asset->acknowledgementReceipt) {
+            $this->createAsset->issueReceiptFor($asset, $user);
         }
 
         $asset = $this->lifecycleService->transition(
-            $asset,
+            $asset->fresh(),
             AssetStatus::Stored,
             $user,
-            'Asset tagged and placed in storage.',
+            'Documents verified by Property Custodian; asset tagged, placed in storage, and acknowledgement receipt generated.',
             'asset.stored',
         );
 

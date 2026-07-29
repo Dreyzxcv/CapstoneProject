@@ -22,16 +22,10 @@ class AssetPolicy
         return $user->can('assets.create');
     }
 
-    public function signReceipt(User $user, Asset $asset): bool
-    {
-        return $user->can('assets.sign_receipt')
-            && $asset->current_status === \App\Enums\AssetStatus::PendingCustodyReview;
-    }
-
     public function markStored(User $user, Asset $asset): bool
     {
         return $user->can('assets.mark_stored')
-            && $asset->current_status === \App\Enums\AssetStatus::ReceiptSigned
+            && $asset->current_status === \App\Enums\AssetStatus::PendingCustodyReview
             && $asset->hasAllRequiredDocumentsVerified();
     }
 
