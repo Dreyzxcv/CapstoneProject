@@ -117,15 +117,17 @@ class Asset extends Model
 
     public function requiredDocumentTypes(): array
     {
+        $required = [];
+
         if ($this->mode === AssetMode::Abandoned) {
-            return [\App\Enums\DocumentType::ConfiscationOrder];
+            $required[] = \App\Enums\DocumentType::ConfiscationOrder;
         }
 
         if ($this->has_confiscation_order) {
-            return [\App\Enums\DocumentType::ForfeitureOrder];
+            $required[] = \App\Enums\DocumentType::ForfeitureOrder;
         }
 
-        return [];
+        return $required;
     }
 
     public function hasAllRequiredDocumentsVerified(): bool

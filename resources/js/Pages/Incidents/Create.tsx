@@ -241,11 +241,11 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                             <div className="mt-2">
                                 {previewCode ? (
                                     <span className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-mono font-semibold text-emerald-800">
-                                        Reference No.: {previewCode}
+                                        AAP No.: {previewCode}
                                     </span>
                                 ) : (
                                     <span className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500">
-                                        Reference No. will appear once the date of apprehension is set.
+                                        AAP No. will appear once the date of apprehension is set.
                                     </span>
                                 )}
                             </div>
@@ -253,7 +253,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                         <CardContent className="space-y-6 pt-6">
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="date_of_apprehension">Date of Apprehension</Label>
+                                    <Label htmlFor="date_of_apprehension">Date of Apprehension<span className="text-red-500">*</span></Label>
                                     <Input
                                         id="date_of_apprehension"
                                         type="date"
@@ -264,12 +264,13 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     <InputError message={errors.date_of_apprehension} />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="date_report_submitted">Date Submitted (Apprehension Report)</Label>
+                                    <Label htmlFor="date_report_submitted">Date Submitted (Apprehension Report)<span className="text-red-500">*</span></Label>
                                     <Input
                                         id="date_report_submitted"
                                         type="date"
                                         value={data.date_report_submitted}
                                         onChange={(e) => setData('date_report_submitted', e.target.value)}
+                                        required
                                     />
                                     <InputError message={errors.date_report_submitted} />
                                 </div>
@@ -283,7 +284,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="place_of_apprehension">Municipality (Place of Apprehension)</Label>
+                                    <Label htmlFor="place_of_apprehension">Municipality (Place of Apprehension)<span className="text-red-500">*</span></Label>
                                     <select
                                         id="place_of_apprehension"
                                         value={data.place_of_apprehension}
@@ -299,12 +300,13 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     <InputError message={errors.place_of_apprehension} />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="area">Area</Label>
+                                    <Label htmlFor="area">Area<span className="text-red-500">*</span></Label>
                                     <Input
                                         id="area"
                                         placeholder="Forest area / compartment"
                                         value={data.area}
                                         onChange={(e) => setData('area', e.target.value)}
+                                        required
                                     />
                                     <InputError message={errors.area} />
                                 </div>
@@ -312,13 +314,14 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
 
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="coordinates">Coordinates</Label>
+                                    <Label htmlFor="coordinates">Coordinates<span className="text-red-500">*</span></Label>
                                     <div className="flex gap-2">
                                         <Input
                                             id="coordinates"
                                             placeholder="e.g. 13.5833, 124.2333"
                                             value={data.coordinates}
                                             onChange={(e) => setData('coordinates', e.target.value)}
+                                            required
                                         />
                                         <Button type="button" variant="outline" onClick={() => setShowCoordinatesPicker(true)}>
                                             Pick on Map
@@ -329,7 +332,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
 
                                 {/* Apprehending Party — supports multiple entries */}
                                 <div className="space-y-2">
-                                    <Label>Apprehending Party</Label>
+                                    <Label>Apprehending Party<span className="text-red-500">*</span></Label>
                                     <div className="space-y-2">
                                         {data.apprehending_parties.map((party, index) => (
                                             <div key={index} className="flex gap-2">
@@ -364,13 +367,14 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                                 <div className="grid gap-4 md:grid-cols-2 md:items-end">
                                     <div className="space-y-2">
-                                        <Label htmlFor="claimant_offender_name">Claimant / Offender Name</Label>
+                                        <Label htmlFor="claimant_offender_name">Claimant / Offender Name<span className="text-red-500">*</span></Label>
                                         <Input
                                             id="claimant_offender_name"
                                             placeholder={data.is_abandoned ? 'Not applicable — marked abandoned' : 'Leave blank if unknown / abandoned'}
                                             value={data.claimant_offender_name}
                                             onChange={(e) => setData('claimant_offender_name', e.target.value)}
                                             disabled={data.is_abandoned}
+                                            required
                                         />
                                         <InputError message={errors.claimant_offender_name} />
                                     </div>
@@ -409,12 +413,13 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                 <CardContent className="space-y-6 pt-6">
                                     <div className="grid gap-4 md:grid-cols-3">
                                         <div className="space-y-2">
-                                            <Label htmlFor={`type-${index}`}>Asset Type</Label>
+                                            <Label htmlFor={`type-${index}`}>Asset Type<span className="text-red-500">*</span></Label>
                                             <select
                                                 id={`type-${index}`}
                                                 value={asset.type}
                                                 onChange={(e) => updateAsset(index, 'type', e.target.value)}
                                                 className={selectClass}
+                                                required
                                             >
                                                 {types.map((t) => (
                                                     <option key={t.value} value={t.value}>{t.label}</option>
@@ -423,12 +428,13 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             <InputError message={assetError(index, 'type')} />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor={`mode-${index}`}>Intake Mode</Label>
+                                            <Label htmlFor={`mode-${index}`}>Intake Mode<span className="text-red-500">*</span></Label>
                                             <select
                                                 id={`mode-${index}`}
                                                 value={asset.mode}
                                                 onChange={(e) => updateAsset(index, 'mode', e.target.value)}
                                                 className={selectClass}
+                                                required
                                             >
                                                 {modes.map((m) => (
                                                     <option key={m.value} value={m.value}>{m.label}</option>
@@ -451,7 +457,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
 
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label htmlFor={`species-${index}`}>Species</Label>
+                                            <Label htmlFor={`species-${index}`}>Species<span className="text-red-500">*</span></Label>
                                             {asset.speciesIsOther ? (
                                                 <div className="flex gap-2">
                                                     <Input
@@ -460,6 +466,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                         value={asset.species}
                                                         onChange={(e) => updateAsset(index, 'species', e.target.value)}
                                                         autoFocus
+                                                        required
                                                     />
                                                     <Button
                                                         type="button"
@@ -486,7 +493,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             <InputError message={assetError(index, 'species')} />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor={`apprehending_agency-${index}`}>Apprehending Agency</Label>
+                                            <Label htmlFor={`apprehending_agency-${index}`}>Apprehending Agency<span className="text-red-500">*</span></Label>
                                             <Input
                                                 id={`apprehending_agency-${index}`}
                                                 value={asset.apprehending_agency}
@@ -498,11 +505,12 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor={`description-${index}`}>Description</Label>
+                                        <Label htmlFor={`description-${index}`}>Description<span className="text-red-500">*</span></Label>
                                         <Input
                                             id={`description-${index}`}
                                             value={asset.description}
                                             onChange={(e) => updateAsset(index, 'description', e.target.value)}
+                                            required
                                         />
                                         <InputError message={assetError(index, 'description')} />
                                     </div>
@@ -510,7 +518,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     {asset.type === 'log' && (
                                         <div className="grid gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4 md:grid-cols-3">
                                             <div className="space-y-2">
-                                                <Label htmlFor={`volume_bd_ft-${index}`}>Volume (bd.ft)</Label>
+                                                <Label htmlFor={`volume_bd_ft-${index}`}>Volume (bd.ft)<span className="text-red-500">*</span></Label>
                                                 <Input
                                                     id={`volume_bd_ft-${index}`}
                                                     type="number"
@@ -518,6 +526,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                     min="0"
                                                     value={asset.volume_bd_ft}
                                                     onChange={(e) => handleVolumeBdFtChange(index, e.target.value)}
+                                                    required
                                                 />
                                                 <InputError message={assetError(index, 'volume_bd_ft')} />
                                             </div>
@@ -537,7 +546,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                 <InputError message={assetError(index, 'volume_cu_m')} />
                                             </div>
                                             <div className="space-y-2">
-                                                <Label htmlFor={`estimated_value-${index}`}>Estimated Value (php)</Label>
+                                                <Label htmlFor={`estimated_value-${index}`}>Estimated Value (php)<span className="text-red-500">*</span></Label>
                                                 <Input
                                                     id={`estimated_value-${index}`}
                                                     type="number"
@@ -545,6 +554,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                     min="0"
                                                     value={asset.estimated_value}
                                                     onChange={(e) => updateAsset(index, 'estimated_value', e.target.value)}
+                                                    required
                                                 />
                                                 <InputError message={assetError(index, 'estimated_value')} />
                                             </div>
@@ -554,11 +564,12 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     {asset.type === 'vehicle' && (
                                         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                                             <div className="max-w-xs space-y-2">
-                                                <Label htmlFor={`plate_number-${index}`}>Conveyance / Plate No.</Label>
+                                                <Label htmlFor={`plate_number-${index}`}>Conveyance / Plate No.<span className="text-red-500">*</span></Label>
                                                 <Input
                                                     id={`plate_number-${index}`}
                                                     value={asset.plate_number}
                                                     onChange={(e) => updateAsset(index, 'plate_number', e.target.value)}
+                                                    required
                                                 />
                                                 <InputError message={assetError(index, 'plate_number')} />
                                             </div>
@@ -567,7 +578,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
 
                                     {asset.type !== 'log' && (
                                         <div className="space-y-2 md:max-w-xs">
-                                            <Label htmlFor={`estimated_value_other-${index}`}>Estimated Value (php)</Label>
+                                            <Label htmlFor={`estimated_value_other-${index}`}>Estimated Value (php)<span className="text-red-500">*</span></Label>
                                             <Input
                                                 id={`estimated_value_other-${index}`}
                                                 type="number"
@@ -575,6 +586,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                 min="0"
                                                 value={asset.estimated_value}
                                                 onChange={(e) => updateAsset(index, 'estimated_value', e.target.value)}
+                                                required
                                             />
                                             <InputError message={assetError(index, 'estimated_value')} />
                                         </div>
@@ -620,7 +632,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                             <h3 className="text-sm font-semibold text-gray-700">Apprehension Details</h3>
                             {previewCode && (
                                 <p className="mt-1 font-mono text-xs font-semibold text-emerald-700">
-                                    Reference No.: {previewCode}
+                                    AAP No.: {previewCode}
                                 </p>
                             )}
                             <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm md:grid-cols-2">
