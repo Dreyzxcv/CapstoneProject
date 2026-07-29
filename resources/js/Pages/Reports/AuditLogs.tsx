@@ -14,7 +14,6 @@ import { Head, Link, usePoll } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import { History, Inbox, Search } from 'lucide-react';
 
-usePoll(6000, { only: ['logs'] });
 
 interface AuditLogEntry {
     id: number;
@@ -100,6 +99,7 @@ function avatarColor(name: string) {
 }
 
 export default function AuditLogs({ logs }: AuditLogsProps) {
+    usePoll(6000, { only: ['logs'] });
     const [search, setSearch] = useState('');
 
     const filtered = useMemo(() => {
