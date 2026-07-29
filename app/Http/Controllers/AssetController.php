@@ -120,6 +120,7 @@ class AssetController extends Controller
             'can' => [
                 'markStored' => $request->user()?->can('markStored', $asset) ?? false,
                 'generateQr' => $request->user()?->can('generateQr', $asset) ?? false,
+                'createJev' => $request->user()?->can('create', \App\Models\Jev::class) ?? false,
                 'uploadJev' => $asset->jev ? ($request->user()?->can('upload', $asset->jev) ?? false) : false,
                 'resolveCase' => $request->user()?->can('updateCaseStatus', $asset) ?? false,
                 'releaseDonation' => $request->user()?->can('disposals.process') ?? false,
