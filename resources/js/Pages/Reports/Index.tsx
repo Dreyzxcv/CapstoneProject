@@ -13,8 +13,9 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
-import { Boxes } from 'lucide-react';
+import { Boxes, Download } from 'lucide-react';
 import { IncidentsMap, IncidentLocation } from '@/Components/shared/IncidentsMap';
+import { useMemo, useState } from 'react';
 
 
 interface TrendPoint {
@@ -92,6 +93,29 @@ function TrendTooltip({
     );
 }
 
+const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+function parseCoordinatesForExport(value: string): { lat: number; lng: number } | null {
+    const match = value.match(/(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)/);
+    if (!match) return null;
+    const lat = parseFloat(match[1]);
+    const lng = parseFloat(match[3]);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+    return { lat, lng };
+}
+
+function escapeXml(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
 export default function ReportsIndex({
     summary,
     byType,
@@ -130,6 +154,85 @@ export default function ReportsIndex({
             { months },
             { preserveState: true, preserveScroll: true, only: ['trends', 'trendMonths'] },
         );
+    }
+
+    const [mapMonth, setMapMonth] = useState<string>('all');
+    const [mapYear, setMapYear] = useState<string>('all');
+
+    const availableYears = useMemo(() => {
+        const years = new Set<number>();
+        incidentLocations.forEach((incident) => {
+            if (incident.date_of_apprehension) {
+                years.add(new Date(incident.date_of_apprehension).getFullYear());
+            }
+        });
+        return Array.from(years).sort((a, b) => b - a);
+    }, [incidentLocations]);
+
+    const filteredIncidentLocations = useMemo(() => {
+        if (mapMonth === 'all' && mapYear === 'all') return incidentLocations;
+
+        return incidentLocations.filter((incident) => {
+            if (!incident.date_of_apprehension) return false;
+            const date = new Date(incident.date_of_apprehension);
+            if (mapYear !== 'all' && date.getFullYear() !== Number(mapYear)) return false;
+            if (mapMonth !== 'all' && date.getMonth() !== Number(mapMonth)) return false;
+            return true;
+        });
+    }, [incidentLocations, mapMonth, mapYear]);
+
+    function handleExportKml() {
+        const placemarks = filteredIncidentLocations
+            .map((incident) => {
+                const point = parseCoordinatesForExport(incident.coordinates);
+                if (!point) return null;
+
+                const dateLabel = incident.date_of_apprehension
+                    ? new Date(incident.date_of_apprehension).toLocaleDateString('en-US', {
+                          month: 'long',
+                          day: 'numeric',
+                          year: 'numeric',
+                      })
+                    : 'Date not on file';
+
+                const description = escapeXml(
+                    `${incident.place_of_apprehension} — ${dateLabel} — ${incident.asset_count} asset(s)` +
+                        (incident.is_abandoned ? ' — Abandoned' : ''),
+                );
+
+                return `    <Placemark>
+      <name>${escapeXml(incident.incident_code)}</name>
+      <description>${description}</description>
+      <Point>
+        <coordinates>${point.lng},${point.lat},0</coordinates>
+      </Point>
+    </Placemark>`;
+            })
+            .filter((entry): entry is string => entry !== null)
+            .join('\n');
+
+        const kml = `<?xml version="1.0" encoding="UTF-8"?>
+            <kml xmlns="http://www.opengis.net/kml/2.2">
+            <Document>
+                <name>LogTrack Insight — Confiscation Locations</name>
+            ${placemarks}
+            </Document>
+            </kml>`;
+
+        const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+        const url = URL.createObjectURL(blob);
+        const suffix =
+            mapYear !== 'all' || mapMonth !== 'all'
+                ? `-${mapYear !== 'all' ? mapYear : 'all-years'}${mapMonth !== 'all' ? `-${MONTH_NAMES[Number(mapMonth)]}` : ''}`
+                : '';
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `confiscation-locations${suffix}.kml`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     }
 
     return (
@@ -273,14 +376,52 @@ export default function ReportsIndex({
                 </div>
                 {/* Incident map */}
                 <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base font-semibold text-gray-900">Confiscation Locations</CardTitle>
-                        <p className="text-sm text-gray-500">
-                            Where each incident was apprehended, based on coordinates MES logged at intake. Click a marker for details.
-                        </p>
+                    <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <CardTitle className="text-base font-semibold text-gray-900">Confiscation Locations</CardTitle>
+                            <p className="text-sm text-gray-500">
+                                Where each incident was apprehended, based on coordinates MES logged at intake. Click a marker for details.
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <select
+                                value={mapMonth}
+                                onChange={(e) => setMapMonth(e.target.value)}
+                                className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                            >
+                                <option value="all">All Months</option>
+                                {MONTH_NAMES.map((name, index) => (
+                                    <option key={name} value={index}>{name}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={mapYear}
+                                onChange={(e) => setMapYear(e.target.value)}
+                                className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                            >
+                                <option value="all">All Years</option>
+                                {availableYears.map((year) => (
+                                    <option key={year} value={year}>{year}</option>
+                                ))}
+                            </select>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={handleExportKml}
+                                disabled={filteredIncidentLocations.length === 0}
+                            >
+                                <Download className="mr-1.5 h-3.5 w-3.5" />
+                                Export KML
+                            </Button>
+                        </div>
                     </CardHeader>
                     <CardContent className="pt-2">
-                        <IncidentsMap incidents={incidentLocations} />
+                        <p className="mb-2 text-xs text-gray-500">
+                            Showing {filteredIncidentLocations.length} of {incidentLocations.length} incident
+                            {incidentLocations.length === 1 ? '' : 's'} with coordinates.
+                        </p>
+                        <IncidentsMap incidents={filteredIncidentLocations} />
                     </CardContent>
                 </Card>
 
