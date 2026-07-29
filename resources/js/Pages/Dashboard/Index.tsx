@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage, usePoll } from '@inertiajs/react';
 import { PageProps } from '@/types';
 import {
     Boxes,
@@ -78,6 +78,10 @@ export default function DashboardIndex({
 }: DashboardProps) {
     const { auth } = usePage<PageProps>().props;
     const permissions = auth.user?.permissions ?? [];
+
+    usePoll(8000, {
+        only: ['stats', 'alerts', 'roleContext'],
+    });
 
     const primaryAction = permissions.includes('incident.create')
         ? { label: 'New Intake', href: route('incident.create') }

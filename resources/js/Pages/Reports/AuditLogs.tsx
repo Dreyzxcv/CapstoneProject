@@ -10,9 +10,11 @@ import {
     TableHeader,
     TableRow,
 } from '@/Components/ui/table';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePoll } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import { History, Inbox, Search } from 'lucide-react';
+
+usePoll(6000, { only: ['logs'] });
 
 interface AuditLogEntry {
     id: number;

@@ -8,7 +8,7 @@ import InputError from '@/Components/InputError';
 import Modal from '@/Components/Modal';
 import { Asset, PageProps } from '@/types';
 import { documentUrl } from '@/lib/utils';
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage, usePoll } from '@inertiajs/react';
 import { FormEvent, useState, useRef, useEffect } from 'react';
 import { FileText, MapPin, Upload } from 'lucide-react';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
@@ -35,6 +35,17 @@ interface ShowProps {
 }
 
 export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTypes, can }: ShowProps) {
+    // --- Real-time refresh ---------------------------------------------
+    // Must be called unconditionally, in the same position on every render,
+    // alongside the other hooks below — never inside a conditional, loop,
+    // callback, or after an early `return`. Violating that is exactly what
+    // produces React error #321 ("invalid hook call").
+    //
+    // Polls just the `asset` prop in the background every 6s, so a scan,
+    // signature, JEV upload, or disposal made by another user (or from the
+    // mobile scanner) shows up here without a manual refresh.
+    usePoll(6000, { only: ['asset'] });
+
     const { auth } = usePage<PageProps>().props;
     const [confirmAction, setConfirmAction] = useState<string | null>(null);
     const [showJevModal, setShowJevModal] = useState(false);

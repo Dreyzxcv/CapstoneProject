@@ -2,7 +2,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { AssetStatusBadge } from '@/Components/shared/AssetStatusBadge';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePoll } from '@inertiajs/react';
 import {
     Bar,
     BarChart,
@@ -15,6 +15,8 @@ import {
 } from 'recharts';
 import { Boxes } from 'lucide-react';
 import { IncidentsMap, IncidentLocation } from '@/Components/shared/IncidentsMap';
+
+usePoll(10000, { only: ['summary', 'byType', 'byMunicipality', 'trends', 'recentActivity'] });
 
 interface TrendPoint {
     key: string;
