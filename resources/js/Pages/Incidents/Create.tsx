@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { FormEventHandler, useState } from 'react';
+import { FormEventHandler, useMemo, useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 
@@ -15,12 +15,19 @@ interface Option {
     label: string;
 }
 
+interface MarketPriceEntry {
+    species: string;
+    year: number;
+    price_per_bd_ft: string;
+}
+
 interface CreateProps {
     types: Option[];
     modes: Option[];
     municipalities: Option[];
     barangaysByMunicipality: Record<string, string[]>;
     nextAssetSequence: number;
+    marketPrices: MarketPriceEntry[];
 }
 
 interface AssetRow {
@@ -32,6 +39,7 @@ interface AssetRow {
     volume_bd_ft: string;
     volume_cu_m: string;
     estimated_value: string;
+    estimated_value_auto: boolean;
     plate_number: string;
     municipality_of_origin: string;
     location_apprehended: string;
@@ -39,8 +47,6 @@ interface AssetRow {
     mode: string;
 }
 
-// Common forest species/products confiscated in Catanduanes; "Others" lets
-// the user type a species not on this list.
 const SPECIES_OPTIONS = [
     'Narra',
     'Coco Lumber',
@@ -71,6 +77,7 @@ function emptyAssetRow(defaults: { municipality: string; agency: string; mode: s
         volume_bd_ft: '',
         volume_cu_m: '',
         estimated_value: '',
+        estimated_value_auto: false,
         plate_number: '',
         municipality_of_origin: defaults.municipality,
         location_apprehended: defaults.municipality,
@@ -88,7 +95,7 @@ function convertBdFtToCuM(bdFt: string): string {
     return (value * BD_FT_TO_CU_M).toFixed(4);
 }
 
-export default function IncidentsCreate({ types, modes, municipalities, nextAssetSequence }: CreateProps) {
+export default function IncidentsCreate({ types, modes, municipalities, nextAssetSequence, marketPrices }: CreateProps) {
     const defaultMunicipality = municipalities[0]?.value ?? '';
     const defaultAgency = 'PENRO Catanduanes MES';
     const defaultMode = 'apprehended';
@@ -105,6 +112,36 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         assets: [emptyAssetRow({ municipality: defaultMunicipality, agency: defaultAgency, mode: defaultMode })] as AssetRow[],
     });
 
+    const marketPriceMap = useMemo(() => {
+        const map: Record<string, number> = {};
+        marketPrices.forEach((mp) => {
+            map[`${mp.species}|${mp.year}`] = Number(mp.price_per_bd_ft);
+        });
+        return map;
+    }, [marketPrices]);
+
+    function withAutoEstimate(asset: AssetRow, year: number | null): AssetRow {
+        if (asset.type !== 'log' || asset.speciesIsOther || !asset.species || !year) {
+            return { ...asset, estimated_value_auto: false };
+        }
+
+        const price = marketPriceMap[`${asset.species}|${year}`];
+        const volume = parseFloat(asset.volume_bd_ft);
+
+        if (price === undefined || Number.isNaN(volume) || volume <= 0) {
+            return { ...asset, estimated_value_auto: false };
+        }
+
+        return {
+            ...asset,
+            estimated_value: (volume * price).toFixed(2),
+            estimated_value_auto: true,
+        };
+    }
+
+    const apprehensionYear = data.date_of_apprehension
+        ? new Date(data.date_of_apprehension).getFullYear()
+        : null;
     const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const previewYear = data.date_of_apprehension
@@ -116,21 +153,29 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
 
     function updateAsset(index: number, field: keyof AssetRow, value: string | boolean) {
         const next = [...data.assets];
-        next[index] = { ...next[index], [field]: value };
+        let updated = { ...next[index], [field]: value } as AssetRow;
+        if (field === 'type') {
+            updated = withAutoEstimate(updated, apprehensionYear);
+        }
+        next[index] = updated;
         setData('assets', next);
     }
 
     function handleSpeciesSelect(index: number, value: string) {
         if (value === 'Others') {
-            updateAssetMultiple(index, { species: '', speciesIsOther: true });
+            updateAssetMultiple(index, { species: '', speciesIsOther: true, estimated_value_auto: false });
         } else {
-            updateAssetMultiple(index, { species: value, speciesIsOther: false });
+            updateAssetMultiple(index, { species: value, speciesIsOther: false }, true);
         }
     }
 
-    function updateAssetMultiple(index: number, fields: Partial<AssetRow>) {
+    function updateAssetMultiple(index: number, fields: Partial<AssetRow>, recompute = false) {
         const next = [...data.assets];
-        next[index] = { ...next[index], ...fields };
+        let updated = { ...next[index], ...fields } as AssetRow;
+        if (recompute) {
+            updated = withAutoEstimate(updated, apprehensionYear);
+        }
+        next[index] = updated;
         setData('assets', next);
     }
 
@@ -138,7 +183,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         updateAssetMultiple(index, {
             volume_bd_ft: value,
             volume_cu_m: convertBdFtToCuM(value),
-        });
+        }, true);
     }
 
     function handleMunicipalityChange(value: string) {
@@ -151,6 +196,17 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                 location_apprehended: value,
             })),
         );
+    }
+
+    function handleDateOfApprehensionChange(value: string) {
+        setData((prevData) => {
+            const year = value ? new Date(value).getFullYear() : null;
+            return {
+                ...prevData,
+                date_of_apprehension: value,
+                assets: prevData.assets.map((asset) => withAutoEstimate(asset, year)),
+            };
+        });
     }
 
     function addAssetRow() {
@@ -258,7 +314,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                         id="date_of_apprehension"
                                         type="date"
                                         value={data.date_of_apprehension}
-                                        onChange={(e) => setData('date_of_apprehension', e.target.value)}
+                                        onChange={(e) => handleDateOfApprehensionChange(e.target.value)}
                                         required
                                     />
                                     <InputError message={errors.date_of_apprehension} />
@@ -553,9 +609,20 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                     step="0.01"
                                                     min="0"
                                                     value={asset.estimated_value}
-                                                    onChange={(e) => updateAsset(index, 'estimated_value', e.target.value)}
+                                                    onChange={(e) => updateAssetMultiple(index, { estimated_value: e.target.value, estimated_value_auto: false })}
+                                                    readOnly={asset.estimated_value_auto}
+                                                    className={asset.estimated_value_auto ? 'bg-gray-100' : undefined}
                                                     required
                                                 />
+                                                {asset.estimated_value_auto ? (
+                                                    <p className="text-xs text-emerald-700">
+                                                        Auto-computed: {asset.volume_bd_ft} bd.ft × ₱{marketPriceMap[`${asset.species}|${apprehensionYear}`]?.toFixed(2)} (market price {apprehensionYear})
+                                                    </p>
+                                                ) : asset.type === 'log' && asset.species && !asset.speciesIsOther && apprehensionYear ? (
+                                                    <p className="text-xs text-amber-700">
+                                                        No market price set for {asset.species} ({apprehensionYear}) — enter manually.
+                                                    </p>
+                                                ) : null}
                                                 <InputError message={assetError(index, 'estimated_value')} />
                                             </div>
                                         </div>
