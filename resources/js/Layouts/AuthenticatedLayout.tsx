@@ -40,6 +40,14 @@ type NavSection = {
 
 const SIDEBAR_COLLAPSED_KEY = 'logtrack-sidebar-collapsed';
 
+function PesoIcon({ className }: { className?: string }) {
+    return (
+        <span className={`flex items-center justify-center font-bold ${className}`}>
+            ₱
+        </span>
+    );
+}
+
 export default function Authenticated({
     header,
     children,
@@ -141,6 +149,13 @@ export default function Authenticated({
                     active: route().current('users.*'),
                     show: hasPermission(permissions, 'users.manage'),
                     icon: <Users className={iconClass} />,
+                },
+                {
+                    href: route('market-prices.index'),
+                    label: 'Market Prices',
+                    active: route().current('market-prices.*'),
+                    show: hasPermission(permissions, 'market_prices.manage'),
+                    icon: <PesoIcon className={iconClass} />,
                 },
             ],
         },
