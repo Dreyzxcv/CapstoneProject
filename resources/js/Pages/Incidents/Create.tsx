@@ -187,6 +187,9 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
             // Clear any claimant name once the item is marked abandoned,
             // since there's no claimant to record.
             claimant_offender_name: checked ? '' : prevData.claimant_offender_name,
+            assets: checked
+                ? prevData.assets.map((asset) => ({ ...asset, mode: 'abandoned' }))
+                : prevData.assets,
         }));
     }
 

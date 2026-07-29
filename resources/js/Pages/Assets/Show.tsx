@@ -12,7 +12,6 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { FormEvent, useState, useRef, useEffect } from 'react';
 import { FileText, MapPin, Upload } from 'lucide-react';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
-import { EvidenceUploader } from '@/Components/shared/EvidenceUploader';
 import { PdfBadge } from '@/Components/shared/PdfBadge';
 import RequiredDocumentsModal from '@/Components/shared/RequiredDocumentsModal';
 
@@ -41,7 +40,6 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
     const [showJevModal, setShowJevModal] = useState(false);
     const qrContainerRef = useRef<HTMLDivElement | null>(null);
     const [showRequiredDocsModal, setShowRequiredDocsModal] = useState(false);
-    const [showEvidenceModal, setShowEvidenceModal] = useState(false);
 
     useEffect(() => {
         if (!qrContainerRef.current) return;
@@ -455,27 +453,6 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                     canUpload={can.uploadEvidence}
                     canVerify={can.verifyDocuments}
                 />
-
-                {/* Evidence upload modal — replaces the old inline drag-and-drop uploader */}
-                <Modal show={showEvidenceModal} onClose={() => setShowEvidenceModal(false)} maxWidth="lg">
-                    <div className="p-6">
-                        <h2 className="text-lg font-medium text-gray-900">Upload Documents</h2>
-                        <p className="mt-1 text-sm text-gray-600">
-                            Add evidence photos or supporting documents (e.g. Confiscation/Forfeiture Order) for{' '}
-                            <span className="font-medium">{asset.asset_code}</span>.
-                        </p>
-
-                        <div className="mt-6">
-                            <EvidenceUploader assetId={asset.id} />
-                        </div>
-
-                        <div className="mt-6 flex justify-end border-t border-gray-100 pt-4">
-                            <Button type="button" variant="outline" onClick={() => setShowEvidenceModal(false)}>
-                                Done
-                            </Button>
-                        </div>
-                    </div>
-                </Modal>
 
                 {/* QR + Donation */}
                 {(qrSvg || asset.disposal?.donation) && (

@@ -211,28 +211,94 @@ export default function RequiredDocumentsModal({
                     {canUpload && <EvidenceUploader assetId={assetId} />}
 
                     {generalEvidence.length > 0 ? (
-                        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                        <div className="mt-3 space-y-3">
                             {generalEvidence.map((doc) => {
                                 const url = documentUrl(doc.file_path);
                                 const isImage = doc.mime_type?.startsWith('image/');
                                 return (
-                                    <a
-                                        key={doc.id}
-                                        href={url ?? '#'}
-                                        title={doc.original_name}
-                                        className="group relative block overflow-hidden rounded-md border border-gray-200"
-                                    >
-                                        {isImage ? (
-                                            <img src={url ?? ''} className="h-20 w-full object-cover" />
-                                        ) : (
-                                            <div className="flex h-20 w-full flex-col items-center justify-center gap-1 bg-gray-50 px-1 text-center">
-                                                <PdfBadge className="h-7 w-7 shrink-0" />
-                                                <p className="w-full truncate px-1 text-[9px] text-gray-500">
+                                    <div key={doc.id} className="rounded-lg border border-gray-200 p-3">
+                                        <div className="flex items-start gap-3">
+                                            <a
+                                                href={url ?? '#'}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                title={doc.original_name}
+                                                className="block h-16 w-16 shrink-0 overflow-hidden rounded-md border border-gray-200"
+                                            >
+                                                {isImage ? (
+                                                    <img src={url ?? ''} className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <div className="flex h-full w-full items-center justify-center bg-gray-50">
+                                                        <PdfBadge className="h-7 w-7 shrink-0" />
+                                                    </div>
+                                                )}
+                                            </a>
+
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-xs font-medium text-gray-700">
                                                     {doc.original_name}
                                                 </p>
+                                                <div className="mt-1 flex items-center gap-2">
+                                                    <Badge
+                                                        variant={doc.status === 'verified' ? 'green' : 'amber'}
+                                                        className={doc.status === 'rejected' ? 'bg-red-100 text-red-800' : undefined}
+                                                    >
+                                                        {doc.status === 'pending' && <Clock className="mr-1 inline h-3 w-3" />}
+                                                        {doc.status === 'verified' && <CheckCircle2 className="mr-1 inline h-3 w-3" />}
+                                                        {doc.status === 'rejected' && <XCircle className="mr-1 inline h-3 w-3" />}
+                                                        {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                                                    </Badge>
+                                                    {url && (
+                                                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-700 hover:underline">
+                                                            View file
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                {doc.status === 'rejected' && doc.remarks && (
+                                                    <p className="mt-2 rounded-md bg-red-50 px-2 py-1.5 text-xs text-red-700">
+                                                        <span className="font-semibold">Remarks: </span>{doc.remarks}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {canVerify && doc.status === 'pending' && (
+                                            <div className="mt-3 flex flex-wrap gap-2">
+                                                <Button type="button" size="sm" onClick={() => approve(doc.id)}>
+                                                    Approve
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="destructive"
+                                                    onClick={() => setRejectingId(rejectingId === doc.id ? null : doc.id)}
+                                                >
+                                                    Reject
+                                                </Button>
                                             </div>
                                         )}
-                                    </a>
+
+                                        {canVerify && rejectingId === doc.id && (
+                                            <form onSubmit={(e) => submitRejection(e, doc.id)} className="mt-3 space-y-2">
+                                                <textarea
+                                                    value={verifyForm.data.remarks}
+                                                    onChange={(e) => verifyForm.setData('remarks', e.target.value)}
+                                                    placeholder="Explain what needs to be corrected before MES re-submits..."
+                                                    className="w-full rounded-md border border-gray-300 p-2 text-sm"
+                                                    rows={2}
+                                                    required
+                                                />
+                                                <div className="flex gap-2">
+                                                    <Button type="submit" size="sm" variant="destructive" disabled={verifyForm.processing}>
+                                                        Send Back to MES
+                                                    </Button>
+                                                    <Button type="button" size="sm" variant="outline" onClick={() => setRejectingId(null)}>
+                                                        Cancel
+                                                    </Button>
+                                                </div>
+                                            </form>
+                                        )}
+                                    </div>
                                 );
                             })}
                         </div>

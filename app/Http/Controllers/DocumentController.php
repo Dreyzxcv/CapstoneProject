@@ -48,11 +48,12 @@ class DocumentController extends Controller
         $downloadName = $this->resolveDownloadName($decodedPath);
 
         $mimeType = Storage::disk('local')->mimeType($decodedPath);
-        $isImage = str_starts_with((string) $mimeType, 'image/');
+        $isPreviewable = str_starts_with((string) $mimeType, 'image/') || $mimeType === 'application/pdf';
 
-        return Storage::disk('local')->download($decodedPath, $downloadName, $isImage
-        ? ['Content-Disposition' => 'inline']
-        : []);
+
+        return Storage::disk('local')->download($decodedPath, $downloadName, $isPreviewable
+         ? ['Content-Disposition' => 'inline']
+         : []);
     }
 
     /**
