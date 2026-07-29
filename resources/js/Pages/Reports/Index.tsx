@@ -16,7 +16,6 @@ import {
 import { Boxes } from 'lucide-react';
 import { IncidentsMap, IncidentLocation } from '@/Components/shared/IncidentsMap';
 
-usePoll(10000, { only: ['summary', 'byType', 'byMunicipality', 'trends', 'recentActivity'] });
 
 interface TrendPoint {
     key: string;
@@ -104,6 +103,8 @@ export default function ReportsIndex({
     recentActivity,
     incidentLocations,
 }: ReportsIndexProps) {
+    usePoll(10000, { only: ['summary', 'byType', 'byMunicipality', 'trends', 'recentActivity'] });
+
     const typeChartData = byType.map((row) => ({
         name: row.label,
         typeValue: row.type,
