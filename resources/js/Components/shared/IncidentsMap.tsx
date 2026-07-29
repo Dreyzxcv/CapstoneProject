@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Map as LeafletMap, TileLayer } from 'leaflet';
+import type { Map as LeafletMap, TileLayer, Marker as LeafletMarker } from 'leaflet';
 import { MapPin, Maximize2, Minimize2, Loader2, Satellite, Map as MapIcon } from 'lucide-react';
 import { router } from '@inertiajs/react';
 
@@ -53,14 +53,31 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
     const normalLayerRef = useRef<TileLayer | null>(null);
     const satelliteLayerRef = useRef<TileLayer | null>(null);
     const satelliteLabelsRef = useRef<TileLayer | null>(null);
+    // Cache the dynamically-imported leaflet module so the marker-sync
+    // effect (which runs on every incidents change) doesn't need to
+    // re-import it — and so it can build L.divIcon/L.marker without
+    // re-triggering map creation.
+    const leafletModuleRef = useRef<typeof import('leaflet') | null>(null);
+    const markersRef = useRef<LeafletMarker[]>([]);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [mapView, setMapView] = useState<MapView>('satellite');
+    // Flips true once the Leaflet map instance exists, so the marker-sync
+    // effect knows it's safe to draw.
+    const [mapReady, setMapReady] = useState(false);
 
     const plottable = incidents
         .map((incident) => ({ incident, point: parseCoordinates(incident.coordinates) }))
         .filter((row): row is { incident: IncidentLocation; point: { lat: number; lng: number } } => row.point !== null);
 
+    // Map creation — runs ONCE and never tears down just because the
+    // current filter has zero results. Previously this component early-
+    // returned a totally different placeholder tree when `plottable` was
+    // empty, which unmounted the Leaflet container div; since this effect
+    // only ever runs once (empty deps) and bails if `mapRef.current` is
+    // already set, the map was never re-attached to the new container div
+    // created when switching back to a non-empty filter — leaving a blank
+    // box. Keeping the map shell always mounted fixes that.
     useEffect(() => {
         if (!containerRef.current || mapRef.current) return;
 
@@ -69,8 +86,9 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
         import('leaflet').then((L) => {
             if (cancelled || !containerRef.current || mapRef.current) return;
 
+            leafletModuleRef.current = L;
+
             // Fix Leaflet's default marker icons breaking under Vite bundling
-            // (matches the workaround already used in CoordinatesPickerModal).
             delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 
             const map = L.map(containerRef.current, {
@@ -126,84 +144,108 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
             L.control.zoom({ position: 'bottomright' }).addTo(map);
             L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
 
-            const latLngs: [number, number][] = [];
-
-            plottable.forEach(({ incident, point }) => {
-                latLngs.push([point.lat, point.lng]);
-
-                const dotColor = markerColor(incident.asset_types);
-
-                const icon = L.divIcon({
-                    className: '',
-                    html: `<span class="incident-pulse-dot${incident.is_abandoned ? ' is-abandoned' : ''}" style="--dot-color:${dotColor}"></span>`,
-                    iconSize: [16, 16],
-                    iconAnchor: [8, 8],
-                });
-
-                const dateLabel = incident.date_of_apprehension
-                    ? new Date(incident.date_of_apprehension).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                    : 'Date not on file';
-
-                const primaryAssetId = incident.asset_ids[0];
-                const viewButtonId = `incident-view-${incident.id}`;
-
-                const marker = L.marker([point.lat, point.lng], { icon })
-                    .addTo(map)
-                    .bindPopup(
-                        `<div class="incident-popup">
-                            <div class="incident-popup-band" style="background:${dotColor}"></div>
-                            <div class="incident-popup-body">
-                                <p class="incident-popup-code">${incident.incident_code}</p>
-                                <p class="incident-popup-place">${incident.place_of_apprehension}</p>
-                                <div class="incident-popup-meta">
-                                    <span>${dateLabel}</span>
-                                    <span class="incident-popup-dot">&middot;</span>
-                                    <span>${incident.asset_count} asset${incident.asset_count === 1 ? '' : 's'}</span>
-                                </div>
-                                ${incident.is_abandoned ? '<span class="incident-popup-badge">Abandoned</span>' : ''}
-                                ${
-                                    primaryAssetId
-                                        ? `<button id="${viewButtonId}" class="incident-popup-button">
-                                            View Asset${incident.asset_count > 1 ? 's' : ''} →
-                                        </button>`
-                                        : ''
-                                }
-                            </div>
-                        </div>`,
-                        { className: 'incident-popup-wrapper', closeButton: true },
-                    );
-
-                // Leaflet popups render outside React's tree, so the button has to be
-                // wired up imperatively each time the popup opens (the DOM node is
-                // recreated on every open).
-                if (primaryAssetId) {
-                    marker.on('popupopen', () => {
-                        document
-                            .getElementById(viewButtonId)
-                            ?.addEventListener('click', () => {
-                                router.visit(route('assets.show', primaryAssetId));
-                            });
-                    });
-                }
-            });
-
-            if (latLngs.length > 0) {
-                map.fitBounds(latLngs, { padding: [32, 32], maxZoom: 14 });
-            } else {
-                map.fitBounds(CATANDUANES_BOUNDS);
-            }
+            map.fitBounds(CATANDUANES_BOUNDS);
 
             mapRef.current = map;
             setIsLoading(false);
+            setMapReady(true);
         });
 
         return () => {
             cancelled = true;
             mapRef.current?.remove();
             mapRef.current = null;
+            leafletModuleRef.current = null;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Marker sync — re-runs whenever the incidents list changes (i.e. the
+    // month/year filter changes), clearing previously drawn markers and
+    // plotting the new set on the existing map instance. This is what was
+    // missing before: markers were only ever added once, inside the
+    // map-creation effect, so changing the `incidents` prop never updated
+    // what was drawn.
+    useEffect(() => {
+        const map = mapRef.current;
+        const L = leafletModuleRef.current;
+        if (!map || !L || !mapReady) return;
+
+        markersRef.current.forEach((marker) => marker.remove());
+        markersRef.current = [];
+
+        const latLngs: [number, number][] = [];
+
+        plottable.forEach(({ incident, point }) => {
+            latLngs.push([point.lat, point.lng]);
+
+            const dotColor = markerColor(incident.asset_types);
+
+            const icon = L.divIcon({
+                className: '',
+                html: `<span class="incident-pulse-dot${incident.is_abandoned ? ' is-abandoned' : ''}" style="--dot-color:${dotColor}"></span>`,
+                iconSize: [16, 16],
+                iconAnchor: [8, 8],
+            });
+
+            const dateLabel = incident.date_of_apprehension
+                ? new Date(incident.date_of_apprehension).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                : 'Date not on file';
+
+            const primaryAssetId = incident.asset_ids[0];
+            const viewButtonId = `incident-view-${incident.id}`;
+
+            const marker = L.marker([point.lat, point.lng], { icon })
+                .addTo(map)
+                .bindPopup(
+                    `<div class="incident-popup">
+                        <div class="incident-popup-band" style="background:${dotColor}"></div>
+                        <div class="incident-popup-body">
+                            <p class="incident-popup-code">${incident.incident_code}</p>
+                            <p class="incident-popup-place">${incident.place_of_apprehension}</p>
+                            <div class="incident-popup-meta">
+                                <span>${dateLabel}</span>
+                                <span class="incident-popup-dot">&middot;</span>
+                                <span>${incident.asset_count} asset${incident.asset_count === 1 ? '' : 's'}</span>
+                            </div>
+                            ${incident.is_abandoned ? '<span class="incident-popup-badge">Abandoned</span>' : ''}
+                            ${
+                                primaryAssetId
+                                    ? `<button id="${viewButtonId}" class="incident-popup-button">
+                                        View Asset${incident.asset_count > 1 ? 's' : ''} →
+                                    </button>`
+                                    : ''
+                            }
+                        </div>
+                    </div>`,
+                    { className: 'incident-popup-wrapper', closeButton: true },
+                );
+
+            // Leaflet popups render outside React's tree, so the button has to be
+            // wired up imperatively each time the popup opens (the DOM node is
+            // recreated on every open).
+            if (primaryAssetId) {
+                marker.on('popupopen', () => {
+                    document
+                        .getElementById(viewButtonId)
+                        ?.addEventListener('click', () => {
+                            router.visit(route('assets.show', primaryAssetId));
+                        });
+                });
+            }
+
+            markersRef.current.push(marker);
+        });
+
+        if (latLngs.length > 0) {
+            map.fitBounds(latLngs, { padding: [32, 32], maxZoom: 14 });
+        }
+        // When latLngs is empty (filter matched nothing), deliberately leave
+        // the current view alone instead of snapping back to the full
+        // Catanduanes bounds — less jarring than the view jumping around
+        // every time a filter briefly has zero results.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [incidents, mapReady]);
 
     // Swap basemap layers whenever the toggle changes, without tearing down
     // the whole map (markers, view position, etc. stay intact).
@@ -263,22 +305,6 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
             window.removeEventListener('keydown', handleKeyDown);
         };
     }, [isFullscreen, refreshMapSize]);
-
-    if (plottable.length === 0) {
-        return (
-            <div className="flex h-96 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 bg-gradient-to-b from-gray-50 to-white text-center">
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-                    <MapPin className="h-6 w-6 text-gray-300" />
-                </span>
-                <p className="text-sm font-medium text-gray-500">
-                    No incidents with coordinates on file yet.
-                </p>
-                <p className="max-w-xs text-xs text-gray-400">
-                    Locations appear here once MES logs coordinates during incident intake.
-                </p>
-            </div>
-        );
-    }
 
     return (
         <>
@@ -410,6 +436,20 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
                     <div className="absolute inset-0 z-[500] flex items-center justify-center gap-2 bg-gray-900 text-sm text-gray-300">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Loading map…
+                    </div>
+                )}
+
+                {!isLoading && plottable.length === 0 && (
+                    <div className="absolute inset-0 z-[500] flex flex-col items-center justify-center gap-2 bg-white/90 px-6 text-center backdrop-blur-sm">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                            <MapPin className="h-6 w-6 text-gray-300" />
+                        </span>
+                        <p className="text-sm font-medium text-gray-500">
+                            No incidents with coordinates for this filter.
+                        </p>
+                        <p className="max-w-xs text-xs text-gray-400">
+                            Try a different month or year, or clear the filter to see everything.
+                        </p>
                     </div>
                 )}
 
