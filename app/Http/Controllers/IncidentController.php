@@ -34,6 +34,7 @@ class IncidentController extends Controller
             ]),
             'barangaysByMunicipality' => config('barangays'),
             'nextAssetSequence' => (int) \App\Models\Asset::max('id') + 1,
+            'marketPrices' => \App\Models\MarketPrice::all(['species', 'year', 'price_per_bd_ft']),
         ]);
     }
 
