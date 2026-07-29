@@ -24,6 +24,7 @@ interface ShowProps {
         signReceipt: boolean;
         markStored: boolean;
         generateQr: boolean;
+        createJev: boolean;
         uploadJev: boolean;
         releaseDonation: boolean;
         processDisposal: boolean;
@@ -139,7 +140,12 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
         jevForm.reset();
     }
     const receiptUrl = documentUrl(asset.acknowledgement_receipt?.pdf_path);
-
+    const dateOfApprehension = asset.incident?.date_of_apprehension
+        ? new Date(asset.incident.date_of_apprehension).toLocaleDateString()
+        : '—';
+    const placeOfApprehension = asset.incident?.place_of_apprehension ?? asset.location_apprehended ?? '—';
+    const stickerSpecies = asset.species ?? '—';
+    const stickerPcs = asset.quantity ?? 1;
     return (
         <AuthenticatedLayout
             header={
@@ -357,7 +363,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                     </Card>
 
                     <div className="space-y-6">
-                        {asset.current_status === 'cleared_for_accounting' && !asset.jev && (
+                        {can.createJev && asset.current_status === 'cleared_for_accounting' && !asset.jev && (
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="text-base">Create JEV</CardTitle>
@@ -368,6 +374,17 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                 </CardHeader>
                                 <CardContent>
                                     <Button onClick={() => setShowJevModal(true)}>Fill Out JEV Form</Button>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {!can.createJev && asset.current_status === 'cleared_for_accounting' && !asset.jev && (
+                            <Card>
+                                <CardHeader><CardTitle className="text-base">Journal Entry Voucher</CardTitle></CardHeader>
+                                <CardContent>
+                                    <p className="text-sm text-gray-500">
+                                        Cleared for accounting — awaiting JEV creation by Accounting.
+                                    </p>
                                 </CardContent>
                             </Card>
                         )}
@@ -405,7 +422,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                             </Card>
                         )}
 
-                        {!(asset.current_status === 'cleared_for_accounting' && !asset.jev) && !asset.jev && (
+                        {asset.current_status !== 'cleared_for_accounting' && !asset.jev && (
                             <Card>
                                 <CardHeader><CardTitle className="text-base">Journal Entry Voucher</CardTitle></CardHeader>
                                 <CardContent>
@@ -614,9 +631,10 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                 }
                             >
                                 <CardHeader>
-                                    <CardTitle className="text-base">
-                                        QR Code Label
-                                    </CardTitle>
+                                    <CardTitle className="text-base">QR Code Sticker</CardTitle>
+                                    <p className="text-sm text-gray-500">
+                                        Quarter-page sticker — print on sticker sheet (4 per page) and affix to the physical asset.
+                                    </p>
                                 </CardHeader>
 
                                 <CardContent className="flex flex-col items-center gap-4">
@@ -635,36 +653,49 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                                 position: absolute;
                                                 top: 0;
                                                 left: 0;
-                                                width: 100%;
+                                                width: 4.25in;
+                                                height: 5.5in;
+                                                padding: 0.25in;
+                                                box-sizing: border-box;
+                                                border: none;
                                                 display: flex;
                                                 flex-direction: column;
                                                 align-items: center;
-                                                gap: 8px;
+                                                justify-content: center;
+                                                gap: 6px;
+                                            }
+
+                                            @page {
+                                                size: letter;
+                                                margin: 0;
                                             }
                                         }
                                     `}</style>
 
+                                    {/* On-screen preview sized to a quarter of a letter page (4.25in x 5.5in),
+                                        so the custodian can see the sticker layout before printing. */}
                                     <div
                                         id="qr-print-area"
-                                        className="flex flex-col items-center gap-2"
+                                        className="flex w-[4.25in] flex-col items-center justify-center gap-1.5 border border-dashed border-gray-300 p-4 text-center"
+                                        style={{ aspectRatio: '4.25 / 5.5' }}
                                     >
                                         <div
                                             ref={qrContainerRef}
-                                            dangerouslySetInnerHTML={{
-                                                __html: qrSvg,
-                                            }}
+                                            dangerouslySetInnerHTML={{ __html: qrSvg }}
                                         />
 
-                                        <p className="text-sm font-medium text-gray-700">
-                                            {asset.asset_code}
-                                        </p>
+                                        <p className="text-sm font-semibold text-gray-900">{asset.asset_code}</p>
+
+                                        <div className="mt-1 w-full space-y-0.5 text-left text-xs text-gray-700">
+                                            <p><span className="font-semibold">Date Apprehended:</span> {dateOfApprehension}</p>
+                                            <p><span className="font-semibold">Place Apprehended:</span> {placeOfApprehension}</p>
+                                            <p><span className="font-semibold">Species:</span> {stickerSpecies}</p>
+                                            <p><span className="font-semibold">Pcs:</span> {stickerPcs}</p>
+                                        </div>
                                     </div>
 
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => window.print()}
-                                    >
-                                        Print Label
+                                    <Button variant="outline" onClick={() => window.print()}>
+                                        Print Sticker
                                     </Button>
                                 </CardContent>
                             </Card>
