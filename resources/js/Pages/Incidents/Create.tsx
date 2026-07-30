@@ -95,6 +95,31 @@ function convertBdFtToCuM(bdFt: string): string {
     return (value * BD_FT_TO_CU_M).toFixed(4);
 }
 
+// Field label/placeholder for the "species" text depends on asset type —
+// Log keeps the species dropdown, Equipment/Vehicle get a free-text field
+// with a relabeled prompt, since "species" doesn't apply to them.
+function speciesFieldLabel(type: string): string {
+    switch (type) {
+        case 'vehicle':
+            return 'Conveyance / Vehicle Type';
+        case 'equipment':
+            return 'Equipment Type';
+        default:
+            return 'Species';
+    }
+}
+
+function speciesFieldPlaceholder(type: string): string {
+    switch (type) {
+        case 'vehicle':
+            return 'e.g. Motorcycle, Tricycle, Habal-habal';
+        case 'equipment':
+            return 'e.g. Chainsaw, Power Saw';
+        default:
+            return 'Enter species';
+    }
+}
+
 export default function IncidentsCreate({ types, modes, municipalities, nextAssetSequence, marketPrices }: CreateProps) {
     const defaultMunicipality = municipalities[0]?.value ?? '';
     const defaultAgency = 'PENRO Catanduanes MES';
@@ -155,6 +180,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         const next = [...data.assets];
         let updated = { ...next[index], [field]: value } as AssetRow;
         if (field === 'type') {
+            updated = { ...updated, species: '', speciesIsOther: false, estimated_value_auto: false };
             updated = withAutoEstimate(updated, apprehensionYear);
         }
         next[index] = updated;
@@ -513,39 +539,53 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
 
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label htmlFor={`species-${index}`}>Species<span className="text-red-500">*</span></Label>
-                                            {asset.speciesIsOther ? (
-                                                <div className="flex gap-2">
-                                                    <Input
+                                            <Label htmlFor={`species-${index}`}>
+                                                {speciesFieldLabel(asset.type)}<span className="text-red-500">*</span>
+                                            </Label>
+
+                                            {asset.type === 'log' ? (
+                                                asset.speciesIsOther ? (
+                                                    <div className="flex gap-2">
+                                                        <Input
+                                                            id={`species-${index}`}
+                                                            placeholder="Enter species"
+                                                            value={asset.species}
+                                                            onChange={(e) => updateAsset(index, 'species', e.target.value)}
+                                                            autoFocus
+                                                            required
+                                                        />
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => updateAssetMultiple(index, { speciesIsOther: false, species: '' })}
+                                                        >
+                                                            Choose from list
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <select
                                                         id={`species-${index}`}
-                                                        placeholder="Enter species"
                                                         value={asset.species}
-                                                        onChange={(e) => updateAsset(index, 'species', e.target.value)}
-                                                        autoFocus
-                                                        required
-                                                    />
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => updateAssetMultiple(index, { speciesIsOther: false, species: '' })}
+                                                        onChange={(e) => handleSpeciesSelect(index, e.target.value)}
+                                                        className={selectClass}
                                                     >
-                                                        Choose from list
-                                                    </Button>
-                                                </div>
+                                                        <option value="" disabled>Select species…</option>
+                                                        {SPECIES_OPTIONS.map((s) => (
+                                                            <option key={s} value={s}>{s}</option>
+                                                        ))}
+                                                    </select>
+                                                )
                                             ) : (
-                                                <select
+                                                <Input
                                                     id={`species-${index}`}
+                                                    placeholder={speciesFieldPlaceholder(asset.type)}
                                                     value={asset.species}
-                                                    onChange={(e) => handleSpeciesSelect(index, e.target.value)}
-                                                    className={selectClass}
-                                                >
-                                                    <option value="" disabled>Select species…</option>
-                                                    {SPECIES_OPTIONS.map((s) => (
-                                                        <option key={s} value={s}>{s}</option>
-                                                    ))}
-                                                </select>
+                                                    onChange={(e) => updateAsset(index, 'species', e.target.value)}
+                                                    required
+                                                />
                                             )}
+
                                             <InputError message={assetError(index, 'species')} />
                                         </div>
                                         <div className="space-y-2">
@@ -764,7 +804,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             <dd className="text-gray-900">{asset.quantity || '—'}</dd>
                                         </div>
                                         <div>
-                                            <dt className="text-gray-500">Species</dt>
+                                            <dt className="text-gray-500">{speciesFieldLabel(asset.type)}</dt>
                                             <dd className="text-gray-900">{asset.species || '—'}</dd>
                                         </div>
                                         <div>
