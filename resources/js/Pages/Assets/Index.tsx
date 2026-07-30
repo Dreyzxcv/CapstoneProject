@@ -4,7 +4,7 @@ import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Asset, PageProps } from '@/types';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage, usePoll } from '@inertiajs/react';
 import { useEffect, useRef, useState, FormEvent } from 'react';
 import { Filter, Package, Plus, Search, Columns3, Check } from 'lucide-react';
 
@@ -57,6 +57,9 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
     const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>(loadVisibleColumns);
     const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
     const columnsMenuRef = useRef<HTMLDivElement | null>(null);
+    const { notifications } = usePage<PageProps & { notifications: { unreadAssetIds: number[] } }>().props;
+    const unreadAssetIds = new Set(notifications?.unreadAssetIds ?? []);
+    usePoll(8000, { only: ['assets'] });
 
     useEffect(() => {
         window.localStorage.setItem(VISIBLE_COLUMNS_STORAGE_KEY, JSON.stringify(visibleColumns));
@@ -226,11 +229,21 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                         <Link
                                             key={asset.id}
                                             href={route('assets.show', asset.id)}
-                                            className="flex items-center justify-between gap-3 px-4 py-4 active:bg-gray-50"
+                                            className={
+                                                'flex items-center justify-between gap-3 px-4 py-4 active:bg-gray-50 ' +
+                                                (unreadAssetIds.has(asset.id) ? 'bg-amber-50 ring-2 ring-inset ring-amber-400' : '')
+                                            }
                                         >
                                             <div className="min-w-0">
                                                 {visibleColumns.asset_code && (
-                                                    <p className="truncate font-medium text-gray-900">{asset.asset_code}</p>
+                                                    <p className="flex items-center gap-2 truncate font-medium text-gray-900">
+                                                        {asset.asset_code}
+                                                        {unreadAssetIds.has(asset.id) && (
+                                                            <span className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                                                                New
+                                                            </span>
+                                                        )}
+                                                    </p>
                                                 )}
                                                 {subline && (
                                                     <p className="mt-0.5 text-sm capitalize text-gray-500">{subline}</p>
@@ -269,9 +282,24 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
                                         {assets.data.map((asset) => (
-                                            <tr key={asset.id} className="hover:bg-gray-50">
+                                            <tr
+                                                key={asset.id}
+                                                className={
+                                                    'hover:bg-gray-50 ' +
+                                                    (unreadAssetIds.has(asset.id) ? 'bg-amber-50/70' : '')
+                                                }
+                                            >
                                                 {visibleColumns.asset_code && (
-                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{asset.asset_code}</td>
+                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                                        <span className="flex items-center gap-2">
+                                                            {asset.asset_code}
+                                                            {unreadAssetIds.has(asset.id) && (
+                                                                <span className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                                                                    New
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    </td>
                                                 )}
                                                 {visibleColumns.type && (
                                                     <td className="px-4 py-3 text-sm capitalize text-gray-600">{asset.type}</td>
