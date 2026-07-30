@@ -1,8 +1,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { AssetStatusBadge } from '@/Components/shared/AssetStatusBadge';
 import { Button } from '@/Components/ui/button';
-import { Asset } from '@/types';
-import { Head, Link, usePoll } from '@inertiajs/react';
+import { Asset, PageProps } from '@/types';
+import { Head, Link, usePoll, usePage } from '@inertiajs/react';
 
 interface DisposalsIndexProps {
     assets: {
@@ -15,6 +15,8 @@ interface DisposalsIndexProps {
 
 export default function DisposalsIndex({ assets, can }: DisposalsIndexProps) {
     usePoll(8000, { only: ['assets'] });
+    const { notifications } = usePage<PageProps & { notifications: { unreadAssetIds: number[] } }>().props;
+    const unreadAssetIds = new Set(notifications?.unreadAssetIds ?? []);
     return (
         <AuthenticatedLayout
             header={
@@ -49,11 +51,16 @@ export default function DisposalsIndex({ assets, can }: DisposalsIndexProps) {
                                 </tr>
                             )}
                             {assets.data.map((asset) => (
-                                <tr key={asset.id}>
-                                    <td className="px-4 py-3 text-sm">{asset.asset_code.slice(0, 8)}…</td>
-                                    <td className="px-4 py-3 text-sm capitalize">{asset.type}</td>
+                                <tr key={asset.id} className={unreadAssetIds.has(asset.id) ? 'bg-amber-50/70' : ''}>
                                     <td className="px-4 py-3 text-sm">
-                                        <AssetStatusBadge status={asset.current_status} label={asset.current_status.replace(/_/g, ' ')} />
+                                        <span className="flex items-center gap-2">
+                                            {asset.asset_code.slice(0, 8)}…
+                                            {unreadAssetIds.has(asset.id) && (
+                                                <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                                                    New
+                                                </span>
+                                            )}
+                                        </span>
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                         {can.process ? (
