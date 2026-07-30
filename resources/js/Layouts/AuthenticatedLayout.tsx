@@ -377,9 +377,18 @@ export default function Authenticated({
                 </aside>
 
                 <div className="flex-1">
-                    <div className="hidden items-center justify-end border-b border-gray-200 bg-white px-6 py-2 lg:flex">
-                        <NotificationBell />
+                    <div className="sticky top-0 z-20 bg-white">
+                        <div className="hidden items-center justify-end border-b border-gray-200 bg-white px-6 py-2 lg:flex">
+                            <NotificationBell />
+                        </div>
                     </div>
+
+                    {header && (
+                        <header className="border-b border-gray-200 bg-white shadow-sm">
+                            <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{header}</div>
+                        </header>
+                    )}
+
                     {flash?.success && (
                         <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
                             {flash.success}
@@ -389,12 +398,6 @@ export default function Authenticated({
                         <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                             {flash.error}
                         </div>
-                    )}
-
-                    {header && (
-                        <header className="bg-white shadow-sm">
-                            <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{header}</div>
-                        </header>
                     )}
 
                     <main className="py-6">{children}</main>
