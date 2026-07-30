@@ -62,6 +62,15 @@ export default function DisposalsIndex({ assets, can }: DisposalsIndexProps) {
                                             )}
                                         </span>
                                     </td>
+                                    <td className="px-4 py-3 text-sm capitalize text-gray-600">
+                                        {asset.type}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm">
+                                        <AssetStatusBadge
+                                            status={asset.current_status}
+                                            label={asset.current_status.replace(/_/g, ' ')}
+                                        />
+                                    </td>
                                     <td className="px-4 py-3 text-right">
                                         {can.process ? (
                                             <Link href={route('disposals.create', asset.id)}>
