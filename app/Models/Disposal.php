@@ -11,6 +11,7 @@ class Disposal extends Model
 {
     protected $fillable = [
         'asset_id',
+        'donation_batch_id',
         'disposal_type',
         'details',
         'report_pdf_path',
@@ -50,5 +51,15 @@ class Disposal extends Model
     public function parRecord(): HasOne
     {
         return $this->hasOne(ParRecord::class);
+    }
+
+    public function batchSiblings()
+    {
+        if (! $this->donation_batch_id) {
+            return self::whereRaw('1 = 0'); // no batch → no siblings
+        }
+
+        return self::where('donation_batch_id', $this->donation_batch_id)
+            ->where('id', '!=', $this->id);
     }
 }

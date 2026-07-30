@@ -2,7 +2,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { AssetStatusBadge } from '@/Components/shared/AssetStatusBadge';
 import { Button } from '@/Components/ui/button';
 import { Asset } from '@/types';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePoll } from '@inertiajs/react';
 
 interface DisposalsIndexProps {
     assets: {
@@ -14,8 +14,19 @@ interface DisposalsIndexProps {
 }
 
 export default function DisposalsIndex({ assets, can }: DisposalsIndexProps) {
+    usePoll(8000, { only: ['assets'] });
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">Assets For Disposal</h2>}>
+        <AuthenticatedLayout
+            header={
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-xl font-semibold text-gray-800">Assets For Disposal</h2>
+                    {can.process && (
+                        <Link href={route('disposals.donate.create')}>
+                            <Button variant="outline">Donate Assets</Button>
+                        </Link>
+                    )}
+                </div>
+            }>
             <Head title="Disposals" />
 
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

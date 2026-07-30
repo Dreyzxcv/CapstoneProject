@@ -14,6 +14,8 @@ use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Http\Request;
+use App\Actions\ProcessBatchDonation;
+use App\Http\Requests\StoreBatchDonationRequest;
 
 class DisposalController extends Controller
 {
@@ -94,5 +96,53 @@ class DisposalController extends Controller
         $releaseDonation->execute($disposal, $request->user(), $request->file('photo'));
 
         return back()->with('success', 'Donation marked as released.');
+    }
+
+    public function createBatchDonation(): Response
+    {
+        $this->authorize('create', Disposal::class);
+
+        $assets = Asset::query()
+            ->where('type', 'log')
+            ->where('current_status', 'for_disposal')
+            ->whereDoesntHave('disposal')
+            ->with('incident')
+            ->latest()
+            ->get();
+
+        return Inertia::render('Disposals/CreateBatchDonation', [
+            'assets' => $assets,
+            'municipalities' => collect(Municipality::cases())->map(fn ($m) => [
+                'value' => $m->value,
+                'label' => $m->value,
+            ]),
+            'barangaysByMunicipality' => config('barangays'),
+        ]);
+    }
+
+    public function storeBatchDonation(StoreBatchDonationRequest $request, ProcessBatchDonation $processBatchDonation): RedirectResponse
+    {
+        $this->authorize('create', Disposal::class);
+
+        $donationDetails = array_filter([
+            'requester_name' => $request->validated('requester_name'),
+            'organization_type' => $request->validated('organization_type'),
+            'organization_type_other' => $request->validated('organization_type_other'),
+            'agency_name' => $request->validated('agency_name'),
+            'municipality' => $request->validated('municipality'),
+            'barangay' => $request->validated('barangay'),
+            'street' => $request->validated('street'),
+            'delivery_coordinates' => $request->validated('delivery_coordinates'),
+            'notes' => $request->validated('notes'),
+        ], fn ($value) => $value !== null && $value !== '');
+
+        $disposals = $processBatchDonation->execute(
+            $request->validated('lines'),
+            $donationDetails,
+            $request->user(),
+        );
+
+        return redirect()->route('disposals.index')
+            ->with('success', "Donation recorded across {$disposals->count()} asset(s).");
     }
 }

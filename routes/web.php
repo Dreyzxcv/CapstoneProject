@@ -31,6 +31,8 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/incidents', [\App\Http\Controllers\IncidentController::class, 'store'])->name('incidents.store');
 
     Route::get('/disposals', [DisposalController::class, 'index'])->name('disposals.index');
+    Route::get('/disposals/donate', [DisposalController::class, 'createBatchDonation'])->name('disposals.donate.create');
+    Route::post('/disposals/donate', [DisposalController::class, 'storeBatchDonation'])->name('disposals.donate.store');
     Route::get('/assets/{asset}/disposals/create', [DisposalController::class, 'create'])->name('disposals.create');
     Route::post('/assets/{asset}/disposals', [DisposalController::class, 'store'])->name('disposals.store');
     Route::post('/assets/{asset}/resolve-trial', [AssetController::class, 'resolveTrial'])->name('assets.resolve-trial');
