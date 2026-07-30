@@ -9,11 +9,13 @@ use App\Models\User;
 use App\Services\AuditLogService;
 use DomainException;
 use Illuminate\Support\Facades\DB;
+use App\Services\NotificationService;
 
 class IssueJev
 {
     public function __construct(
         protected AuditLogService $auditLogService,
+        protected NotificationService $notificationService,
     ) {}
 
     public function execute(Asset $asset, array $data, User $accountingUser): Jev
@@ -34,6 +36,14 @@ class IssueJev
             ]);
 
             $this->auditLogService->log('jev.issued', $jev, null, $jev->toArray(), $accountingUser->id);
+
+            $this->notificationService->notifyRoles(
+                $asset,
+                ['MES Officer'],
+                'JEV issued — upload needed',
+                "{$asset->asset_code}: JEV {$jev->jev_number} has been issued. Please confirm the upload.",
+                $accountingUser,
+            );
 
             return $jev->fresh();
         });
