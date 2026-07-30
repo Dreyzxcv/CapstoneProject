@@ -1,7 +1,8 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
 import Dropdown from '@/Components/Dropdown';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
-import { Link, usePage } from '@inertiajs/react';
+import NotificationBell from '@/Components/shared/NotificationBell';
+import { Link, usePage, usePoll } from '@inertiajs/react';
 import { PropsWithChildren, ReactNode, useEffect, useState } from 'react';
 import { PageProps } from '@/types';
 import {
@@ -52,6 +53,7 @@ export default function Authenticated({
     header,
     children,
 }: PropsWithChildren<{ header?: ReactNode }>) {
+    usePoll(15000, { only: ['notifications'] });
     const { auth, flash } = usePage<PageProps>().props;
     const user = auth.user!;
     const permissions = user.permissions ?? [];
@@ -179,13 +181,16 @@ export default function Authenticated({
                         </span>
                     </span>
                 </Link>
-                <button
-                    onClick={() => setShowingNavigationDropdown(true)}
-                    className="inline-flex items-center justify-center rounded-md p-2 text-gray-500 hover:bg-gray-100"
-                    aria-label="Open menu"
-                >
-                    <Menu className="h-6 w-6" />
-                </button>
+                <div className="flex items-center gap-1">
+                    <NotificationBell />
+                    <button
+                        onClick={() => setShowingNavigationDropdown(true)}
+                        className="inline-flex items-center justify-center rounded-md p-2 text-gray-500 hover:bg-gray-100"
+                        aria-label="Open menu"
+                    >
+                        <Menu className="h-6 w-6" />
+                    </button>
+                </div>
             </div>
 
             {/* Mobile backdrop */}
@@ -372,6 +377,9 @@ export default function Authenticated({
                 </aside>
 
                 <div className="flex-1">
+                    <div className="hidden items-center justify-end border-b border-gray-200 bg-white px-6 py-2 lg:flex">
+                        <NotificationBell />
+                    </div>
                     {flash?.success && (
                         <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
                             {flash.success}
