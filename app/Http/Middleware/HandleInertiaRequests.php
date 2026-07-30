@@ -46,6 +46,26 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'notifications' => [
+                'unreadCount' => fn () => $user
+                    ? \App\Models\Notification::where('user_id', $user->id)->whereNull('read_at')->count()
+                    : 0,
+                'items' => fn () => $user
+                    ? \App\Models\Notification::where('user_id', $user->id)
+                        ->whereNull('read_at')
+                        ->latest()
+                        ->limit(10)
+                        ->get(['id', 'asset_id', 'title', 'message', 'created_at'])
+                    : [],
+                'unreadAssetIds' => fn () => $user
+                    ? \App\Models\Notification::where('user_id', $user->id)
+                        ->whereNull('read_at')
+                        ->whereNotNull('asset_id')
+                        ->pluck('asset_id')
+                        ->unique()
+                        ->values()
+                    : [],
+            ],
         ];
     }
 }
