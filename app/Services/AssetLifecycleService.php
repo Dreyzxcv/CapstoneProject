@@ -45,6 +45,7 @@ class AssetLifecycleService
 
     public function __construct(
         protected AuditLogService $auditLogService,
+        protected NotificationService $notificationService,
     ) {}
 
     public function canTransition(Asset $asset, AssetStatus $to): bool
@@ -87,6 +88,8 @@ class AssetLifecycleService
                 ['current_status' => $to->value],
                 $user->id,
             );
+
+            $this->notificationService->notifyForTransition($asset->fresh(), $to, $user);
 
             return $asset->fresh();
         });
