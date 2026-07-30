@@ -86,6 +86,11 @@ class AssetController extends Controller
     {
         $this->authorize('view', $asset);
 
+        \App\Models\Notification::where('user_id', $request->user()->id)
+            ->where('asset_id', $asset->id)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
         $asset->load([
             'incident',
             'creator',
