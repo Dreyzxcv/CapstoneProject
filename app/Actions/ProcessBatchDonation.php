@@ -24,7 +24,6 @@ class ProcessBatchDonation
         protected AssetLifecycleService $lifecycleService,
         protected PdfDocumentService $pdfDocumentService,
         protected AuditLogService $auditLogService,
-        protected SplitAssetRemainder $splitAssetRemainder,
     ) {}
 
     /**
@@ -77,16 +76,14 @@ class ProcessBatchDonation
                 $remaining = $asset->remainingQuantity();
                 $quantity = $line['quantity'] ?? $remaining;
 
-                if ($quantity < $remaining) {
-                    $this->splitAssetRemainder->execute($asset, $remaining - $quantity, $user);
-
-                    $asset->update([
-                        'quantity' => $asset->disposed_quantity + $quantity,
-                        'volume_bd_ft' => $asset->volume_bd_ft !== null
-                            ? round($asset->disposed_volume_bd_ft + ((float) $asset->remainingVolumeBdFt() / $remaining) * $quantity, 2)
-                            : null,
-                    ]);
-                    $asset->refresh();
+                // Partial donations no longer split off a new Asset record —
+                // the undisposed remainder stays on THIS asset, under the
+                // same AAP code, and it remains "for_disposal" until fully
+                // disposed. quantity/volume_bd_ft stay untouched here.
+                $volumeForThisDisposal = null;
+                if ($asset->volume_bd_ft !== null && $remaining > 0) {
+                    $remainingVolume = (float) $asset->remainingVolumeBdFt();
+                    $volumeForThisDisposal = round(($remainingVolume / $remaining) * $quantity, 2);
                 }
 
                 $disposal = Disposal::create([
@@ -94,12 +91,16 @@ class ProcessBatchDonation
                     'donation_batch_id' => $batchId,
                     'disposal_type' => DisposalType::Donation,
                     'quantity' => $quantity,
+                    'volume_bd_ft' => $volumeForThisDisposal,
                     'details' => $donationDetails,
                     'processed_by' => $user->id,
                     'processed_at' => now(),
                 ]);
 
                 $asset->increment('disposed_quantity', $quantity);
+                if ($volumeForThisDisposal !== null) {
+                    $asset->increment('disposed_volume_bd_ft', $volumeForThisDisposal);
+                }
                 $asset->refresh();
 
                 $donation = Donation::create([

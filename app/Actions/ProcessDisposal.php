@@ -22,7 +22,6 @@ class ProcessDisposal
         protected AssetLifecycleService $lifecycleService,
         protected PdfDocumentService $pdfDocumentService,
         protected AuditLogService $auditLogService,
-        protected SplitAssetRemainder $splitAssetRemainder,
     ) {}
 
     public function execute(Asset $asset, DisposalType $type, User $user, array $details = [], ?int $quantity = null): Disposal
@@ -49,23 +48,16 @@ class ProcessDisposal
         }
 
         return DB::transaction(function () use ($asset, $type, $user, $details, $quantity, $remaining) {
-            // NEW — split off the undisposed remainder before touching this asset
-            if ($quantity < $remaining) {
-                $this->splitAssetRemainder->execute($asset, $remaining - $quantity, $user);
-            }
-
-            $asset->update([
-                'quantity' => $asset->disposed_quantity + $quantity,
-                'volume_bd_ft' => round($asset->disposed_volume_bd_ft + ((float) $asset->remainingVolumeBdFt() / $remaining) * $quantity, 2)
-            ]);
-            $asset->refresh();
-
-            // Proportional volume for this slice, if the asset tracks board-feet.
+            // Partial disposals no longer split off a new Asset record — the
+            // undisposed remainder simply stays on THIS asset, under the same
+            // AAP code, and the asset stays "for_disposal" (still available
+            // for further disposal action) until disposed_quantity reaches
+            // the original quantity. quantity/volume_bd_ft are treated as
+            // immutable "as apprehended" figures and are never overwritten here.
             $volumeForThisDisposal = null;
             if ($asset->volume_bd_ft !== null && $remaining > 0) {
-                $volumeForThisDisposal = $asset->volume_bd_ft !== null
-                    ? (float) $asset->remainingVolumeBdFt()
-                    : null;
+                $remainingVolume = (float) $asset->remainingVolumeBdFt();
+                $volumeForThisDisposal = round(($remainingVolume / $remaining) * $quantity, 2);
             }
 
             $disposal = Disposal::create([
