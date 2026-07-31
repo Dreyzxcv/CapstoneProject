@@ -43,7 +43,10 @@ class DisposalController extends Controller
         $this->authorize('view', $asset);
 
         return Inertia::render('Disposals/Create', [
-            'asset' => $asset->load(['jev']),
+            'asset' => [
+                ...$asset->load(['jev'])->toArray(),
+                'remaining_quantity' => $asset->remainingQuantity(),
+            ],
             'disposalTypes' => collect($lifecycle->allowedDisposalTypes($asset))->map(fn ($t) => [
                 'value' => $t->value,
                 'label' => $t->label(),
@@ -108,7 +111,13 @@ class DisposalController extends Controller
             ->whereColumn('disposed_quantity', '<', 'quantity')
             ->with('incident')
             ->latest()
-            ->get();
+            ->get()
+            ->map(function (Asset $asset) {
+                $data = $asset->toArray();
+                $data['remaining_quantity'] = $asset->remainingQuantity();
+
+                return $data;
+            });
 
         return Inertia::render('Disposals/CreateBatchDonation', [
             'assets' => $assets,

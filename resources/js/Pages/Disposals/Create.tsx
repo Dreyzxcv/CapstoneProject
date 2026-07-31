@@ -25,7 +25,7 @@ interface DisposalsCreateProps {
 const selectClass = 'mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm';
 
 export default function DisposalsCreate({ asset, disposalTypes, municipalities, barangaysByMunicipality }: DisposalsCreateProps) {
-    const assetQuantity = asset.quantity ?? 1;
+    const assetQuantity = asset.remaining_quantity ?? asset.quantity ?? 1;
 
     const ORG_TYPES = [
         { value: 'academe', label: 'Academe' },

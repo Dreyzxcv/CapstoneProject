@@ -21,6 +21,7 @@ interface DonatableAsset {
     species: string | null;
     description: string | null;
     quantity: number;
+    remaining_quantity: number;
     municipality_of_origin: string;
     incident?: { place_of_apprehension: string } | null;
 }
@@ -76,7 +77,7 @@ export default function CreateBatchDonation({ assets, municipalities, barangaysB
         if (field === 'asset_id') {
             const asset = assetsById.get(value);
             if (asset && !next[index].quantity) {
-                next[index].quantity = String(asset.quantity);
+                next[index].quantity = String(asset.remaining_quantity);
             }
         }
 
@@ -161,7 +162,7 @@ export default function CreateBatchDonation({ assets, municipalities, barangaysB
                                                         <option value="" disabled>Select an asset…</option>
                                                         {options.map((a) => (
                                                             <option key={a.id} value={a.id}>
-                                                                {a.asset_code} — {a.species ?? a.description ?? 'Log'} ({a.quantity} on hand)
+                                                                {a.asset_code} — {a.species ?? a.description ?? 'Log'} ({a.remaining_quantity} on hand) {/* was a.quantity */}
                                                             </option>
                                                         ))}
                                                     </select>
@@ -173,7 +174,7 @@ export default function CreateBatchDonation({ assets, municipalities, barangaysB
                                                         id={`quantity-${index}`}
                                                         type="number"
                                                         min={1}
-                                                        max={selectedAsset?.quantity}
+                                                        max={selectedAsset?.remaining_quantity}
                                                         value={line.quantity}
                                                         onChange={(e) => updateLine(index, 'quantity', e.target.value)}
                                                         required
@@ -191,10 +192,10 @@ export default function CreateBatchDonation({ assets, municipalities, barangaysB
                                                     </Button>
                                                 )}
                                             </div>
-                                            {selectedAsset && Number(line.quantity) > 0 && Number(line.quantity) < selectedAsset.quantity && (
+                                            {selectedAsset && Number(line.quantity) > 0 && Number(line.quantity) < selectedAsset.remaining_quantity && (
                                                 <p className="mt-2 text-xs text-amber-700">
-                                                    The remaining {selectedAsset.quantity - Number(line.quantity)} pc(s) of{' '}
-                                                    {selectedAsset.asset_code} will be split off and kept in storage.
+                                                    The remaining {selectedAsset.remaining_quantity - Number(line.quantity)} pc(s) of{' '}
+                                                    {selectedAsset.asset_code} will stay available for future disposal.
                                                 </p>
                                             )}
                                         </div>
