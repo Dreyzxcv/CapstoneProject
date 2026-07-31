@@ -107,8 +107,8 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
     }
 
     function handleReleaseDonation() {
-        if (asset.disposal && confirm('Mark this donation as released to the requester?')) {
-            router.post(route('disposals.release-donation', asset.disposal.id));
+        if (pendingDonationDisposal && confirm('Mark this donation as released to the requester?')) {
+            router.post(route('disposals.release-donation', pendingDonationDisposal.id));
         }
     }
 
@@ -126,9 +126,9 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
 
     function submitRelease(e: FormEvent) {
         e.preventDefault();
-        if (!asset.disposal) return;
+        if (!pendingDonationDisposal) return;
         if (!confirm('Mark this donation as released to the requester?')) return;
-        releaseForm.post(route('disposals.release-donation', asset.disposal.id), {
+        releaseForm.post(route('disposals.release-donation', pendingDonationDisposal.id), {
             forceFormData: true,
             preserveScroll: true,
         });
@@ -140,6 +140,11 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
         jevForm.reset();
     }
     const receiptUrl = documentUrl(asset.acknowledgement_receipt?.pdf_path);
+    const disposals = asset.disposals ?? [];
+    const totalDisposed = disposals.reduce((sum, d) => sum + d.quantity, 0);
+    const remainingQuantity = Math.max(0, (asset.quantity ?? 1) - totalDisposed);
+    // A donation disposal still awaiting physical release/confirmation, if any.
+    const pendingDonationDisposal = disposals.find((d) => d.disposal_type === 'donation' && d.donation && !d.donation.released_at);
     const dateOfApprehension = asset.incident?.date_of_apprehension
         ? new Date(asset.incident.date_of_apprehension).toLocaleDateString()
         : '—';
@@ -467,6 +472,44 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                     </form>
                 </Modal>
 
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">Disposal History</CardTitle>
+                        <p className="text-sm text-gray-500">
+                            {totalDisposed} of {asset.quantity ?? 1} unit(s) disposed
+                            {remainingQuantity > 0 ? ` — ${remainingQuantity} remaining` : ' — fully disposed'}.
+                        </p>
+                    </CardHeader>
+                    <CardContent>
+                        {disposals.length === 0 ? (
+                            <p className="text-sm text-gray-500">No disposal actions recorded yet.</p>
+                        ) : (
+                            <div className="divide-y divide-gray-100">
+                                {disposals.map((d) => (
+                                    <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+                                        <div>
+                                            <p className="font-medium capitalize text-gray-800">
+                                                {d.disposal_type.replace(/_/g, ' ')} — {d.quantity} unit(s)
+                                            </p>
+                                            {d.donation && (
+                                                <p className="text-gray-500">
+                                                    {d.donation.requester_name}
+                                                    {d.donation.released_at
+                                                        ? ` — released ${new Date(d.donation.released_at).toLocaleDateString()}`
+                                                        : ' — awaiting release'}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-gray-400">
+                                            {new Date(d.processed_at).toLocaleString()}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
                 <RequiredDocumentsModal
                     show={showRequiredDocsModal}
                     onClose={() => setShowRequiredDocsModal(false)}
@@ -478,14 +521,14 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                 />
 
                 {/* QR + Donation */}
-                {(qrSvg || asset.disposal?.donation) && (
+                {(qrSvg || pendingDonationDisposal) && (
                     <div className="grid items-start gap-6 lg:grid-cols-3">
 
-                        {asset.disposal?.donation && (
+                        {pendingDonationDisposal?.donation && (
                             <Card className="lg:col-span-2">
                                 <CardHeader>
                                     <CardTitle className="text-base">
-                                        {asset.disposal.donation.released_at
+                                        {pendingDonationDisposal.donation.released_at
                                             ? 'Donation Released'
                                             : 'Donation Release'}
                                     </CardTitle>
@@ -493,49 +536,46 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
 
                                 <CardContent className="space-y-4">
 
-                                    {!asset.disposal.donation.released_at && (
+                                    {!pendingDonationDisposal.donation.released_at && (
                                         <>
                                             <p className="text-sm text-gray-600">
                                                 Deed of Donation is on file for{' '}
                                                 <span className="font-medium">
-                                                    {asset.disposal.donation.requester_name}
+                                                    {pendingDonationDisposal.donation.requester_name}
                                                 </span>.
                                                 {' '}Mark as released once the item has been handed over.
                                             </p>
 
-                                            {documentUrl(asset.disposal.donation.waybill_pdf_path) && (
+                                            {documentUrl(pendingDonationDisposal.donation.waybill_pdf_path) && (
                                                 <a
-                                                    href={documentUrl(asset.disposal.donation.waybill_pdf_path) ?? '#'}
+                                                    href={documentUrl(pendingDonationDisposal.donation.waybill_pdf_path) ?? '#'}
                                                     className="block text-sm text-emerald-700 hover:underline"
                                                 >
                                                     Download Donation Waybill (
-                                                    {asset.quantity ?? 1}
+                                                    {pendingDonationDisposal.quantity}
                                                     {' '}
                                                     piece
-                                                    {(asset.quantity ?? 1) === 1 ? '' : 's'})
+                                                    {pendingDonationDisposal.quantity === 1 ? '' : 's'})
                                                 </a>
                                             )}
 
-                                            {(asset.disposal.details as { delivery_coordinates?: string })
+                                            {(pendingDonationDisposal.details as { delivery_coordinates?: string })
                                                 ?.delivery_coordinates && (
                                                 <IncidentLocationMap
                                                     coordinates={
                                                         (
-                                                            asset.disposal.details as {
+                                                            pendingDonationDisposal.details as {
                                                                 delivery_coordinates?: string;
                                                             }
                                                         ).delivery_coordinates
                                                     }
-                                                    placeName={asset.disposal.donation.requester_name}
+                                                    placeName={pendingDonationDisposal.donation.requester_name}
                                                     areaName="Delivery location"
                                                 />
                                             )}
 
                                             {can.releaseDonation && (
-                                                <form
-                                                    onSubmit={submitRelease}
-                                                    className="space-y-3"
-                                                >
+                                                <form onSubmit={submitRelease} className="space-y-3">
                                                     <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm text-gray-500 hover:border-emerald-400 hover:text-emerald-600">
                                                         {releaseForm.data.photo
                                                             ? releaseForm.data.photo.name
@@ -555,66 +595,10 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                                         />
                                                     </label>
 
-                                                    <Button
-                                                        type="submit"
-                                                        disabled={releaseForm.processing}
-                                                    >
+                                                    <Button type="submit" disabled={releaseForm.processing}>
                                                         Mark Donation Released
                                                     </Button>
                                                 </form>
-                                            )}
-                                        </>
-                                    )}
-
-                                    {asset.disposal.donation.released_at && (
-                                        <>
-                                            <p className="text-sm text-gray-600">
-                                                Released to{' '}
-                                                <span className="font-medium">
-                                                    {asset.disposal.donation.requester_name}
-                                                </span>
-                                                {asset.disposal.donation.agency_name &&
-                                                    ` (${asset.disposal.donation.agency_name})`}
-                                                {' '}on{' '}
-                                                {new Date(
-                                                    asset.disposal.donation.released_at,
-                                                ).toLocaleString()}.
-                                            </p>
-
-                                            {asset.disposal.donation.release_photo_path && (
-                                                <a
-                                                    href={
-                                                        documentUrl(
-                                                            asset.disposal.donation.release_photo_path,
-                                                        ) ?? '#'
-                                                    }
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="block w-fit"
-                                                >
-                                                    <img
-                                                        src={
-                                                            documentUrl(
-                                                                asset.disposal.donation.release_photo_path,
-                                                            ) ?? ''
-                                                        }
-                                                        alt="Release confirmation"
-                                                        className="h-40 w-40 rounded-lg border border-gray-200 object-cover"
-                                                    />
-                                                </a>
-                                            )}
-
-                                            {documentUrl(asset.disposal.donation.deed_of_donation_path) && (
-                                                <a
-                                                    href={
-                                                        documentUrl(
-                                                            asset.disposal.donation.deed_of_donation_path,
-                                                        ) ?? '#'
-                                                    }
-                                                    className="block text-sm text-emerald-700 hover:underline"
-                                                >
-                                                    Download Deed of Donation
-                                                </a>
                                             )}
                                         </>
                                     )}
@@ -623,13 +607,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                         )}
 
                         {qrSvg && (
-                            <Card
-                                className={
-                                    asset.disposal?.donation
-                                        ? ""
-                                        : "lg:col-span-3"
-                                }
-                            >
+                            <Card className={pendingDonationDisposal?.donation ? "" : "lg:col-span-3"}>
                                 <CardHeader>
                                     <CardTitle className="text-base">QR Code Sticker</CardTitle>
                                     <p className="text-sm text-gray-500">

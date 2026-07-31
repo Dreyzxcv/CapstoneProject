@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Enums\AssetStatus;
+use App\Enums\DisposalType;
 use App\Models\Disposal;
 use App\Models\Donation;
 use App\Models\User;
@@ -32,10 +33,6 @@ class ReleaseDonation
 
         $asset = $disposal->asset;
 
-        if ($asset->current_status !== AssetStatus::PendingRelease) {
-            throw new DomainException('Asset is not awaiting release.');
-        }
-
         return DB::transaction(function () use ($donation, $user, $photo, $asset) {
             $before = $donation->toArray();
 
@@ -46,15 +43,26 @@ class ReleaseDonation
 
             $donation->update($updates);
 
-            $this->lifecycleService->transition(
-                $asset,
-                AssetStatus::Donated,
-                $user,
-                'Donation confirmed released/delivered to donee.',
-                'donation.released',
-            );
-
             $this->auditLogService->log('donation.released', $donation, $before, $donation->fresh()->toArray(), $user->id);
+
+            // Only push the AAP to its terminal "Donated" status once every
+            // unit has been disposed AND every donation tied to this asset
+            // has been physically released — one AAP can now carry more
+            // than one donation disposal event over time.
+            $hasUnreleasedDonations = $asset->disposals()
+                ->where('disposal_type', DisposalType::Donation->value)
+                ->whereHas('donation', fn ($q) => $q->whereNull('released_at'))
+                ->exists();
+
+            if ($asset->isFullyDisposed() && ! $hasUnreleasedDonations && $asset->current_status !== AssetStatus::Donated) {
+                $this->lifecycleService->transition(
+                    $asset,
+                    AssetStatus::Donated,
+                    $user,
+                    'All donations for this AAP confirmed released/delivered to donee(s).',
+                    'donation.released',
+                );
+            }
 
             return $donation->fresh();
         });

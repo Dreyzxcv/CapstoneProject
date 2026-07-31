@@ -6,17 +6,13 @@ namespace App\Actions;
 use App\Enums\AssetStatus;
 use App\Enums\AssetType;
 use App\Enums\DisposalType;
-use App\Enums\Municipality;
 use App\Models\Asset;
-use App\Models\AssetCaseStatusHistory;
 use App\Models\Disposal;
 use App\Models\Donation;
 use App\Models\User;
-use App\Services\AssetCodeService;
 use App\Services\AssetLifecycleService;
 use App\Services\AuditLogService;
 use App\Services\PdfDocumentService;
-use App\Services\QrCodeService;
 use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -28,8 +24,6 @@ class ProcessBatchDonation
         protected AssetLifecycleService $lifecycleService,
         protected PdfDocumentService $pdfDocumentService,
         protected AuditLogService $auditLogService,
-        protected QrCodeService $qrCodeService,
-        protected AssetCodeService $assetCodeService,
     ) {}
 
     /**
@@ -45,7 +39,6 @@ class ProcessBatchDonation
 
         $assets = Asset::whereIn('id', collect($lines)->pluck('asset_id'))->get()->keyBy('id');
 
-        // Validate every line before touching the database.
         foreach ($lines as $line) {
             $asset = $assets->get($line['asset_id']);
 
@@ -61,15 +54,16 @@ class ProcessBatchDonation
                 throw new DomainException("{$asset->asset_code} is not marked for disposal.");
             }
 
-            if ($asset->disposal) {
-                throw new DomainException("{$asset->asset_code} already has a disposal recorded.");
+            $remaining = $asset->remainingQuantity();
+
+            if ($remaining <= 0) {
+                throw new DomainException("{$asset->asset_code} has already been fully disposed.");
             }
 
-            $assetQuantity = $asset->quantity ?? 1;
-            $quantity = $line['quantity'] ?? $assetQuantity;
+            $quantity = $line['quantity'] ?? $remaining;
 
-            if ($quantity < 1 || $quantity > $assetQuantity) {
-                throw new DomainException("Quantity for {$asset->asset_code} must be between 1 and {$assetQuantity}.");
+            if ($quantity < 1 || $quantity > $remaining) {
+                throw new DomainException("Quantity for {$asset->asset_code} must be between 1 and {$remaining} (the remaining, undisposed amount).");
             }
         }
 
@@ -79,24 +73,21 @@ class ProcessBatchDonation
 
             foreach ($lines as $line) {
                 $asset = $assets->get($line['asset_id'])->fresh();
-                $assetQuantity = $asset->quantity ?? 1;
-                $quantity = $line['quantity'] ?? $assetQuantity;
-                $remainderQuantity = $assetQuantity - $quantity;
-
-                if ($remainderQuantity > 0) {
-                    $this->splitRemainderToStorage($asset, $remainderQuantity, $user);
-                    $asset->update(['quantity' => $quantity]);
-                    $asset->refresh();
-                }
+                $remaining = $asset->remainingQuantity();
+                $quantity = $line['quantity'] ?? $remaining;
 
                 $disposal = Disposal::create([
                     'asset_id' => $asset->id,
                     'donation_batch_id' => $batchId,
                     'disposal_type' => DisposalType::Donation,
+                    'quantity' => $quantity,
                     'details' => $donationDetails,
                     'processed_by' => $user->id,
                     'processed_at' => now(),
                 ]);
+
+                $asset->increment('disposed_quantity', $quantity);
+                $asset->refresh();
 
                 $donation = Donation::create([
                     'disposal_id' => $disposal->id,
@@ -112,15 +103,23 @@ class ProcessBatchDonation
                 $this->pdfDocumentService->generateDeedOfDonation($asset, $disposal, $donation);
                 $this->pdfDocumentService->generateDonationWaybill($asset, $disposal, $donation);
 
-                $this->lifecycleService->transition(
-                    $asset->fresh(),
-                    DisposalType::Donation->resultingStatus(),
-                    $user,
-                    "Disposal processed: Donation ({$quantity} of {$assetQuantity} unit(s)) — part of a multi-asset donation.",
-                    'disposal.processed',
-                );
-
-                $this->auditLogService->log('disposal.processed', $disposal, null, $disposal->toArray(), $user->id);
+                if ($asset->isFullyDisposed()) {
+                    $this->lifecycleService->transition(
+                        $asset,
+                        DisposalType::Donation->resultingStatus(),
+                        $user,
+                        "Disposal processed: Donation ({$quantity} of {$asset->quantity} unit(s)) — fully disposed, part of a multi-asset donation.",
+                        'disposal.processed',
+                    );
+                } else {
+                    $this->auditLogService->log(
+                        'disposal.partial_processed',
+                        $disposal,
+                        null,
+                        ['quantity' => $quantity, 'remaining' => $asset->remainingQuantity()],
+                        $user->id,
+                    );
+                }
 
                 $disposals->push($disposal->fresh(['donation', 'asset']));
             }
@@ -132,56 +131,5 @@ class ProcessBatchDonation
 
             return $disposals;
         });
-    }
-
-    /**
-     * Duplicated from ProcessDisposal::splitRemainderToStorage — same behavior,
-     * kept local so this action doesn't depend on ProcessDisposal directly.
-     * Worth extracting into a shared service if a third caller shows up.
-     */
-    protected function splitRemainderToStorage(Asset $original, int $remainderQuantity, User $user): Asset
-    {
-        $remainder = Asset::create([
-            'incident_id' => $original->incident_id,
-            'asset_code' => 'PENDING',
-            'type' => $original->type,
-            'species' => $original->species,
-            'description' => $original->description,
-            'quantity' => $remainderQuantity,
-            'volume_bd_ft' => null,
-            'volume_cu_m' => null,
-            'estimated_value' => null,
-            'plate_number' => $original->plate_number,
-            'municipality_of_origin' => $original->municipality_of_origin,
-            'location_apprehended' => $original->location_apprehended,
-            'apprehending_agency' => $original->apprehending_agency,
-            'mode' => $original->mode,
-            'has_ongoing_case' => $original->has_ongoing_case,
-            'has_confiscation_order' => $original->has_confiscation_order,
-            'current_status' => AssetStatus::Stored,
-            'qr_code_token' => $this->qrCodeService->generateToken(),
-            'metadata' => $original->metadata,
-            'created_by' => $user->id,
-        ]);
-
-        $remainder->update([
-            'asset_code' => $this->assetCodeService->generate(
-                $remainder,
-                Municipality::from($original->municipality_of_origin),
-                $original->has_ongoing_case,
-            ),
-        ]);
-
-        AssetCaseStatusHistory::create([
-            'asset_id' => $remainder->id,
-            'status' => AssetStatus::Stored,
-            'changed_by' => $user->id,
-            'notes' => "Split from {$original->asset_code} — {$remainderQuantity} unit(s) not selected for disposal, returned to storage.",
-            'changed_at' => now(),
-        ]);
-
-        $this->auditLogService->log('asset.split_for_partial_disposal', $remainder, null, $remainder->toArray(), $user->id);
-
-        return $remainder;
     }
 }

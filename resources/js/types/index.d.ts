@@ -58,7 +58,7 @@ export interface Asset {
     next_hearing_date: string | null;
     documents?: DocumentItem[];
     jev?: Jev;
-    disposal?: Disposal;
+    disposals?: Disposal[];
     qr_scans?: QrScan[];
 }
 
@@ -122,6 +122,8 @@ export interface Donation {
 export interface Disposal {
     id: number;
     disposal_type: string;
+    quantity: number;
+    volume_bd_ft: string | null;
     processed_at: string;
     details?: Record<string, unknown>;
     donation?: Donation;

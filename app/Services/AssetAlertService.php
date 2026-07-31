@@ -30,7 +30,7 @@ class AssetAlertService
         $upcoming = Asset::query()
             ->where('type', AssetType::Vehicle->value)
             ->whereNotNull('appeal_deadline')
-            ->whereDoesntHave('disposal')
+            ->whereColumn('disposed_quantity', '<', 'quantity')
             ->where('appeal_deadline', '<=', now()->addDays(3))
             ->get();
 

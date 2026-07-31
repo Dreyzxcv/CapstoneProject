@@ -22,9 +22,8 @@ class Asset extends Model
         'type',
         'species',
         'description',
-        'quantity',
-        'volume_bd_ft',
-        'volume_cu_m',
+        'quantity', 'volume_bd_ft', 'volume_cu_m',
+        'disposed_quantity', 'disposed_volume_bd_ft', 'disposed_volume_cu_m',
         'estimated_value',
         'plate_number',
         'municipality_of_origin',
@@ -58,6 +57,9 @@ class Asset extends Model
             'volume_cu_m' => 'decimal:4',
             'estimated_value' => 'decimal:2',
             'next_hearing_date' => 'date',
+            'disposed_quantity' => 'integer',
+            'disposed_volume_bd_ft' => 'decimal:2',
+            'disposed_volume_cu_m' => 'decimal:4',
         ];
     }
 
@@ -86,9 +88,33 @@ class Asset extends Model
         return $this->hasOne(Jev::class);
     }
 
-    public function disposal(): HasOne
+    public function disposals(): HasMany
     {
-        return $this->hasOne(Disposal::class);
+        return $this->hasMany(Disposal::class);
+    }
+
+    public function latestDisposal(): HasOne
+    {
+        return $this->hasOne(Disposal::class)->latestOfMany();
+    }
+
+    public function remainingQuantity(): int
+    {
+        return max(0, ($this->quantity ?? 1) - ($this->disposed_quantity ?? 0));
+    }
+
+    public function remainingVolumeBdFt(): ?float
+    {
+        if ($this->volume_bd_ft === null) {
+            return null;
+        }
+
+        return max(0, (float) $this->volume_bd_ft - (float) ($this->disposed_volume_bd_ft ?? 0));
+    }
+
+    public function isFullyDisposed(): bool
+    {
+        return $this->remainingQuantity() <= 0;
     }
 
     public function qrScans(): HasMany

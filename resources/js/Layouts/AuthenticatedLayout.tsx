@@ -225,7 +225,7 @@ export default function Authenticated({
                     </button>
 
                     {/* Logo */}
-                    <div className={'flex h-16 items-center justify-between px-4 lg:h-20 ' + (collapsed ? 'lg:px-3' : 'lg:px-6')}>
+                    <div className={'flex h-16 items-center justify-between px-4 lg:h-20 ' + (collapsed ? 'lg:justify-center lg:px-3' : 'lg:px-6')}>
                         <Link
                             href={route('dashboard')}
                             className={'flex items-center gap-3 overflow-hidden ' + (collapsed ? 'lg:gap-0' : '')}

@@ -13,6 +13,8 @@ class Disposal extends Model
         'asset_id',
         'donation_batch_id',
         'disposal_type',
+        'quantity',
+        'volume_bd_ft',
         'details',
         'report_pdf_path',
         'processed_by',
@@ -23,6 +25,8 @@ class Disposal extends Model
     {
         return [
             'disposal_type' => DisposalType::class,
+            'quantity' => 'integer',
+            'volume_bd_ft' => 'decimal:2',
             'details' => 'array',
             'processed_at' => 'datetime',
         ];
@@ -56,7 +60,7 @@ class Disposal extends Model
     public function batchSiblings()
     {
         if (! $this->donation_batch_id) {
-            return self::whereRaw('1 = 0'); // no batch → no siblings
+            return self::whereRaw('1 = 0');
         }
 
         return self::where('donation_batch_id', $this->donation_batch_id)

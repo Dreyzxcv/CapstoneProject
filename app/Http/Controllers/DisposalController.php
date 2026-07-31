@@ -105,7 +105,7 @@ class DisposalController extends Controller
         $assets = Asset::query()
             ->where('type', 'log')
             ->where('current_status', 'for_disposal')
-            ->whereDoesntHave('disposal')
+            ->whereColumn('disposed_quantity', '<', 'quantity')
             ->with('incident')
             ->latest()
             ->get();
