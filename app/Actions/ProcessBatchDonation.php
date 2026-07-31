@@ -24,6 +24,7 @@ class ProcessBatchDonation
         protected AssetLifecycleService $lifecycleService,
         protected PdfDocumentService $pdfDocumentService,
         protected AuditLogService $auditLogService,
+        protected SplitAssetRemainder $splitAssetRemainder,
     ) {}
 
     /**
@@ -75,6 +76,18 @@ class ProcessBatchDonation
                 $asset = $assets->get($line['asset_id'])->fresh();
                 $remaining = $asset->remainingQuantity();
                 $quantity = $line['quantity'] ?? $remaining;
+
+                if ($quantity < $remaining) {
+                    $this->splitAssetRemainder->execute($asset, $remaining - $quantity, $user);
+
+                    $asset->update([
+                        'quantity' => $asset->disposed_quantity + $quantity,
+                        'volume_bd_ft' => $asset->volume_bd_ft !== null
+                            ? round($asset->disposed_volume_bd_ft + ((float) $asset->remainingVolumeBdFt() / $remaining) * $quantity, 2)
+                            : null,
+                    ]);
+                    $asset->refresh();
+                }
 
                 $disposal = Disposal::create([
                     'asset_id' => $asset->id,

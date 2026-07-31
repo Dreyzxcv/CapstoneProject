@@ -22,6 +22,7 @@ class ProcessDisposal
         protected AssetLifecycleService $lifecycleService,
         protected PdfDocumentService $pdfDocumentService,
         protected AuditLogService $auditLogService,
+        protected SplitAssetRemainder $splitAssetRemainder,
     ) {}
 
     public function execute(Asset $asset, DisposalType $type, User $user, array $details = [], ?int $quantity = null): Disposal
@@ -48,11 +49,23 @@ class ProcessDisposal
         }
 
         return DB::transaction(function () use ($asset, $type, $user, $details, $quantity, $remaining) {
+            // NEW — split off the undisposed remainder before touching this asset
+            if ($quantity < $remaining) {
+                $this->splitAssetRemainder->execute($asset, $remaining - $quantity, $user);
+            }
+
+            $asset->update([
+                'quantity' => $asset->disposed_quantity + $quantity,
+                'volume_bd_ft' => round($asset->disposed_volume_bd_ft + ((float) $asset->remainingVolumeBdFt() / $remaining) * $quantity, 2)
+            ]);
+            $asset->refresh();
+
             // Proportional volume for this slice, if the asset tracks board-feet.
             $volumeForThisDisposal = null;
             if ($asset->volume_bd_ft !== null && $remaining > 0) {
-                $perUnit = (float) $asset->remainingVolumeBdFt() / $remaining;
-                $volumeForThisDisposal = round($perUnit * $quantity, 2);
+                $volumeForThisDisposal = $asset->volume_bd_ft !== null
+                    ? (float) $asset->remainingVolumeBdFt()
+                    : null;
             }
 
             $disposal = Disposal::create([
@@ -65,8 +78,6 @@ class ProcessDisposal
                 'processed_at' => now(),
             ]);
 
-            // NEVER touch quantity/volume_bd_ft/volume_cu_m — those stay as
-            // originally apprehended. Only the disposed_* counters move.
             $asset->increment('disposed_quantity', $quantity);
             if ($volumeForThisDisposal !== null) {
                 $asset->increment('disposed_volume_bd_ft', $volumeForThisDisposal);
@@ -92,8 +103,6 @@ class ProcessDisposal
                     'disposal.processed',
                 );
             } else {
-                // Remaining pieces of the same AAP are still awaiting disposal;
-                // status stays For Disposal, but log it for the audit trail/history.
                 $this->auditLogService->log(
                     'disposal.partial_processed',
                     $disposal,
