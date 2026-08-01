@@ -49,11 +49,11 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
         if (!qrContainerRef.current) return;
         const svg = qrContainerRef.current.querySelector('svg');
         if (svg instanceof SVGElement) {
-            // ensure SVG has visible dimensions when injected via innerHTML
-            if (!svg.getAttribute('width')) svg.setAttribute('width', '160');
-            if (!svg.getAttribute('height')) svg.setAttribute('height', '160');
-            // some user-agents may treat injected SVG as inline; make it block for predictable layout
+            svg.setAttribute('width', '160');
+            svg.setAttribute('height', '160');
             svg.style.display = 'block';
+            svg.style.maxWidth = '100%';  
+            svg.style.height = 'auto';   
         }
     }, [qrSvg]);
 
@@ -677,11 +677,9 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                         }
                                     `}</style>
 
-                                    {/* On-screen preview sized to a quarter of a letter page (4.25in x 5.5in),
-                                        so the custodian can see the sticker layout before printing. */}
-                                    <div
+                                   <div
                                         id="qr-print-area"
-                                        className="flex w-[4.25in] flex-col items-center justify-center gap-1.5 border border-dashed border-gray-300 p-4 text-center"
+                                        className="flex w-full max-w-[4.25in] flex-col items-center justify-center gap-1.5 border border-dashed border-gray-300 p-4 text-center"
                                         style={{ aspectRatio: '4.25 / 5.5' }}
                                     >
                                         <div
