@@ -39,6 +39,7 @@ export interface Asset {
     species: string | null;
     description: string | null;
     quantity: number;
+    disposed_quantity: number;
     remaining_quantity?: number;
     municipality_of_origin: string;
     location_apprehended: string;

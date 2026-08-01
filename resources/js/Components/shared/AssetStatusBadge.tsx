@@ -17,12 +17,29 @@ const statusVariants: Record<string, string> = {
     damaged: 'gray',
 };
 
+interface AssetStatusBadgeProps {
+    status: string;
+    label: string;
+    disposedQuantity?: number;
+    quantity?: number;
+}
+
 export function AssetStatusBadge({
     status,
     label,
-}: {
-    status: string;
-    label: string;
-}) {
-    return <Badge variant={statusVariants[status] ?? 'default'}>{label}</Badge>;
+    disposedQuantity,
+    quantity,
+}: AssetStatusBadgeProps) {
+    const showPartialProgress =
+        status === 'for_disposal' &&
+        typeof disposedQuantity === 'number' &&
+        typeof quantity === 'number' &&
+        disposedQuantity > 0 &&
+        disposedQuantity < quantity;
+
+    const displayLabel = showPartialProgress
+        ? `${label} (${disposedQuantity}/${quantity} disposed)`
+        : label;
+
+    return <Badge variant={statusVariants[status] ?? 'default'}>{displayLabel}</Badge>;
 }

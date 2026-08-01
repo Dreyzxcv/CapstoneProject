@@ -143,6 +143,10 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
     const disposals = asset.disposals ?? [];
     const totalDisposed = disposals.reduce((sum, d) => sum + d.quantity, 0);
     const remainingQuantity = Math.max(0, (asset.quantity ?? 1) - totalDisposed);
+    const isPartiallyDisposed =
+        asset.current_status === 'for_disposal' &&
+        (asset.disposed_quantity ?? 0) > 0 &&
+        (asset.disposed_quantity ?? 0) < (asset.quantity ?? 1);
     // A donation disposal still awaiting physical release/confirmation, if any.
     const pendingDonationDisposal = disposals.find((d) => d.disposal_type === 'donation' && d.donation && !d.donation.released_at);
     const dateOfApprehension = asset.incident?.date_of_apprehension
@@ -162,6 +166,8 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                     <AssetStatusBadge
                         status={asset.current_status}
                         label={asset.current_status.replace(/_/g, ' ')}
+                        disposedQuantity={asset.disposed_quantity}
+                        quantity={asset.quantity}
                     />
                 </div>
             }
@@ -472,44 +478,6 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                     </form>
                 </Modal>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Disposal History</CardTitle>
-                        <p className="text-sm text-gray-500">
-                            {totalDisposed} of {asset.quantity ?? 1} unit(s) disposed
-                            {remainingQuantity > 0 ? ` — ${remainingQuantity} remaining` : ' — fully disposed'}.
-                        </p>
-                    </CardHeader>
-                    <CardContent>
-                        {disposals.length === 0 ? (
-                            <p className="text-sm text-gray-500">No disposal actions recorded yet.</p>
-                        ) : (
-                            <div className="divide-y divide-gray-100">
-                                {disposals.map((d) => (
-                                    <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
-                                        <div>
-                                            <p className="font-medium capitalize text-gray-800">
-                                                {d.disposal_type.replace(/_/g, ' ')} — {d.quantity} unit(s)
-                                            </p>
-                                            {d.donation && (
-                                                <p className="text-gray-500">
-                                                    {d.donation.requester_name}
-                                                    {d.donation.released_at
-                                                        ? ` — released ${new Date(d.donation.released_at).toLocaleDateString()}`
-                                                        : ' — awaiting release'}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <p className="text-xs text-gray-400">
-                                            {new Date(d.processed_at).toLocaleString()}
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
                 <RequiredDocumentsModal
                     show={showRequiredDocsModal}
                     onClose={() => setShowRequiredDocsModal(false)}
@@ -746,6 +714,53 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                             )}
                         </CardContent>
                     </Card>
+                )}
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">Disposal History</CardTitle>
+                        <p className="text-sm text-gray-500">
+                            {totalDisposed} of {asset.quantity ?? 1} unit(s) disposed
+                            {remainingQuantity > 0 ? ` — ${remainingQuantity} remaining` : ' — fully disposed'}.
+                        </p>
+                    </CardHeader>
+                    <CardContent>
+                        {disposals.length === 0 ? (
+                            <p className="text-sm text-gray-500">No disposal actions recorded yet.</p>
+                        ) : (
+                            <div className="divide-y divide-gray-100">
+                                {disposals.map((d) => (
+                                    <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+                                        <div>
+                                            <p className="font-medium capitalize text-gray-800">
+                                                {d.disposal_type.replace(/_/g, ' ')} — {d.quantity} unit(s)
+                                            </p>
+                                            {d.donation && (
+                                                <p className="text-gray-500">
+                                                    {d.donation.requester_name}
+                                                    {d.donation.released_at
+                                                        ? ` — released ${new Date(d.donation.released_at).toLocaleDateString()}`
+                                                        : ' — awaiting release'}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-gray-400">
+                                            {new Date(d.processed_at).toLocaleString()}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {isPartiallyDisposed && (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        <span className="font-medium">
+                            {asset.disposed_quantity}/{asset.quantity} units disposed so far
+                        </span>
+                        {' '}— see Disposal History above for partial actions. This AAP stays "For Disposal" until fully processed.
+                    </div>
                 )}
 
                 <Card>

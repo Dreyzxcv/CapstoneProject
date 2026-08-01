@@ -253,6 +253,8 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                                 <AssetStatusBadge
                                                     status={asset.current_status}
                                                     label={asset.current_status.replace(/_/g, ' ')}
+                                                    disposedQuantity={asset.disposed_quantity}
+                                                    quantity={asset.quantity}
                                                 />
                                             )}
                                         </Link>
@@ -312,6 +314,8 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                                         <AssetStatusBadge
                                                             status={asset.current_status}
                                                             label={asset.current_status.replace(/_/g, ' ')}
+                                                            disposedQuantity={asset.disposed_quantity}
+                                                            quantity={asset.quantity}
                                                         />
                                                     </td>
                                                 )}

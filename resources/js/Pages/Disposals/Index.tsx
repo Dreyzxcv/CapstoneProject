@@ -69,6 +69,8 @@ export default function DisposalsIndex({ assets, can }: DisposalsIndexProps) {
                                         <AssetStatusBadge
                                             status={asset.current_status}
                                             label={asset.current_status.replace(/_/g, ' ')}
+                                            disposedQuantity={asset.disposed_quantity}
+                                            quantity={asset.quantity}
                                         />
                                     </td>
                                     <td className="px-4 py-3 text-right">
