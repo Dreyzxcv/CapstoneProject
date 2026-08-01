@@ -311,9 +311,10 @@ export default function Authenticated({
                             <Dropdown.Content
                                 align="left"
                                 width="60"
+                                direction="up"
                                 contentClasses="bg-white py-2 shadow-xl ring-1 ring-gray-200"
                             >
-                                <div className="border-b border-gray-100 px-4 py-3">
+                                <div className="px-3 pb-2 pt-1">
                                     <p className="truncate text-xs text-gray-500">{user.email}</p>
                                 </div>
 
@@ -338,23 +339,13 @@ export default function Authenticated({
                                         Log Out
                                     </Dropdown.Link>
                                 </div>
-
-                                <div className="mt-1 flex items-center gap-3 border-t border-gray-100 px-4 pt-3">
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
-                                        {user.name.charAt(0).toUpperCase()}
-                                    </span>
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
-                                        <p className="truncate text-xs text-gray-500">{user.roles?.join(', ')}</p>
-                                    </div>
-                                </div>
                             </Dropdown.Content>
                         </Dropdown>
                     </div>
 
                     {/* Account - mobile */}
                     <div className="border-t border-gray-200 lg:hidden">
-                        <div className="border-b border-gray-100 px-4 py-3">
+                        <div className="px-4 pb-2 pt-3">
                             <p className="truncate text-xs text-gray-500">{user.email}</p>
                         </div>
 
@@ -378,16 +369,6 @@ export default function Authenticated({
                                 <LogOut className="h-4 w-4 text-gray-400" />
                                 Log Out
                             </Link>
-                        </div>
-
-                        <div className="flex items-center gap-3 border-t border-gray-100 px-4 py-3">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
-                                {user.name.charAt(0).toUpperCase()}
-                            </span>
-                            <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
-                                <p className="truncate text-xs text-gray-500">{user.roles?.join(', ')}</p>
-                            </div>
                         </div>
                     </div>
                 </aside>
