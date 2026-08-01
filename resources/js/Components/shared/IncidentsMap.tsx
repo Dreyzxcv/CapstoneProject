@@ -3,7 +3,6 @@ import type { Map as LeafletMap, TileLayer, Marker as LeafletMarker } from 'leaf
 import { MapPin, Maximize2, Minimize2, Loader2, Satellite, Map as MapIcon } from 'lucide-react';
 import { router } from '@inertiajs/react';
 
-// Same bounding box used by CoordinatesPickerModal, so the two stay visually consistent.
 const CATANDUANES_BOUNDS: [[number, number], [number, number]] = [
     [13.40, 124.05],
     [14.10, 124.45],
@@ -53,31 +52,17 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
     const normalLayerRef = useRef<TileLayer | null>(null);
     const satelliteLayerRef = useRef<TileLayer | null>(null);
     const satelliteLabelsRef = useRef<TileLayer | null>(null);
-    // Cache the dynamically-imported leaflet module so the marker-sync
-    // effect (which runs on every incidents change) doesn't need to
-    // re-import it — and so it can build L.divIcon/L.marker without
-    // re-triggering map creation.
     const leafletModuleRef = useRef<typeof import('leaflet') | null>(null);
     const markersRef = useRef<LeafletMarker[]>([]);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [mapView, setMapView] = useState<MapView>('satellite');
-    // Flips true once the Leaflet map instance exists, so the marker-sync
-    // effect knows it's safe to draw.
     const [mapReady, setMapReady] = useState(false);
 
     const plottable = incidents
         .map((incident) => ({ incident, point: parseCoordinates(incident.coordinates) }))
         .filter((row): row is { incident: IncidentLocation; point: { lat: number; lng: number } } => row.point !== null);
 
-    // Map creation — runs ONCE and never tears down just because the
-    // current filter has zero results. Previously this component early-
-    // returned a totally different placeholder tree when `plottable` was
-    // empty, which unmounted the Leaflet container div; since this effect
-    // only ever runs once (empty deps) and bails if `mapRef.current` is
-    // already set, the map was never re-attached to the new container div
-    // created when switching back to a non-empty filter — leaving a blank
-    // box. Keeping the map shell always mounted fixes that.
     useEffect(() => {
         if (!containerRef.current || mapRef.current) return;
 
@@ -88,7 +73,6 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
 
             leafletModuleRef.current = L;
 
-            // Fix Leaflet's default marker icons breaking under Vite bundling
             delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 
             const map = L.map(containerRef.current, {
@@ -105,7 +89,6 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
                 zoomAnimation: true,
             });
 
-            // Normal (street/labels) basemap — OpenStreetMap, clean and readable.
             const normalLayer = L.tileLayer(
                 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                 {
