@@ -36,15 +36,6 @@ interface ShowProps {
 }
 
 export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTypes, can }: ShowProps) {
-    // --- Real-time refresh ---------------------------------------------
-    // Must be called unconditionally, in the same position on every render,
-    // alongside the other hooks below — never inside a conditional, loop,
-    // callback, or after an early `return`. Violating that is exactly what
-    // produces React error #321 ("invalid hook call").
-    //
-    // Polls just the `asset` prop in the background every 6s, so a scan,
-    // signature, JEV upload, or disposal made by another user (or from the
-    // mobile scanner) shows up here without a manual refresh.
     usePoll(6000, { only: ['asset'] });
 
     const { auth } = usePage<PageProps>().props;
@@ -144,6 +135,10 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
     const disposals = asset.disposals ?? [];
     const totalDisposed = disposals.reduce((sum, d) => sum + d.quantity, 0);
     const remainingQuantity = Math.max(0, (asset.quantity ?? 1) - totalDisposed);
+    const showDisposalHistory =
+        disposals.length > 0 ||
+        asset.current_status === 'for_disposal' ||
+        ['pending_release', 'donated', 'decayed', 'fabricated', 'released', 'forfeited', 'damaged'].includes(asset.current_status);
     const isPartiallyDisposed =
         asset.current_status === 'for_disposal' &&
         (asset.disposed_quantity ?? 0) > 0 &&
@@ -176,24 +171,6 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
             <Head title={`Asset ${asset.asset_code.slice(0, 8)}`} />
 
             <div className="mx-auto max-w-7xl space-y-6 overflow-x-hidden px-4 sm:px-6 lg:px-8">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Workflow Guidance</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                        <p className="text-sm font-medium text-emerald-700">{currentRole}</p>
-                        <p className="text-sm text-gray-600">
-                            The asset follows the documented MES → Property → Accounting → Disposal flow.
-                        </p>
-                        <p className="text-sm text-gray-700">
-                            Current stage: <span className="font-semibold">{asset.current_status.replace(/_/g, ' ')}</span>
-                        </p>
-                        <p className="text-sm text-gray-600">
-                            Next step: {asset.current_status === 'for_disposal' ? 'Process the disposal action for this asset.' : 'Complete the next handoff in the workflow.'}
-                        </p>
-                    </CardContent>
-                </Card>
-
                 <div className="grid items-start gap-6 lg:grid-cols-3">
                     <Card className="lg:col-span-2">
                         <CardHeader className="flex flex-row items-center justify-between">
@@ -798,52 +775,54 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                     </Card>
                 )}
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Disposal History</CardTitle>
-                        <p className="text-sm text-gray-500">
-                            {totalDisposed} of {asset.quantity ?? 1} unit(s) disposed
-                            {remainingQuantity > 0 ? ` — ${remainingQuantity} remaining` : ' — fully disposed'}.
-                        </p>
-                    </CardHeader>
-                    <CardContent>
-                        {disposals.length === 0 ? (
-                            <p className="text-sm text-gray-500">No disposal actions recorded yet.</p>
-                        ) : (
-                            <div className="divide-y divide-gray-100">
-                                {disposals.map((d) => (
-                                    <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
-                                        <div>
-                                            <p className="font-medium capitalize text-gray-800">
-                                                {d.disposal_type.replace(/_/g, ' ')} — {d.quantity} unit(s)
-                                            </p>
-                                            {d.donation && (
-                                                <p className="text-gray-500">
-                                                    {d.donation.requester_name}
-                                                    {d.donation.released_at
-                                                        ? ` — released ${new Date(d.donation.released_at).toLocaleDateString()}`
-                                                        : ' — awaiting release'}
+                {showDisposalHistory && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">Disposal History</CardTitle>
+                            <p className="text-sm text-gray-500">
+                                {totalDisposed} of {asset.quantity ?? 1} unit(s) disposed
+                                {remainingQuantity > 0 ? ` — ${remainingQuantity} remaining` : ' — fully disposed'}.
+                            </p>
+                        </CardHeader>
+                        <CardContent>
+                            {disposals.length === 0 ? (
+                                <p className="text-sm text-gray-500">No disposal actions recorded yet.</p>
+                            ) : (
+                                <div className="divide-y divide-gray-100">
+                                    {disposals.map((d) => (
+                                        <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+                                            <div>
+                                                <p className="font-medium capitalize text-gray-800">
+                                                    {d.disposal_type.replace(/_/g, ' ')} — {d.quantity} unit(s)
                                                 </p>
-                                            )}
+                                                {d.donation && (
+                                                    <p className="text-gray-500">
+                                                        {d.donation.requester_name}
+                                                        {d.donation.released_at
+                                                            ? ` — released ${new Date(d.donation.released_at).toLocaleDateString()}`
+                                                            : ' — awaiting release'}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <p className="text-xs text-gray-400">
+                                                    {new Date(d.processed_at).toLocaleString()}
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setViewingDisposal(d)}
+                                                    className="text-xs font-medium text-emerald-700 hover:underline"
+                                                >
+                                                    View
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <p className="text-xs text-gray-400">
-                                                {new Date(d.processed_at).toLocaleString()}
-                                            </p>
-                                            <button
-                                                type="button"
-                                                onClick={() => setViewingDisposal(d)}
-                                                className="text-xs font-medium text-emerald-700 hover:underline"
-                                            >
-                                                View
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
 
                 {isPartiallyDisposed && (
                     <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
