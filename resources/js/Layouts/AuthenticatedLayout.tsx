@@ -5,22 +5,7 @@ import NotificationBell from '@/Components/shared/NotificationBell';
 import { Link, usePage, usePoll } from '@inertiajs/react';
 import { PropsWithChildren, ReactNode, useEffect, useState } from 'react';
 import { PageProps } from '@/types';
-import {
-    LayoutDashboard,
-    Package,
-    QrCode,
-    Trash2,
-    FileBarChart2,
-    History,
-    Users,
-    ChevronDown,
-    LogOut,
-    Menu,
-    X,
-    ClipboardPlus,
-    PanelLeftClose,
-    PanelLeftOpen,
-} from 'lucide-react';
+import { LayoutDashboard, Package, QrCode, Trash2, FileBarChart2, History, Users, ChevronDown, LogOut, Menu, X, ClipboardPlus, PanelLeftClose, PanelLeftOpen, User } from 'lucide-react';
 
 function hasPermission(permissions: string[], permission: string): boolean {
     return permissions.includes(permission);
@@ -296,82 +281,113 @@ export default function Authenticated({
 
                     {/* Account - desktop */}
                     <div className={'hidden border-t border-gray-200 lg:block ' + (collapsed ? 'px-2 py-4' : 'px-4 py-4')}>
-                        {collapsed ? (
-                            <div className="flex flex-col items-center gap-2">
-                                <Dropdown>
-                                    <Dropdown.Trigger>
-                                        <button
-                                            type="button"
-                                            title={user.name}
-                                            className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-800 hover:bg-emerald-200"
-                                        >
+                        <Dropdown>
+                            <Dropdown.Trigger>
+                                {collapsed ? (
+                                    <button
+                                        type="button"
+                                        title={user.name}
+                                        className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-800 hover:bg-emerald-200"
+                                    >
+                                        {user.name.charAt(0).toUpperCase()}
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-left transition hover:bg-gray-100"
+                                    >
+                                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
                                             {user.name.charAt(0).toUpperCase()}
-                                        </button>
-                                    </Dropdown.Trigger>
-                                    <Dropdown.Content>
-                                        <Dropdown.Link href={route('profile.edit')}>Profile</Dropdown.Link>
-                                        <Dropdown.Link href={route('logout')} method="post" as="button">
-                                            Log Out
-                                        </Dropdown.Link>
-                                    </Dropdown.Content>
-                                </Dropdown>
-                                <Link
-                                    href={route('logout')}
-                                    method="post"
-                                    as="button"
-                                    title="Sign Out"
-                                    className="flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-red-600"
-                                >
-                                    <LogOut className="h-4 w-4" />
-                                </Link>
-                            </div>
-                        ) : (
-                            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                <Dropdown>
-                                    <Dropdown.Trigger>
-                                        <span className="inline-flex w-full rounded-md">
-                                            <button
-                                                type="button"
-                                                className="flex w-full items-center justify-between rounded-md border border-transparent bg-transparent px-0 py-1 text-left text-sm font-medium leading-4 text-gray-600 transition duration-150 ease-in-out hover:text-gray-800 focus:outline-none"
-                                            >
-                                                <span>
-                                                    <span className="block text-gray-900">{user.name}</span>
-                                                    <span className="block text-xs text-gray-500">{user.roles?.join(', ')}</span>
-                                                </span>
-                                                <ChevronDown className="h-4 w-4" />
-                                            </button>
                                         </span>
-                                    </Dropdown.Trigger>
-                                    <Dropdown.Content>
-                                        <Dropdown.Link href={route('profile.edit')}>Profile</Dropdown.Link>
-                                        <Dropdown.Link href={route('logout')} method="post" as="button">
-                                            Log Out
-                                        </Dropdown.Link>
-                                    </Dropdown.Content>
-                                </Dropdown>
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block truncate text-sm font-medium text-gray-900">{user.name}</span>
+                                            <span className="block truncate text-xs text-gray-500">{user.roles?.join(', ')}</span>
+                                        </span>
+                                        <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
+                                    </button>
+                                )}
+                            </Dropdown.Trigger>
 
-                                <Link
-                                    href={route('logout')}
-                                    method="post"
-                                    as="button"
-                                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-gray-200 bg-white py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-red-600"
-                                >
-                                    <LogOut className="h-4 w-4" />
-                                    Sign Out
-                                </Link>
-                            </div>
-                        )}
+                            <Dropdown.Content
+                                align="left"
+                                width="60"
+                                contentClasses="bg-white py-2 shadow-xl ring-1 ring-gray-200"
+                            >
+                                <div className="border-b border-gray-100 px-4 py-3">
+                                    <p className="truncate text-xs text-gray-500">{user.email}</p>
+                                </div>
+
+                                <div className="py-1">
+                                    <Dropdown.Link
+                                        href={route('profile.edit')}
+                                        className="flex items-center gap-3"
+                                    >
+                                        <User className="h-4 w-4 text-gray-400" />
+                                        Profile
+                                    </Dropdown.Link>
+                                </div>
+
+                                <div className="border-t border-gray-100 py-1">
+                                    <Dropdown.Link
+                                        href={route('logout')}
+                                        method="post"
+                                        as="button"
+                                        className="flex items-center gap-3"
+                                    >
+                                        <LogOut className="h-4 w-4 text-gray-400" />
+                                        Log Out
+                                    </Dropdown.Link>
+                                </div>
+
+                                <div className="mt-1 flex items-center gap-3 border-t border-gray-100 px-4 pt-3">
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
+                                        {user.name.charAt(0).toUpperCase()}
+                                    </span>
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
+                                        <p className="truncate text-xs text-gray-500">{user.roles?.join(', ')}</p>
+                                    </div>
+                                </div>
+                            </Dropdown.Content>
+                        </Dropdown>
                     </div>
 
                     {/* Account - mobile */}
-                    <div className="border-t border-gray-200 px-4 py-4 lg:hidden">
-                        <div className="text-sm font-medium text-gray-800">{user.name}</div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
-                        <div className="mt-3 space-y-1">
-                            <ResponsiveNavLink href={route('profile.edit')}>Profile</ResponsiveNavLink>
-                            <ResponsiveNavLink method="post" href={route('logout')} as="button">
+                    <div className="border-t border-gray-200 lg:hidden">
+                        <div className="border-b border-gray-100 px-4 py-3">
+                            <p className="truncate text-xs text-gray-500">{user.email}</p>
+                        </div>
+
+                        <div className="py-1">
+                            <Link
+                                href={route('profile.edit')}
+                                className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                                <User className="h-4 w-4 text-gray-400" />
+                                Profile
+                            </Link>
+                        </div>
+
+                        <div className="border-t border-gray-100 py-1">
+                            <Link
+                                method="post"
+                                href={route('logout')}
+                                as="button"
+                                className="flex w-full items-center gap-3 px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                                <LogOut className="h-4 w-4 text-gray-400" />
                                 Log Out
-                            </ResponsiveNavLink>
+                            </Link>
+                        </div>
+
+                        <div className="flex items-center gap-3 border-t border-gray-100 px-4 py-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
+                                {user.name.charAt(0).toUpperCase()}
+                            </span>
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
+                                <p className="truncate text-xs text-gray-500">{user.roles?.join(', ')}</p>
+                            </div>
                         </div>
                     </div>
                 </aside>
