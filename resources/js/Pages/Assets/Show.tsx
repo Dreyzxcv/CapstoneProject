@@ -6,7 +6,7 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import InputError from '@/Components/InputError';
 import Modal from '@/Components/Modal';
-import { Asset, PageProps } from '@/types';
+import { Asset, Disposal, PageProps } from '@/types';
 import { documentUrl } from '@/lib/utils';
 import { Head, Link, router, useForm, usePage, usePoll } from '@inertiajs/react';
 import { FormEvent, useState, useRef, useEffect } from 'react';
@@ -52,6 +52,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
     const [showJevModal, setShowJevModal] = useState(false);
     const qrContainerRef = useRef<HTMLDivElement | null>(null);
     const [showRequiredDocsModal, setShowRequiredDocsModal] = useState(false);
+    const [viewingDisposal, setViewingDisposal] = useState<Disposal | null>(null);
 
     useEffect(() => {
         if (!qrContainerRef.current) return;
@@ -478,6 +479,87 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                     </form>
                 </Modal>
 
+                <Modal show={viewingDisposal !== null} onClose={() => setViewingDisposal(null)} maxWidth="lg">
+                    {viewingDisposal && (
+                        <div className="p-6">
+                            <h2 className="text-lg font-medium capitalize text-gray-900">
+                                {viewingDisposal.disposal_type.replace(/_/g, ' ')} Disposal
+                            </h2>
+                            <p className="mt-1 text-sm text-gray-600">
+                                Processed {new Date(viewingDisposal.processed_at).toLocaleString()}
+                            </p>
+
+                            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                                <div>
+                                    <dt className="text-gray-500">Quantity</dt>
+                                    <dd className="text-gray-900">{viewingDisposal.quantity} unit(s)</dd>
+                                </div>
+                                {viewingDisposal.volume_bd_ft && (
+                                    <div>
+                                        <dt className="text-gray-500">Volume (bd.ft)</dt>
+                                        <dd className="text-gray-900">{viewingDisposal.volume_bd_ft}</dd>
+                                    </div>
+                                )}
+                                {viewingDisposal.details && Object.entries(viewingDisposal.details).map(([key, value]) => (
+                                    value ? (
+                                        <div key={key}>
+                                            <dt className="text-gray-500 capitalize">{key.replace(/_/g, ' ')}</dt>
+                                            <dd className="text-gray-900">{String(value)}</dd>
+                                        </div>
+                                    ) : null
+                                ))}
+                            </dl>
+
+                            {viewingDisposal.donation && (
+                                <div className="mt-4 border-t border-gray-100 pt-4">
+                                    <p className="text-sm font-semibold text-gray-700">Donation</p>
+                                    <p className="mt-1 text-sm text-gray-600">
+                                        {viewingDisposal.donation.requester_name}
+                                        {viewingDisposal.donation.agency_name ? ` (${viewingDisposal.donation.agency_name})` : ''}
+                                    </p>
+                                    <p className="text-sm text-gray-500">
+                                        {[viewingDisposal.donation.street, viewingDisposal.donation.barangay, viewingDisposal.donation.municipality]
+                                            .filter(Boolean)
+                                            .join(', ') || 'No address on file'}
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="mt-4 flex flex-wrap gap-3 border-t border-gray-100 pt-4">
+                                {documentUrl(viewingDisposal.report_pdf_path) && (
+                                    <a href={documentUrl(viewingDisposal.report_pdf_path) ?? '#'} className="text-sm text-emerald-700 hover:underline">
+                                        Download Report
+                                    </a>
+                                )}
+                                {documentUrl(viewingDisposal.donation?.deed_of_donation_path) && (
+                                    <a href={documentUrl(viewingDisposal.donation?.deed_of_donation_path) ?? '#'} className="text-sm text-emerald-700 hover:underline">
+                                        Download Deed of Donation
+                                    </a>
+                                )}
+                                {documentUrl(viewingDisposal.donation?.waybill_pdf_path) && (
+                                    <a href={documentUrl(viewingDisposal.donation?.waybill_pdf_path) ?? '#'} className="text-sm text-emerald-700 hover:underline">
+                                        Download Waybill
+                                    </a>
+                                )}
+                                {documentUrl(viewingDisposal.ics_record?.pdf_path) && (
+                                    <a href={documentUrl(viewingDisposal.ics_record?.pdf_path) ?? '#'} className="text-sm text-emerald-700 hover:underline">
+                                        Download ICS
+                                    </a>
+                                )}
+                                {documentUrl(viewingDisposal.par_record?.pdf_path) && (
+                                    <a href={documentUrl(viewingDisposal.par_record?.pdf_path) ?? '#'} className="text-sm text-emerald-700 hover:underline">
+                                        Download PAR
+                                    </a>
+                                )}
+                            </div>
+
+                            <div className="mt-6 flex justify-end border-t border-gray-100 pt-4">
+                                <Button type="button" variant="outline" onClick={() => setViewingDisposal(null)}>Close</Button>
+                            </div>
+                        </div>
+                    )}
+                </Modal>
+
                 <RequiredDocumentsModal
                     show={showRequiredDocsModal}
                     onClose={() => setShowRequiredDocsModal(false)}
@@ -744,9 +826,18 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                                 </p>
                                             )}
                                         </div>
-                                        <p className="text-xs text-gray-400">
-                                            {new Date(d.processed_at).toLocaleString()}
-                                        </p>
+                                        <div className="flex items-center gap-3">
+                                            <p className="text-xs text-gray-400">
+                                                {new Date(d.processed_at).toLocaleString()}
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setViewingDisposal(d)}
+                                                className="text-xs font-medium text-emerald-700 hover:underline"
+                                            >
+                                                View
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>

@@ -121,6 +121,13 @@ export interface Donation {
     released_at: string | null;
 }
 
+export interface DisposalDocumentRecord {
+    id: number;
+    document_number: string;
+    pdf_path: string | null;
+    issued_at: string;
+}
+
 export interface Disposal {
     id: number;
     disposal_type: string;
@@ -131,12 +138,17 @@ export interface Disposal {
     donation?: Donation;
 }
 
-export interface QrScan {
+export interface Disposal {
     id: number;
-    scan_location_note: string | null;
-    resulting_status: string;
-    scanned_at: string;
-    scanned_by?: User;
+    disposal_type: string;
+    quantity: number;
+    volume_bd_ft: string | null;
+    processed_at: string;
+    report_pdf_path: string | null;
+    details?: Record<string, unknown>;
+    donation?: Donation;
+    ics_record?: DisposalDocumentRecord;
+    par_record?: DisposalDocumentRecord;
 }
 
 export interface DocumentItem {
