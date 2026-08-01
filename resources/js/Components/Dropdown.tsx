@@ -53,21 +53,26 @@ const Trigger = ({ children }: PropsWithChildren) => {
 const Content = ({
     align = 'right',
     width = '48',
+    // 'down' opens below the trigger (default), 'up' opens above it.
+    // Use 'up' for triggers anchored near the bottom of the viewport
+    // (e.g. a sidebar account button) so the menu doesn't render off-screen.
+    direction = 'down',
     contentClasses = 'py-1 bg-white',
     children,
 }: PropsWithChildren<{
     align?: 'left' | 'right';
     width?: '48' | '60';
+    direction?: 'down' | 'up';
     contentClasses?: string;
 }>) => {
     const { open, setOpen } = useContext(DropDownContext);
 
-    let alignmentClasses = 'origin-top';
+    let alignmentClasses = direction === 'up' ? 'origin-bottom' : 'origin-top';
 
     if (align === 'left') {
-        alignmentClasses = 'ltr:origin-top-left rtl:origin-top-right start-0';
+        alignmentClasses += ' ltr:origin-left rtl:origin-right start-0';
     } else if (align === 'right') {
-        alignmentClasses = 'ltr:origin-top-right rtl:origin-top-left end-0';
+        alignmentClasses += ' ltr:origin-right rtl:origin-left end-0';
     }
 
     let widthClasses = '';
@@ -77,6 +82,8 @@ const Content = ({
     } else if (width === '60') {
         widthClasses = 'w-60';
     }
+
+    const positionClasses = direction === 'up' ? 'bottom-full mb-2' : 'mt-2';
 
     return (
         <>
@@ -90,7 +97,7 @@ const Content = ({
                 leaveTo="opacity-0 scale-95"
             >
                 <div
-                    className={`absolute z-50 mt-2 rounded-md shadow-lg ${alignmentClasses} ${widthClasses}`}
+                    className={`absolute z-50 ${positionClasses} rounded-md shadow-lg ${alignmentClasses} ${widthClasses}`}
                     onClick={() => setOpen(false)}
                 >
                     <div
