@@ -156,6 +156,10 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
         (asset.disposed_quantity ?? 0) < (asset.quantity ?? 1);
     // A donation disposal still awaiting physical release/confirmation, if any.
     const pendingDonationDisposal = disposals.find((d) => d.disposal_type === 'donation' && d.donation && !d.donation.released_at);
+    // The Donation Release card should only appear once JEV Out has been
+    // issued for this donation — the Release Order / Waybill (and the act of
+    // physically releasing the item) only make sense after that step.
+    const donationReadyForRelease = Boolean(pendingDonationDisposal?.donation && pendingDonationDisposal.disposal_jev);
     const dateOfApprehension = asset.incident?.date_of_apprehension
         ? new Date(asset.incident.date_of_apprehension).toLocaleDateString()
         : '—';
@@ -366,35 +370,73 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                         </CardContent>
                     </Card>
 
-                    <div className="space-y-6">
-                        {can.createJev && asset.current_status === 'cleared_for_accounting' && !asset.jev && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-base">Create JEV</CardTitle>
+                    {/* Journal Entry Voucher — JEV In (asset-level) and JEV Out
+                        (donation disposal-level) merged into a single card so
+                        the accounting handoff reads as one continuous story. */}
+                    <Card>
+                        <CardHeader><CardTitle className="text-base">Journal Entry Voucher</CardTitle></CardHeader>
+                        <CardContent className="space-y-4">
+                            {/* JEV In: not yet created */}
+                            {can.createJev && asset.current_status === 'cleared_for_accounting' && !asset.jev && (
+                                <div>
                                     <p className="text-sm text-gray-500">
-                                        This asset is cleared for accounting and needs a Journal Entry Voucher before
-                                        it can move to disposal processing.
+                                        This asset is cleared for accounting and needs a Journal Entry Voucher
+                                        before it can move to disposal processing.
                                     </p>
-                                </CardHeader>
-                                <CardContent>
-                                    <Button onClick={() => setShowJevModal(true)}>Fill Out JEV Form</Button>
-                                </CardContent>
-                            </Card>
-                        )}
+                                    <div className="mt-3">
+                                        <Button onClick={() => setShowJevModal(true)}>Fill Out JEV Form</Button>
+                                    </div>
+                                </div>
+                            )}
 
-                        {donationAwaitingJevOut && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-base">Donation — Awaiting JEV Out</CardTitle>
+                            {!can.createJev && asset.current_status === 'cleared_for_accounting' && !asset.jev && (
+                                <p className="text-sm text-gray-500">
+                                    Cleared for accounting — awaiting JEV creation by Accounting.
+                                </p>
+                            )}
+
+                            {/* JEV In: created, not yet uploaded/confirmed by MES */}
+                            {asset.jev && !asset.jev.uploaded_at && (
+                                <div>
                                     <p className="text-sm text-gray-500">
+                                        Accounting issued this JEV. Confirm the upload to move the asset to disposal processing.
+                                    </p>
+                                    <p className="mt-2 text-sm">
+                                        <span className="font-medium">JEV Number:</span> {asset.jev.jev_number}
+                                    </p>
+                                    {can.uploadJev && (
+                                        <div className="mt-3">
+                                            <Button onClick={handleUploadJev}>Confirm JEV Upload</Button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* JEV In: uploaded/confirmed */}
+                            {asset.jev && asset.jev.uploaded_at && (
+                                <p className="text-sm text-gray-600">
+                                    JEV <span className="font-medium">{asset.jev.jev_number}</span> uploaded by MES.
+                                </p>
+                            )}
+
+                            {asset.current_status !== 'cleared_for_accounting' && !asset.jev && (
+                                <p className="text-sm text-gray-500">
+                                    No JEV has been issued for this asset yet.
+                                </p>
+                            )}
+
+                            {/* JEV Out: donation disposal awaiting its own JEV */}
+                            {donationAwaitingJevOut && (
+                                <div className="border-t border-gray-100 pt-4">
+                                    <p className="text-sm font-semibold text-gray-700">Donation — Awaiting JEV Out</p>
+                                    <p className="mt-1 text-sm text-gray-500">
                                         Deed of Donation is on file. Issue JEV Out to generate the Release Order and Waybill.
                                     </p>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
+
                                     {documentUrl(donationAwaitingJevOut.donation?.deed_of_donation_path) && (
                                         <a
                                             href={documentUrl(donationAwaitingJevOut.donation?.deed_of_donation_path) ?? '#'}
-                                            className="block text-sm text-emerald-700 hover:underline"
+                                            className="mt-2 block text-sm text-emerald-700 hover:underline"
                                         >
                                             Download Deed of Donation
                                         </a>
@@ -403,7 +445,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                     {can.issueJevOut ? (
                                         <form
                                             onSubmit={(e) => submitJevOut(e, donationAwaitingJevOut.id)}
-                                            className="space-y-3 border-t border-gray-100 pt-4"
+                                            className="mt-3 space-y-3"
                                         >
                                             <div className="space-y-2">
                                                 <Label htmlFor="jev_out_number">JEV Out Number</Label>
@@ -421,69 +463,14 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                             </Button>
                                         </form>
                                     ) : (
-                                        <p className="text-sm text-gray-500 border-t border-gray-100 pt-4">
+                                        <p className="mt-3 text-sm text-gray-500">
                                             Awaiting Accounting to issue JEV Out for this donation.
                                         </p>
                                     )}
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {!can.createJev && asset.current_status === 'cleared_for_accounting' && !asset.jev && (
-                            <Card>
-                                <CardHeader><CardTitle className="text-base">Journal Entry Voucher</CardTitle></CardHeader>
-                                <CardContent>
-                                    <p className="text-sm text-gray-500">
-                                        Cleared for accounting — awaiting JEV creation by Accounting.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {asset.jev && !asset.jev.uploaded_at && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-base">JEV Awaiting Upload</CardTitle>
-                                    <p className="text-sm text-gray-500">
-                                        Accounting issued this JEV. Confirm the upload to move the asset to disposal processing.
-                                    </p>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <p className="text-sm">
-                                        <span className="font-medium">JEV Number:</span> {asset.jev.jev_number}
-                                    </p>
-
-                                    {can.uploadJev && (
-                                        <div className="border-t border-gray-100 pt-4">
-                                            <Button onClick={handleUploadJev}>Confirm JEV Upload</Button>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {asset.jev && asset.jev.uploaded_at && (
-                            <Card>
-                                <CardHeader><CardTitle className="text-base">Journal Entry Voucher</CardTitle></CardHeader>
-                                <CardContent className="space-y-2">
-                                    <p className="text-sm text-gray-600">
-                                        JEV <span className="font-medium">{asset.jev.jev_number}</span> uploaded by MES.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {asset.current_status !== 'cleared_for_accounting' && !asset.jev && (
-                            <Card>
-                                <CardHeader><CardTitle className="text-base">Journal Entry Voucher</CardTitle></CardHeader>
-                                <CardContent>
-                                    <p className="text-sm text-gray-500">
-                                        No JEV has been issued for this asset yet.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        )}
-                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
                 </div>
 
                 <Modal show={showJevModal} onClose={closeJevModal} maxWidth="md">
@@ -610,10 +597,10 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                 />
 
                 {/* QR + Donation */}
-                {(qrSvg || pendingDonationDisposal) && (
+                {(qrSvg || donationReadyForRelease) && (
                     <div className="grid items-start gap-6 lg:grid-cols-3">
 
-                        {pendingDonationDisposal?.donation && (
+                        {donationReadyForRelease && pendingDonationDisposal?.donation && (
                             <Card className="lg:col-span-2">
                                 <CardHeader>
                                     <CardTitle className="text-base">
@@ -696,7 +683,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                         )}
 
                         {qrSvg && (
-                            <Card className={pendingDonationDisposal?.donation ? "" : "lg:col-span-3"}>
+                            <Card className={donationReadyForRelease ? "" : "lg:col-span-3"}>
                                 <CardHeader>
                                     <CardTitle className="text-base">QR Code Sticker</CardTitle>
                                     <p className="text-sm text-gray-500">
