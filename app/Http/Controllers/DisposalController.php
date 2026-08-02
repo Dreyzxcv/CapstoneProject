@@ -16,6 +16,8 @@ use Inertia\Response;
 use Illuminate\Http\Request;
 use App\Actions\ProcessBatchDonation;
 use App\Http\Requests\StoreBatchDonationRequest;
+use App\Actions\IssueDisposalJevOut;
+use App\Http\Requests\StoreDisposalJevOutRequest;
 
 class DisposalController extends Controller
 {
@@ -153,5 +155,12 @@ class DisposalController extends Controller
 
         return redirect()->route('disposals.index')
             ->with('success', "Donation recorded across {$disposals->count()} asset(s).");
+    }
+
+    public function issueJevOut(StoreDisposalJevOutRequest $request, Disposal $disposal, IssueDisposalJevOut $issueDisposalJevOut): RedirectResponse
+    {
+        $issueDisposalJevOut->execute($disposal, $request->validated(), $request->user());
+
+        return back()->with('success', 'JEV Out issued. Release Order and Waybill generated.');
     }
 }

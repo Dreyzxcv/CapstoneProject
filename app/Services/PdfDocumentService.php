@@ -101,6 +101,22 @@ class PdfDocumentService
         return $path;
     }
 
+    public function generateReleaseOrder(Asset $asset, Disposal $disposal, \App\Models\Donation $donation): string
+    {
+        $pdf = Pdf::loadView('pdf.release-order', [
+            'asset' => $asset,
+            'disposal' => $disposal,
+            'donation' => $donation,
+            'disposalJev' => $disposal->disposalJev,
+        ]);
+
+        $path = $this->storePdf($pdf->output(), 'release-orders', 'release-order-'.$asset->asset_code);
+
+        $donation->update(['release_order_pdf_path' => $path]);
+
+        return $path;
+    }
+
     public function generateIcs(Asset $asset, IcsRecord $ics): string
     {
         $pdf = Pdf::loadView('pdf.ics', [

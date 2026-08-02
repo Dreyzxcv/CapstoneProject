@@ -117,6 +117,7 @@ export interface Donation {
     street: string | null;
     deed_of_donation_path: string | null;
     release_photo_path: string | null;
+    release_order_pdf_path: string | null;
     waybill_pdf_path: string | null;
     released_at: string | null;
 }
@@ -134,21 +135,18 @@ export interface Disposal {
     quantity: number;
     volume_bd_ft: string | null;
     processed_at: string;
-    details?: Record<string, unknown>;
-    donation?: Donation;
-}
-
-export interface Disposal {
-    id: number;
-    disposal_type: string;
-    quantity: number;
-    volume_bd_ft: string | null;
-    processed_at: string;
     report_pdf_path: string | null;
     details?: Record<string, unknown>;
     donation?: Donation;
+    disposal_jev?: DisposalJev;
     ics_record?: DisposalDocumentRecord;
     par_record?: DisposalDocumentRecord;
+}
+
+export interface DisposalJev {
+    id: number;
+    jev_number: string;
+    pdf_path: string | null;
 }
 
 export interface DocumentItem {

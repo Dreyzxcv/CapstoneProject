@@ -99,6 +99,7 @@ class AssetController extends Controller
             'jev.createdByAccounting',
             'jev.uploadedByMes',
             'disposals.donation',
+            'disposals.disposalJev',
             'disposals.icsRecord',
             'disposals.parRecord',
             'qrScans.scannedBy',
@@ -133,6 +134,7 @@ class AssetController extends Controller
                 'updateCaseDetails' => $asset->has_ongoing_case && ($request->user()?->can('assets.update_case') ?? false),
                 'uploadEvidence' => $request->user()?->can('documents.upload') ?? false,
                 'verifyDocuments' => $request->user()?->can('documents.verify') ?? false,
+                'issueJevOut' => $request->user()?->can('jev.create') ?? false,
             ],
         ]);
     }

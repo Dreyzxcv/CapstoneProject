@@ -40,6 +40,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/assets/{asset}/required-documents', [DocumentController::class, 'storeRequired'])->name('assets.required-documents.store');
     Route::post('/documents/{document}/verify', [DocumentController::class, 'verify'])->name('documents.verify');
     Route::post('/disposals/{disposal}/release-donation', [DisposalController::class, 'releaseDonation'])->name('disposals.release-donation');
+    Route::post('/disposals/{disposal}/jev-out', [DisposalController::class, 'issueJevOut'])->name('disposals.jev-out.store');
 
     Route::get('/scan', [QrScanController::class, 'index'])->name('scan.index');
     Route::post('/scan', [QrScanController::class, 'store'])->name('scan.store');

@@ -26,7 +26,7 @@ enum DisposalType: string
     public function resultingStatus(): AssetStatus
     {
         return match ($this) {
-            self::Donation => AssetStatus::PendingRelease,
+            self::Donation => AssetStatus::DonationPendingJevOut,
             self::Decayed => AssetStatus::Decayed,
             self::Fabricated => AssetStatus::Fabricated,
             self::Released => AssetStatus::Released,

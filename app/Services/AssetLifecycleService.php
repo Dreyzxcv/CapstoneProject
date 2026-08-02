@@ -31,12 +31,16 @@ class AssetLifecycleService
             AssetStatus::ForDisposal,
         ],
         AssetStatus::ForDisposal->value => [
+            AssetStatus::DonationPendingJevOut,
             AssetStatus::PendingRelease,
             AssetStatus::Decayed,
             AssetStatus::Fabricated,
             AssetStatus::Released,
             AssetStatus::Forfeited,
             AssetStatus::Damaged,
+        ],
+        AssetStatus::DonationPendingJevOut->value => [
+            AssetStatus::PendingRelease,
         ],
         AssetStatus::PendingRelease->value => [
             AssetStatus::Donated,
@@ -148,6 +152,11 @@ class AssetLifecycleService
                 'nextAction' => 'Create the JEV and upload it to continue the disposal workflow.',
             ],
             AssetStatus::ForDisposal => $this->forDisposalGuide($asset),
+            AssetStatus::DonationPendingJevOut => [
+                'title' => 'Awaiting JEV Out',
+                'summary' => 'Deed of Donation is on file; Accounting must issue JEV Out before the Release Order and Waybill can be generated.',
+                'nextAction' => 'Accounting: issue JEV Out for this donation disposal.',
+            ],
             AssetStatus::PendingRelease => [
                 'title' => 'Awaiting Release',
                 'summary' => 'Deed of Donation is on file; the item is awaiting confirmed delivery to the donee.',

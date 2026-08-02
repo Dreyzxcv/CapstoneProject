@@ -46,6 +46,11 @@ class Disposal extends Model
     {
         return $this->hasOne(Donation::class);
     }
+    
+    public function disposalJev(): HasOne
+    {
+        return $this->hasOne(DisposalJev::class);
+    }
 
     public function icsRecord(): HasOne
     {

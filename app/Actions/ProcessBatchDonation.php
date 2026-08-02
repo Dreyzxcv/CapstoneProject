@@ -115,8 +115,7 @@ class ProcessBatchDonation
                 ]);
 
                 $this->pdfDocumentService->generateDeedOfDonation($asset, $disposal, $donation);
-                $this->pdfDocumentService->generateDonationWaybill($asset, $disposal, $donation);
-
+                
                 if ($asset->isFullyDisposed()) {
                     $this->lifecycleService->transition(
                         $asset,

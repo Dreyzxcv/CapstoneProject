@@ -31,6 +31,7 @@ interface ShowProps {
         resolveCase: boolean;
         updateCaseDetails: boolean;
         uploadEvidence: boolean;
+        issueJevOut: boolean;
         verifyDocuments: boolean;
     };
 }
@@ -66,6 +67,16 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
         court_branch: asset.court_branch ?? '',
         next_hearing_date: asset.next_hearing_date ? asset.next_hearing_date.slice(0, 10) : '',
     });
+
+    const jevOutForm = useForm({ jev_number: '' });
+
+    function submitJevOut(e: FormEvent, disposalId: number) {
+        e.preventDefault();
+        jevOutForm.post(route('disposals.jev-out.store', disposalId), {
+            preserveScroll: true,
+            onSuccess: () => jevOutForm.reset(),
+        });
+    }
 
     function submitCaseDetails(e: FormEvent) {
         e.preventDefault();
@@ -151,6 +162,10 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
     const placeOfApprehension = asset.incident?.place_of_apprehension ?? asset.location_apprehended ?? '—';
     const stickerSpecies = asset.species ?? '—';
     const stickerPcs = asset.quantity ?? 1;
+
+    const donationAwaitingJevOut = disposals.find(
+        (d) => d.disposal_type === 'donation' && d.donation && !d.disposal_jev,
+    );
     return (
         <AuthenticatedLayout
             header={
@@ -363,6 +378,53 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                 </CardHeader>
                                 <CardContent>
                                     <Button onClick={() => setShowJevModal(true)}>Fill Out JEV Form</Button>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {donationAwaitingJevOut && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-base">Donation — Awaiting JEV Out</CardTitle>
+                                    <p className="text-sm text-gray-500">
+                                        Deed of Donation is on file. Issue JEV Out to generate the Release Order and Waybill.
+                                    </p>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {documentUrl(donationAwaitingJevOut.donation?.deed_of_donation_path) && (
+                                        <a
+                                            href={documentUrl(donationAwaitingJevOut.donation?.deed_of_donation_path) ?? '#'}
+                                            className="block text-sm text-emerald-700 hover:underline"
+                                        >
+                                            Download Deed of Donation
+                                        </a>
+                                    )}
+
+                                    {can.issueJevOut ? (
+                                        <form
+                                            onSubmit={(e) => submitJevOut(e, donationAwaitingJevOut.id)}
+                                            className="space-y-3 border-t border-gray-100 pt-4"
+                                        >
+                                            <div className="space-y-2">
+                                                <Label htmlFor="jev_out_number">JEV Out Number</Label>
+                                                <Input
+                                                    id="jev_out_number"
+                                                    placeholder="2026-05-000930"
+                                                    value={jevOutForm.data.jev_number}
+                                                    onChange={(e) => jevOutForm.setData('jev_number', e.target.value)}
+                                                    required
+                                                />
+                                                <InputError message={jevOutForm.errors.jev_number} />
+                                            </div>
+                                            <Button type="submit" disabled={jevOutForm.processing}>
+                                                Issue JEV Out
+                                            </Button>
+                                        </form>
+                                    ) : (
+                                        <p className="text-sm text-gray-500 border-t border-gray-100 pt-4">
+                                            Awaiting Accounting to issue JEV Out for this donation.
+                                        </p>
+                                    )}
                                 </CardContent>
                             </Card>
                         )}
