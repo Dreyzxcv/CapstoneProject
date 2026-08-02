@@ -147,11 +147,7 @@ class AssetLifecycleService
                 'summary' => 'The asset is ready for JEV creation and subsequent disposal processing.',
                 'nextAction' => 'Create the JEV and upload it to continue the disposal workflow.',
             ],
-            AssetStatus::ForDisposal => [
-                'title' => 'Disposal Processing',
-                'summary' => 'The asset is ready for disposal based on the item type and legal pathway.',
-                'nextAction' => 'Process the appropriate disposal action for lumber, conveyance, or tools.',
-            ],
+            AssetStatus::ForDisposal => $this->forDisposalGuide($asset),
             AssetStatus::PendingRelease => [
                 'title' => 'Awaiting Release',
                 'summary' => 'Deed of Donation is on file; the item is awaiting confirmed delivery to the donee.',
@@ -163,6 +159,28 @@ class AssetLifecycleService
                 'nextAction' => 'No further workflow action is required.',
             ],
         };
+    }
+
+    protected function forDisposalGuide(Asset $asset): array
+    {
+        $disposed = $asset->disposed_quantity ?? 0;
+        $total = $asset->quantity ?? 1;
+
+        if ($disposed > 0 && $disposed < $total) {
+            $remaining = $total - $disposed;
+
+            return [
+                'title' => 'Disposal Processing',
+                'summary' => "{$disposed} of {$total} unit(s) already disposed ({$remaining} remaining).",
+                'nextAction' => 'Continue processing the rest via donation, decay report, or fabrication as appropriate.',
+            ];
+        }
+
+        return [
+            'title' => 'Disposal Processing',
+            'summary' => 'The asset is ready for disposal based on the item type and legal pathway.',
+            'nextAction' => 'Process the appropriate disposal action for lumber, conveyance, or tools.',
+        ];
     }
 
     public function allowedDisposalTypes(Asset $asset): array
