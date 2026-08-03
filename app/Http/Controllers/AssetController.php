@@ -135,6 +135,7 @@ class AssetController extends Controller
                 'uploadEvidence' => $request->user()?->can('documents.upload') ?? false,
                 'verifyDocuments' => $request->user()?->can('documents.verify') ?? false,
                 'issueJevOut' => $request->user()?->can('jev.create') ?? false,
+                'uploadJevOut' => $request->user()?->can('jev.upload') ?? false,
             ],
         ]);
     }
