@@ -147,6 +147,7 @@ export interface DisposalJev {
     id: number;
     jev_number: string;
     pdf_path: string | null;
+    uploaded_at: string | null;
 }
 
 export interface DocumentItem {
