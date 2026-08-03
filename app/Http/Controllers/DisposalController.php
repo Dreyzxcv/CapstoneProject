@@ -18,6 +18,8 @@ use App\Actions\ProcessBatchDonation;
 use App\Http\Requests\StoreBatchDonationRequest;
 use App\Actions\IssueDisposalJevOut;
 use App\Http\Requests\StoreDisposalJevOutRequest;
+use App\Actions\UploadDisposalJevOut;
+use App\Http\Requests\UploadDisposalJevOutRequest;
 
 class DisposalController extends Controller
 {
@@ -161,6 +163,17 @@ class DisposalController extends Controller
     {
         $issueDisposalJevOut->execute($disposal, $request->validated(), $request->user());
 
-        return back()->with('success', 'JEV Out issued. Release Order and Waybill generated.');
+        return back()->with('success', 'JEV Out number recorded. Awaiting MES upload confirmation.');
+    }
+
+    public function uploadJevOut(UploadDisposalJevOutRequest $request, Disposal $disposal, UploadDisposalJevOut $uploadDisposalJevOut): RedirectResponse
+    {
+        $disposal->loadMissing('disposalJev');
+
+        abort_if($disposal->disposalJev === null, 404, 'No JEV Out has been issued for this disposal yet.');
+
+        $uploadDisposalJevOut->execute($disposal->disposalJev, $request->user());
+
+        return back()->with('success', 'JEV Out uploaded. Release Order and Waybill generated.');
     }
 }
