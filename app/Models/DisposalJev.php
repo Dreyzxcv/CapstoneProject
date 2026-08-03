@@ -21,6 +21,8 @@ class DisposalJev extends Model
         'approved_by_name',
         'line_items',
         'issued_by_accounting_id',
+        'uploaded_by_mes_id',
+        'uploaded_at',
         'pdf_path',
     ];
 
@@ -28,6 +30,7 @@ class DisposalJev extends Model
     {
         return [
             'line_items' => 'array',
+            'uploaded_at' => 'datetime',
         ];
     }
 
@@ -39,6 +42,11 @@ class DisposalJev extends Model
     public function issuedByAccounting(): BelongsTo
     {
         return $this->belongsTo(User::class, 'issued_by_accounting_id');
+    }
+
+    public function uploadedByMes(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'uploaded_by_mes_id');
     }
 
     public function totalDebit(): float
