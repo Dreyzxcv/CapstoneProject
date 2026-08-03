@@ -103,6 +103,7 @@ export interface Jev {
     line_items: JevLineItem[] | null;
     pdf_path: string | null;
     uploaded_at: string | null;
+    created_by_accounting?: User;
     uploaded_by_mes?: User;
 }
 
@@ -148,6 +149,8 @@ export interface DisposalJev {
     jev_number: string;
     pdf_path: string | null;
     uploaded_at: string | null;
+    issued_by_accounting?: User;
+    uploaded_by_mes?: User;
 }
 
 export interface DocumentItem {
