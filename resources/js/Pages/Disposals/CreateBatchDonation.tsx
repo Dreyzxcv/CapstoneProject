@@ -53,6 +53,9 @@ export default function CreateBatchDonation({ assets, municipalities, barangaysB
     const { data, setData, post, processing, errors } = useForm({
         lines: [{ asset_id: '', quantity: '' }] as DonationLine[],
         requester_name: '',
+        donee_position: '',
+        purpose_statement: '',
+        confiscation_order_reference: '',
         organization_type: 'individual',
         organization_type_other: '',
         agency_name: '',
@@ -162,7 +165,7 @@ export default function CreateBatchDonation({ assets, municipalities, barangaysB
                                                         <option value="" disabled>Select an asset…</option>
                                                         {options.map((a) => (
                                                             <option key={a.id} value={a.id}>
-                                                                {a.asset_code} — {a.species ?? a.description ?? 'Log'} ({a.remaining_quantity} on hand) {/* was a.quantity */}
+                                                                {a.asset_code} — {a.species ?? a.description ?? 'Log'} ({a.remaining_quantity} on hand)
                                                             </option>
                                                         ))}
                                                     </select>
@@ -264,6 +267,48 @@ export default function CreateBatchDonation({ assets, municipalities, barangaysB
                                     <InputError message={errors.requester_name} />
                                 </div>
 
+                                <div>
+                                    <Label htmlFor="donee_position">Representative's Position / Title</Label>
+                                    <Input
+                                        id="donee_position"
+                                        placeholder="e.g. Acting Municipal Fire Marshal"
+                                        value={data.donee_position}
+                                        onChange={(e) => setData('donee_position', e.target.value)}
+                                        required
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Printed on the Deed of Donation, e.g. "represented by [name], [position]".
+                                    </p>
+                                    <InputError message={errors.donee_position} />
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="purpose_statement">Purpose / Need Statement</Label>
+                                    <Input
+                                        id="purpose_statement"
+                                        placeholder="e.g. for the improvement and renovation of the office space"
+                                        value={data.purpose_statement}
+                                        onChange={(e) => setData('purpose_statement', e.target.value)}
+                                        required
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Describes why the donee needs the lumber — appears in the Deed's WITNESSETH clause.
+                                    </p>
+                                    <InputError message={errors.purpose_statement} />
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="confiscation_order_reference">Confiscation Order Reference (optional)</Label>
+                                    <Input
+                                        id="confiscation_order_reference"
+                                        placeholder="e.g. CO-2026-0042"
+                                        value={data.confiscation_order_reference}
+                                        onChange={(e) => setData('confiscation_order_reference', e.target.value)}
+                                    />
+                                    <InputError message={errors.confiscation_order_reference} />
+                                </div>
+
+                                {/* Address block: Municipality, Barangay, Street */}
                                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                                     <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
                                         Donee Address

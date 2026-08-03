@@ -21,6 +21,16 @@ class Donation extends Model
         'waybill_pdf_path',
         'release_order_pdf_path',
         'released_at',
+
+        'donee_position',
+        'purpose_statement',
+        'confiscation_order_reference',
+        'donor_representative_name',
+        'donor_representative_title',
+        'witness_1_name',
+        'witness_1_title',
+        'witness_2_name',
+        'witness_2_title',
     ];
 
     protected function casts(): array
@@ -45,5 +55,35 @@ class Donation extends Model
             $this->municipality?->value,
             'Catanduanes',
         ])->filter()->implode(', ');
+    }
+
+    public function donorRepresentativeName(): string
+    {
+        return $this->donor_representative_name ?: config('office.donor_representative_name');
+    }
+
+    public function donorRepresentativeTitle(): string
+    {
+        return $this->donor_representative_title ?: config('office.donor_representative_title');
+    }
+
+    public function witness1Name(): string
+    {
+        return $this->witness_1_name ?: config('office.witness_1_name');
+    }
+
+    public function witness1Title(): string
+    {
+        return $this->witness_1_title ?: config('office.witness_1_title');
+    }
+
+    public function witness2Name(): string
+    {
+        return $this->witness_2_name ?: config('office.witness_2_name');
+    }
+
+    public function witness2Title(): string
+    {
+        return $this->witness_2_title ?: config('office.witness_2_title');
     }
 }

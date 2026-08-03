@@ -80,6 +80,16 @@ class DisposalController extends Controller
             'appeal_filed' => $request->boolean('appeal_filed'),
             'appeal_deadline' => $asset->appeal_deadline?->toIso8601String(),
             'delivery_coordinates' => $request->validated('delivery_coordinates'),
+
+            'donee_position' => $request->validated('donee_position'),
+            'purpose_statement' => $request->validated('purpose_statement'),
+            'confiscation_order_reference' => $request->validated('confiscation_order_reference'),
+            'donor_representative_name' => $request->validated('donor_representative_name'),
+            'donor_representative_title' => $request->validated('donor_representative_title'),
+            'witness_1_name' => $request->validated('witness_1_name'),
+            'witness_1_title' => $request->validated('witness_1_title'),
+            'witness_2_name' => $request->validated('witness_2_name'),
+            'witness_2_title' => $request->validated('witness_2_title'),
         ], fn ($value) => $value !== null && $value !== '');
 
         $processDisposal->execute(
@@ -147,6 +157,16 @@ class DisposalController extends Controller
             'street' => $request->validated('street'),
             'delivery_coordinates' => $request->validated('delivery_coordinates'),
             'notes' => $request->validated('notes'),
+
+            'donee_position' => $request->validated('donee_position'),
+            'purpose_statement' => $request->validated('purpose_statement'),
+            'confiscation_order_reference' => $request->validated('confiscation_order_reference'),
+            'donor_representative_name' => $request->validated('donor_representative_name'),
+            'donor_representative_title' => $request->validated('donor_representative_title'),
+            'witness_1_name' => $request->validated('witness_1_name'),
+            'witness_1_title' => $request->validated('witness_1_title'),
+            'witness_2_name' => $request->validated('witness_2_name'),
+            'witness_2_title' => $request->validated('witness_2_title'),
         ], fn ($value) => $value !== null && $value !== '');
 
         $disposals = $processBatchDonation->execute(

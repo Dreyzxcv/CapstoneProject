@@ -43,6 +43,17 @@ class StoreBatchDonationRequest extends FormRequest
             'street' => ['nullable', 'string', 'max:255'],
             'delivery_coordinates' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:1000'],
+
+            // Deed of Donation fields
+            'donee_position' => ['required', 'string', 'max:255'],
+            'purpose_statement' => ['required', 'string', 'max:2000'],
+            'confiscation_order_reference' => ['nullable', 'string', 'max:255'],
+            'donor_representative_name' => ['nullable', 'string', 'max:255'],
+            'donor_representative_title' => ['nullable', 'string', 'max:255'],
+            'witness_1_name' => ['nullable', 'string', 'max:255'],
+            'witness_1_title' => ['nullable', 'string', 'max:255'],
+            'witness_2_name' => ['nullable', 'string', 'max:255'],
+            'witness_2_title' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

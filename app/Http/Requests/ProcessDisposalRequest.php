@@ -47,6 +47,17 @@ class ProcessDisposalRequest extends FormRequest
             ],
             'street' => ['nullable', 'string', 'max:255'],
 
+            // Deed of Donation fields
+            'donee_position' => ['required_if:disposal_type,donation', 'nullable', 'string', 'max:255'],
+            'purpose_statement' => ['required_if:disposal_type,donation', 'nullable', 'string', 'max:2000'],
+            'confiscation_order_reference' => ['nullable', 'string', 'max:255'],
+            'donor_representative_name' => ['nullable', 'string', 'max:255'],
+            'donor_representative_title' => ['nullable', 'string', 'max:255'],
+            'witness_1_name' => ['nullable', 'string', 'max:255'],
+            'witness_1_title' => ['nullable', 'string', 'max:255'],
+            'witness_2_name' => ['nullable', 'string', 'max:255'],
+            'witness_2_title' => ['nullable', 'string', 'max:255'],
+
             'appeal_filed' => ['nullable', 'boolean'],
             'details' => ['nullable', 'array'],
             'notes' => ['nullable', 'string', 'max:1000'],

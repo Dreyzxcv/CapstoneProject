@@ -120,6 +120,16 @@ class ProcessDisposal
             'barangay' => $details['barangay'] ?? null,
             'street' => $details['street'] ?? null,
             'released_at' => isset($details['released_at']) ? \Carbon\Carbon::parse($details['released_at']) : null,
+
+            'donee_position' => $details['donee_position'] ?? null,
+            'purpose_statement' => $details['purpose_statement'] ?? null,
+            'confiscation_order_reference' => $details['confiscation_order_reference'] ?? null,
+            'donor_representative_name' => $details['donor_representative_name'] ?? null,
+            'donor_representative_title' => $details['donor_representative_title'] ?? null,
+            'witness_1_name' => $details['witness_1_name'] ?? null,
+            'witness_1_title' => $details['witness_1_title'] ?? null,
+            'witness_2_name' => $details['witness_2_name'] ?? null,
+            'witness_2_title' => $details['witness_2_title'] ?? null,
         ]);
 
         $this->pdfDocumentService->generateDeedOfDonation($asset, $disposal, $donation);

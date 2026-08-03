@@ -39,6 +39,9 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
         disposal_type: disposalTypes[0]?.value ?? '',
         quantity: String(assetQuantity),
         requester_name: '',
+        donee_position: '',
+        purpose_statement: '',
+        confiscation_order_reference: '',
         organization_type: 'individual',
         organization_type_other: '',
         agency_name: '',
@@ -172,6 +175,41 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
                                     required
                                 />
                                 <InputError message={errors.requester_name} />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="donee_position">Representative's Position / Title</Label>
+                                <Input
+                                    id="donee_position"
+                                    placeholder="e.g. Acting Municipal Fire Marshal"
+                                    value={data.donee_position}
+                                    onChange={(e) => setData('donee_position', e.target.value)}
+                                    required
+                                />
+                                <InputError message={errors.donee_position} />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="purpose_statement">Purpose / Need Statement</Label>
+                                <Input
+                                    id="purpose_statement"
+                                    placeholder="e.g. for the improvement and renovation of the office space"
+                                    value={data.purpose_statement}
+                                    onChange={(e) => setData('purpose_statement', e.target.value)}
+                                    required
+                                />
+                                <InputError message={errors.purpose_statement} />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="confiscation_order_reference">Confiscation Order Reference (optional)</Label>
+                                <Input
+                                    id="confiscation_order_reference"
+                                    placeholder="e.g. CO-2026-0042"
+                                    value={data.confiscation_order_reference}
+                                    onChange={(e) => setData('confiscation_order_reference', e.target.value)}
+                                />
+                                <InputError message={errors.confiscation_order_reference} />
                             </div>
 
                             {/* Address block: Municipality, Barangay, Street */}

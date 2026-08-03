@@ -112,6 +112,16 @@ class ProcessBatchDonation
                     'municipality' => $donationDetails['municipality'] ?? null,
                     'barangay' => $donationDetails['barangay'] ?? null,
                     'street' => $donationDetails['street'] ?? null,
+
+                    'donee_position' => $donationDetails['donee_position'] ?? null,
+                    'purpose_statement' => $donationDetails['purpose_statement'] ?? null,
+                    'confiscation_order_reference' => $donationDetails['confiscation_order_reference'] ?? null,
+                    'donor_representative_name' => $donationDetails['donor_representative_name'] ?? null,
+                    'donor_representative_title' => $donationDetails['donor_representative_title'] ?? null,
+                    'witness_1_name' => $donationDetails['witness_1_name'] ?? null,
+                    'witness_1_title' => $donationDetails['witness_1_title'] ?? null,
+                    'witness_2_name' => $donationDetails['witness_2_name'] ?? null,
+                    'witness_2_title' => $donationDetails['witness_2_title'] ?? null,
                 ]);
 
                 $this->pdfDocumentService->generateDeedOfDonation($asset, $disposal, $donation);

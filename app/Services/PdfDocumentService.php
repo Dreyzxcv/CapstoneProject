@@ -64,7 +64,6 @@ class PdfDocumentService
             'asset' => $asset,
             'disposal' => $disposal,
             'donation' => $donation,
-            'requesterName' => $donation->requester_name,
         ]);
 
         $path = $this->storePdf($pdf->output(), 'donations', 'deed-'.$asset->asset_code);
