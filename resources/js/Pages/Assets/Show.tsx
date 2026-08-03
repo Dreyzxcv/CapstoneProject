@@ -200,6 +200,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                         label={asset.current_status.replace(/_/g, ' ')}
                         disposedQuantity={asset.disposed_quantity}
                         quantity={asset.quantity}
+                        className="px-3 py-1.5 text-sm"
                     />
                 </div>
             }
@@ -432,7 +433,9 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                             {/* JEV In: uploaded/confirmed */}
                             {asset.jev && asset.jev.uploaded_at && (
                                 <p className="text-sm text-gray-600">
-                                    JEV (IN): <span className="font-medium">{asset.jev.jev_number}</span> uploaded by MES.
+                                    JEV (IN): <span className="font-medium">{asset.jev.jev_number}</span> issued by{' '}
+                                    {asset.jev.created_by_accounting?.name ?? 'Accounting'} and uploaded by{' '}
+                                    {asset.jev.uploaded_by_mes?.name ?? 'MES'}.
                                 </p>
                             )}
 
@@ -511,7 +514,11 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                             {donationsWithJevOut.map((d) => (
                                 <div key={d.id} className="border-t border-gray-100 pt-4">
                                     <p className="text-sm text-gray-600">
-                                        JEV (OUT): <span className="font-medium">{d.disposal_jev!.jev_number}</span> issued by Accounting.
+                                        JEV (OUT): <span className="font-medium">{d.disposal_jev!.jev_number}</span> issued by{' '}
+                                        {d.disposal_jev!.issued_by_accounting?.name ?? 'Accounting'}
+                                        {d.disposal_jev!.uploaded_by_mes && (
+                                            <> and uploaded by {d.disposal_jev!.uploaded_by_mes.name}</>
+                                        )}.
                                     </p>
                                     {d.donation && (
                                         <p className="text-xs text-gray-500">
