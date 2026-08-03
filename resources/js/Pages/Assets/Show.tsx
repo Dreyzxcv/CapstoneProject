@@ -170,6 +170,10 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
     const donationAwaitingJevOut = disposals.find(
         (d) => d.disposal_type === 'donation' && d.donation && !d.disposal_jev,
     );
+
+    const donationsWithJevOut = disposals.filter(
+        (d) => d.disposal_type === 'donation' && d.donation && d.disposal_jev,
+    );
     return (
         <AuthenticatedLayout
             header={
@@ -415,7 +419,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                             {/* JEV In: uploaded/confirmed */}
                             {asset.jev && asset.jev.uploaded_at && (
                                 <p className="text-sm text-gray-600">
-                                    JEV <span className="font-medium">{asset.jev.jev_number}</span> uploaded by MES.
+                                    JEV (IN): <span className="font-medium">{asset.jev.jev_number}</span> uploaded by MES.
                                 </p>
                             )}
 
@@ -469,6 +473,27 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                     )}
                                 </div>
                             )}
+
+                            {donationsWithJevOut.map((d) => (
+                                <div key={d.id} className="border-t border-gray-100 pt-4">
+                                    <p className="text-sm text-gray-600">
+                                        JEV (OUT): <span className="font-medium">{d.disposal_jev!.jev_number}</span> issued by Accounting.
+                                    </p>
+                                    {d.donation && (
+                                        <p className="text-xs text-gray-500">
+                                            {d.quantity} unit(s) to {d.donation.requester_name}
+                                        </p>
+                                    )}
+                                    {documentUrl(d.disposal_jev!.pdf_path) && (
+                                        <a
+                                            href={documentUrl(d.disposal_jev!.pdf_path) ?? '#'}
+                                            className="mt-1 block text-sm text-emerald-700 hover:underline"
+                                        >
+                                            Download JEV Out
+                                        </a>
+                                    )}
+                                </div>
+                            ))}
                         </CardContent>
                     </Card>
                 </div>
