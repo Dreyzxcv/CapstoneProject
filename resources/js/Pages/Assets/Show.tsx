@@ -33,6 +33,7 @@ interface ShowProps {
         uploadEvidence: boolean;
         issueJevOut: boolean;
         verifyDocuments: boolean;
+        uploadJevOut: boolean;
     };
 }
 
@@ -109,6 +110,12 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
         }
     }
 
+    function handleUploadJevOut(disposalId: number) {
+        if (confirm('Confirm the JEV Out has been uploaded? This will generate the Release Order and Waybill.')) {
+            router.post(route('disposals.jev-out.upload', disposalId));
+        }
+    }
+
     function handleReleaseDonation() {
         if (pendingDonationDisposal && confirm('Mark this donation as released to the requester?')) {
             router.post(route('disposals.release-donation', pendingDonationDisposal.id));
@@ -159,7 +166,9 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
     // The Donation Release card should only appear once JEV Out has been
     // issued for this donation — the Release Order / Waybill (and the act of
     // physically releasing the item) only make sense after that step.
-    const donationReadyForRelease = Boolean(pendingDonationDisposal?.donation && pendingDonationDisposal.disposal_jev);
+    const donationReadyForRelease = Boolean(
+        pendingDonationDisposal?.donation && pendingDonationDisposal.disposal_jev?.uploaded_at,
+    );
     const dateOfApprehension = asset.incident?.date_of_apprehension
         ? new Date(asset.incident.date_of_apprehension).toLocaleDateString()
         : '—';
@@ -171,8 +180,12 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
         (d) => d.disposal_type === 'donation' && d.donation && !d.disposal_jev,
     );
 
+    const donationAwaitingJevOutUpload = disposals.find(
+        (d) => d.disposal_type === 'donation' && d.donation && d.disposal_jev && !d.disposal_jev.uploaded_at,
+    );
+
     const donationsWithJevOut = disposals.filter(
-        (d) => d.disposal_type === 'donation' && d.donation && d.disposal_jev,
+        (d) => d.disposal_type === 'donation' && d.donation && d.disposal_jev && d.disposal_jev.uploaded_at,
     );
     return (
         <AuthenticatedLayout
@@ -470,6 +483,27 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                         <p className="mt-3 text-sm text-gray-500">
                                             Awaiting Accounting to issue JEV Out for this donation.
                                         </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {donationAwaitingJevOutUpload && (
+                                <div className="border-t border-gray-100 pt-4">
+                                    <p className="text-sm font-semibold text-gray-700">Donation — JEV Out Issued, Awaiting MES Upload</p>
+                                    <p className="mt-1 text-sm text-gray-500">
+                                        Accounting recorded the JEV Out number. Confirm the upload to generate the Release Order and Waybill.
+                                    </p>
+                                    <p className="mt-2 text-sm">
+                                        <span className="font-medium">JEV Out Number:</span> {donationAwaitingJevOutUpload.disposal_jev!.jev_number}
+                                    </p>
+                                    {can.uploadJevOut ? (
+                                        <div className="mt-3">
+                                            <Button onClick={() => handleUploadJevOut(donationAwaitingJevOutUpload.id)}>
+                                                Confirm JEV Out Upload
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <p className="mt-3 text-sm text-gray-500">Awaiting MES to confirm JEV Out upload.</p>
                                     )}
                                 </div>
                             )}
