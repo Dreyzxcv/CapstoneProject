@@ -22,6 +22,7 @@ interface AssetStatusBadgeProps {
     label: string;
     disposedQuantity?: number;
     quantity?: number;
+    className?: string;
 }
 
 export function AssetStatusBadge({
@@ -29,6 +30,7 @@ export function AssetStatusBadge({
     label,
     disposedQuantity,
     quantity,
+    className,
 }: AssetStatusBadgeProps) {
     const showPartialProgress =
         status === 'for_disposal' &&
@@ -41,5 +43,9 @@ export function AssetStatusBadge({
         ? `${label} (${disposedQuantity}/${quantity} disposed)`
         : label;
 
-    return <Badge variant={statusVariants[status] ?? 'default'}>{displayLabel}</Badge>;
+    return (
+        <Badge variant={statusVariants[status] ?? 'default'} className={className}>
+            {displayLabel}
+        </Badge>
+    );
 }
