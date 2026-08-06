@@ -38,6 +38,8 @@ interface ReportsIndexProps {
     byMunicipality: Array<{ municipality_of_origin: string; count: number }>;
     trends: TrendPoint[];
     trendMonths: number;
+    chartFilters: { month: string; year: string };
+    availableChartYears: number[];
     typeLabels: Record<string, string>;
     statusLabels: Record<string, string>;
     recentActivity: Array<{
@@ -122,12 +124,27 @@ export default function ReportsIndex({
     byMunicipality,
     trends,
     trendMonths,
+    chartFilters,
+    availableChartYears,
     typeLabels,
     statusLabels,
     recentActivity,
     incidentLocations,
 }: ReportsIndexProps) {
     usePoll(10000, { only: ['summary', 'byType', 'byMunicipality', 'trends', 'recentActivity'] });
+
+    const [chartMonth, setChartMonth] = useState<string>(chartFilters.month);
+    const [chartYear, setChartYear] = useState<string>(chartFilters.year);
+
+    function handleChartFilterChange(nextMonth: string, nextYear: string) {
+        setChartMonth(nextMonth);
+        setChartYear(nextYear);
+        router.get(
+            route('reports.index'),
+            { month: nextMonth, year: nextYear, months: trendMonths },
+            { preserveState: true, preserveScroll: true, only: ['byType', 'byMunicipality', 'chartFilters'] },
+        );
+    }
 
     const typeChartData = byType.map((row) => ({
         name: row.label,
@@ -302,6 +319,39 @@ export default function ReportsIndex({
                     </CardContent>
                 </Card>
 
+                <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-gray-600">Filter breakdowns:</span>
+                    <select
+                        value={chartMonth}
+                        onChange={(e) => handleChartFilterChange(e.target.value, chartYear)}
+                        className="h-9 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    >
+                        <option value="all">All Months</option>
+                        {MONTH_NAMES.map((name, index) => (
+                            <option key={name} value={index}>{name}</option>
+                        ))}
+                    </select>
+                    <select
+                        value={chartYear}
+                        onChange={(e) => handleChartFilterChange(chartMonth, e.target.value)}
+                        className="h-9 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    >
+                        <option value="all">All Years</option>
+                        {availableChartYears.map((year) => (
+                            <option key={year} value={year}>{year}</option>
+                        ))}
+                    </select>
+                    {(chartMonth !== 'all' || chartYear !== 'all') && (
+                        <button
+                            type="button"
+                            onClick={() => handleChartFilterChange('all', 'all')}
+                            className="text-xs font-medium text-emerald-700 hover:underline"
+                        >
+                            Clear
+                        </button>
+                    )}
+                </div>
+
                 {/* Breakdown charts */}
                 <div className="grid gap-6 lg:grid-cols-2">
                     <Card>
@@ -387,7 +437,7 @@ export default function ReportsIndex({
                             <select
                                 value={mapMonth}
                                 onChange={(e) => setMapMonth(e.target.value)}
-                                className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                                className="h-9 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                             >
                                 <option value="all">All Months</option>
                                 {MONTH_NAMES.map((name, index) => (
@@ -397,7 +447,7 @@ export default function ReportsIndex({
                             <select
                                 value={mapYear}
                                 onChange={(e) => setMapYear(e.target.value)}
-                                className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                                className="h-9 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                             >
                                 <option value="all">All Years</option>
                                 {availableYears.map((year) => (
