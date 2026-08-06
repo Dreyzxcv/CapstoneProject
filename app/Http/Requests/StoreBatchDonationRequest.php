@@ -25,7 +25,10 @@ class StoreBatchDonationRequest extends FormRequest
             'requester_name' => ['required', 'string', 'max:255'],
             'organization_type' => ['required', Rule::enum(DonationOrganizationType::class)],
             'organization_type_other' => ['required_if:organization_type,other', 'nullable', 'string', 'max:255'],
-            'agency_name' => ['nullable', 'required_unless:organization_type,individual', 'string', 'max:255'],
+
+            // "Donee Office / Institution Name" — always required now,
+            // regardless of organization type.
+            'agency_name' => ['required', 'string', 'max:255'],
 
             'municipality' => ['required', Rule::enum(Municipality::class)],
             'barangay' => [
@@ -48,8 +51,14 @@ class StoreBatchDonationRequest extends FormRequest
             'donee_position' => ['required', 'string', 'max:255'],
             'purpose_statement' => ['required', 'string', 'max:2000'],
             'confiscation_order_reference' => ['nullable', 'string', 'max:255'],
+
+            // OIC / donor representative — editable per document; left
+            // blank falls back to config/office.php defaults.
             'donor_representative_name' => ['nullable', 'string', 'max:255'],
             'donor_representative_title' => ['nullable', 'string', 'max:255'],
+
+            // Witnesses — editable per document; left blank falls back to
+            // config/office.php defaults.
             'witness_1_name' => ['nullable', 'string', 'max:255'],
             'witness_1_title' => ['nullable', 'string', 'max:255'],
             'witness_2_name' => ['nullable', 'string', 'max:255'],
