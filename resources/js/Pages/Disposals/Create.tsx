@@ -51,6 +51,14 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
         delivery_coordinates: '',
         appeal_filed: false as boolean,
         notes: '',
+        // Deed of Donation signatories — left blank to use the office's
+        // standing defaults; fill in to override for this document only.
+        donor_representative_name: '',
+        donor_representative_title: '',
+        witness_1_name: '',
+        witness_1_title: '',
+        witness_2_name: '',
+        witness_2_title: '',
     });
 
     const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
@@ -154,17 +162,20 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
                                 </div>
                             )}
 
-                            {data.organization_type !== 'individual' && (
-                                <div>
-                                    <Label htmlFor="agency_name">Agency / Organization Name</Label>
-                                    <Input
-                                        id="agency_name"
-                                        value={data.agency_name}
-                                        onChange={(e) => setData('agency_name', e.target.value)}
-                                    />
-                                    <InputError message={errors.agency_name} />
-                                </div>
-                            )}
+                            <div>
+                                <Label htmlFor="agency_name">Donee Office / Institution Name</Label>
+                                <Input
+                                    id="agency_name"
+                                    placeholder="e.g. Virac Fire Station"
+                                    value={data.agency_name}
+                                    onChange={(e) => setData('agency_name', e.target.value)}
+                                    required
+                                />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Printed in the Deed of Donation's signature block (the "DONEE OFFICE" heading).
+                                </p>
+                                <InputError message={errors.agency_name} />
+                            </div>
 
                             <div>
                                 <Label htmlFor="requester_name">Representative Name</Label>
@@ -293,6 +304,85 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
                                         />
                                     </div>
                                 )}
+                            </div>
+
+                            {/* Deed of Donation signatories */}
+                            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Deed of Donation Signatories
+                                </p>
+                                <p className="mb-3 text-xs text-gray-500">
+                                    Leave any of these blank to use the office's standing default for this document.
+                                </p>
+
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div>
+                                        <Label htmlFor="donor_representative_name">OIC / PENR Officer Name</Label>
+                                        <Input
+                                            id="donor_representative_name"
+                                            placeholder="e.g. Cyril C. Magdaraog"
+                                            value={data.donor_representative_name}
+                                            onChange={(e) => setData('donor_representative_name', e.target.value)}
+                                        />
+                                        <InputError message={errors.donor_representative_name} />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="donor_representative_title">OIC / PENR Officer Title</Label>
+                                        <Input
+                                            id="donor_representative_title"
+                                            placeholder="e.g. OIC, PENR Officer"
+                                            value={data.donor_representative_title}
+                                            onChange={(e) => setData('donor_representative_title', e.target.value)}
+                                        />
+                                        <InputError message={errors.donor_representative_title} />
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                                    <div>
+                                        <Label htmlFor="witness_1_name">Witness 1 Name</Label>
+                                        <Input
+                                            id="witness_1_name"
+                                            placeholder="e.g. Domingo O. Bagunu"
+                                            value={data.witness_1_name}
+                                            onChange={(e) => setData('witness_1_name', e.target.value)}
+                                        />
+                                        <InputError message={errors.witness_1_name} />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="witness_1_title">Witness 1 Title</Label>
+                                        <Input
+                                            id="witness_1_title"
+                                            placeholder="e.g. FIII / Chief, MES"
+                                            value={data.witness_1_title}
+                                            onChange={(e) => setData('witness_1_title', e.target.value)}
+                                        />
+                                        <InputError message={errors.witness_1_title} />
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                                    <div>
+                                        <Label htmlFor="witness_2_name">Witness 2 Name</Label>
+                                        <Input
+                                            id="witness_2_name"
+                                            placeholder="e.g. Anro B. Orlanes"
+                                            value={data.witness_2_name}
+                                            onChange={(e) => setData('witness_2_name', e.target.value)}
+                                        />
+                                        <InputError message={errors.witness_2_name} />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="witness_2_title">Witness 2 Title</Label>
+                                        <Input
+                                            id="witness_2_title"
+                                            placeholder="e.g. OIC, Chief, Technical Services Division"
+                                            value={data.witness_2_title}
+                                            onChange={(e) => setData('witness_2_title', e.target.value)}
+                                        />
+                                        <InputError message={errors.witness_2_title} />
+                                    </div>
+                                </div>
                             </div>
                         </>
                     )}
