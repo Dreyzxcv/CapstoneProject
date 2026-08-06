@@ -29,6 +29,17 @@ class ReportController extends Controller
             $trendMonths = 6;
         }
 
+        $chartMonth = $request->input('month', 'all');
+        $chartYear = $request->input('year', 'all');
+
+        $chartQuery = Asset::query();
+        if ($chartYear !== 'all' && $chartYear !== null && $chartYear !== '') {
+            $chartQuery->whereYear('created_at', (int) $chartYear);
+        }
+        if ($chartMonth !== 'all' && $chartMonth !== null && $chartMonth !== '') {
+            $chartQuery->whereMonth('created_at', (int) $chartMonth + 1);
+        }
+
         $typeLabels = collect(AssetType::cases())->mapWithKeys(
             fn ($t) => [$t->value => $t->label()]
         );
@@ -61,6 +72,13 @@ class ReportController extends Controller
                 'asset_types' => $incident->assets->pluck('type')->map(fn ($t) => $t->value)->unique()->values(),
             ]);
 
+        $availableChartYears = Asset::query()
+            ->pluck('created_at')
+            ->map(fn ($date) => $date->year)
+            ->unique()
+            ->sortDesc()
+            ->values();
+
         return Inertia::render('Reports/Index', [
             'summary' => [
                 'total' => Asset::count(),
@@ -68,7 +86,7 @@ class ReportController extends Controller
                 'forDisposal' => Asset::where('current_status', AssetStatus::ForDisposal)->count(),
                 'underTrial' => Asset::where('current_status', AssetStatus::UnderTrial)->count(),
             ],
-            'byType' => (clone $baseQuery)
+            'byType' => (clone $chartQuery)
                 ->selectRaw('type, count(*) as count')
                 ->groupBy('type')
                 ->get()
@@ -77,7 +95,7 @@ class ReportController extends Controller
                     'label' => $typeLabels[$row->type instanceof AssetType ? $row->type->value : $row->type] ?? $row->type,
                     'count' => $row->count,
                 ]),
-            'byMunicipality' => (clone $baseQuery)
+            'byMunicipality' => (clone $chartQuery)
                 ->selectRaw('municipality_of_origin, count(*) as count')
                 ->groupBy('municipality_of_origin')
                 ->orderByDesc('count')
@@ -85,6 +103,8 @@ class ReportController extends Controller
                 ->get(),
             'trends' => $this->buildMonthlyTrends($baseQuery, $trendMonths),
             'trendMonths' => $trendMonths,
+            'chartFilters' => ['month' => $chartMonth, 'year' => $chartYear],
+            'availableChartYears' => $availableChartYears,
             'typeLabels' => $typeLabels,
             'statusLabels' => $statusLabels,
             'recentActivity' => $recentActivity,
@@ -96,12 +116,6 @@ class ReportController extends Controller
         ]);
     }
 
-    /**
-     * Build a month-by-month confiscation count broken down by asset type,
-     * covering the last $months months (including the current month).
-     * Done in PHP rather than a DB-specific date-grouping query so it
-     * works identically on MySQL (production) and SQLite (tests).
-     */
     private function buildMonthlyTrends(Builder $baseQuery, int $months): array
     {
         $start = now()->subMonths($months - 1)->startOfMonth();
@@ -110,9 +124,6 @@ class ReportController extends Controller
             ->where('created_at', '>=', $start)
             ->get(['created_at', 'type']);
 
-        // Plain array, not a Collection — we need real in-place ++ mutation
-        // below, and Collection's ArrayAccess doesn't support indirect
-        // modification of nested elements (offsetGet returns by value).
         $buckets = [];
         for ($i = 0; $i < $months; $i++) {
             $period = $start->copy()->addMonths($i);
