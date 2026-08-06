@@ -5,6 +5,7 @@
     <title>Deed of Donation</title>
     <style>
         @page {
+            size: legal;
             margin: 0.6in 0.7in;
         }
 
@@ -83,7 +84,12 @@
             margin: 0 0 10pt;
         }
 
-        /* ---------- Signature blocks ---------- */
+        /* ---------- Signature blocks ----------
+           Each visual "row" (office heading / BY: / signature line) is its
+           own <tr>, not stacked inside one <td>. HTML tables automatically
+           equalize row height across both cells in the same row, so the
+           "BY:" and signature lines line up regardless of how many lines
+           the donor/donee heading wraps to. */
         table.signatures {
             width: 100%;
             border-collapse: collapse;
@@ -92,19 +98,19 @@
 
         table.signatures td {
             width: 50%;
-            vertical-align: top;
+            vertical-align: bottom;
             padding: 0 10pt;
         }
 
         .signatory-heading {
             font-weight: bold;
-            margin: 0 0 24pt;
             line-height: 1.3;
+            margin: 0;
         }
 
         .signatory-by {
             font-weight: bold;
-            margin: 0 0 30pt;
+            margin: 10pt 0 30pt;
         }
 
         .sig-line {
@@ -171,12 +177,20 @@
         file_exists(public_path('images/bagong-pilipinas-logo.png')) ? file_get_contents(public_path('images/bagong-pilipinas-logo.png')) : ''
     );
 
+    // OIC / donor representative — editable per-document via the disposal
+    // form; falls back to config/office.php only when left blank.
     $donorName = $donation->donorRepresentativeName();
     $donorTitle = $donation->donorRepresentativeTitle();
 
     $doneeName = $donation->requester_name;
     $doneePosition = $donation->donee_position;
-    $doneeOffice = $donation->agency_name;
+
+    // "Donee Office" — the institution the item is being donated to.
+    // Editable via the form's "Donee Office / Institution Name" field
+    // (stored on agency_name). Falls back to a literal placeholder only
+    // for older records that predate this field.
+    $doneeOfficeName = $donation->agency_name ?: 'DONEE OFFICE';
+    $doneeOfficeAddress = $donation->fullAddress();
 
     $witness1Name = $donation->witness1Name();
     $witness1Title = $donation->witness1Title();
@@ -211,7 +225,7 @@
     This <strong>DEED OF DONATION</strong>, made and executed by the Department of Environment and
     Natural Resources &ndash; PENRO, Catanduanes, represented by {{ $donorTitle }}
     <strong>{{ mb_strtoupper($donorName) }}</strong> of PENRO&ndash;Catanduanes, hereinafter called the
-    <strong>DONOR</strong>, in favor of {{ $doneeOffice ?: 'the donee institution' }}, Catanduanes
+    <strong>DONOR</strong>, in favor of {{ $doneeOfficeName !== 'DONEE OFFICE' ? $doneeOfficeName : 'the donee institution' }}, Catanduanes
     represented by {{ $doneePosition ? $doneePosition . ' ' : '' }}<strong>{{ mb_strtoupper($doneeName) }}</strong>
     @if($doneePosition)
         , {{ $doneePosition }},
@@ -235,7 +249,7 @@
         with approved Confiscation Order from the Regional Executive Director
     @endif
     and has been entered into the Book of Account under the custody of DENR&ndash;PENRO, Virac, Catanduanes.
-    The DONOR hereby donates the said forest products to {{ $doneeOffice ? 'be used by ' . $doneeOffice : 'be used by the DONEE' }}.
+    The DONOR hereby donates the said forest products to {{ $doneeOfficeName !== 'DONEE OFFICE' ? 'be used by ' . $doneeOfficeName : 'be used by the DONEE' }}.
     The DONEE hereby accepts the donation and expresses its appreciation for the liberality of the DONOR.
 </p>
 
@@ -264,17 +278,28 @@
                 AND NATURAL RESOURCES<br>
                 PENRO&ndash;CATANDUANES
             </p>
-            <p class="signatory-by">BY:</p>
+        </td>
+        <td>
+            <p class="signatory-heading">
+                {{ mb_strtoupper($doneeOfficeName) }}
+                @if($doneeOfficeAddress)
+                    <br>{{ mb_strtoupper($doneeOfficeAddress) }}
+                @endif
+            </p>
+        </td>
+    </tr>
+    <tr>
+        <td><p class="signatory-by">BY:</p></td>
+        <td><p class="signatory-by">BY:</p></td>
+    </tr>
+    <tr>
+        <td>
             <p class="sig-line">
                 <span class="sig-name">{{ mb_strtoupper($donorName) }}</span><br>
                 <span class="sig-title">{{ $donorTitle }}<br>(Donor)</span>
             </p>
         </td>
         <td>
-            <p class="signatory-heading">
-                {{ mb_strtoupper($doneeOffice ?: 'DONEE OFFICE') }}
-            </p>
-            <p class="signatory-by">BY:</p>
             <p class="sig-line">
                 <span class="sig-name">{{ mb_strtoupper($doneeName) }}</span><br>
                 <span class="sig-title">{{ $doneePosition ?: 'Representative' }}<br>(Donee)</span>
