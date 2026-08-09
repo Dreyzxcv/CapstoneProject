@@ -44,6 +44,7 @@ export default function RequiredDocumentsModal({
     });
 
     const [rejectingId, setRejectingId] = useState<number | null>(null);
+    const [pendingUpload, setPendingUpload] = useState<{ type: string; file: File; previewUrl: string; isImage: boolean } | null>(null);
 
     function latestDocFor(type: string): DocumentItem | undefined {
         return documents
@@ -51,16 +52,37 @@ export default function RequiredDocumentsModal({
             .sort((a, b) => b.id - a.id)[0];
     }
 
-    function handleUpload(type: string, e: ChangeEvent<HTMLInputElement>) {
+    function handleFileSelected(type: string, e: ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
+        e.target.value = '';
         if (!file) return;
-        uploadForm.setData({ document_type: type, file });
+
+        if (pendingUpload) URL.revokeObjectURL(pendingUpload.previewUrl);
+        setPendingUpload({
+            type,
+            file,
+            previewUrl: URL.createObjectURL(file),
+            isImage: file.type.startsWith('image/'),
+        });
+    }
+
+    function confirmUpload() {
+        if (!pendingUpload) return;
+        uploadForm.setData({ document_type: pendingUpload.type, file: pendingUpload.file });
         uploadForm.post(route('assets.required-documents.store', assetId), {
             forceFormData: true,
             preserveScroll: true,
-            onSuccess: () => uploadForm.reset(),
+            onSuccess: () => {
+                uploadForm.reset();
+                URL.revokeObjectURL(pendingUpload.previewUrl);
+                setPendingUpload(null);
+            },
         });
-        e.target.value = '';
+    }
+
+    function cancelUpload() {
+        if (pendingUpload) URL.revokeObjectURL(pendingUpload.previewUrl);
+        setPendingUpload(null);
     }
 
     function approve(documentId: number) {
@@ -149,9 +171,31 @@ export default function RequiredDocumentsModal({
                                                 type="file"
                                                 accept="image/png,image/jpeg,image/webp,application/pdf"
                                                 className="hidden"
-                                                onChange={(e) => handleUpload(type.value, e)}
+                                                onChange={(e) => handleFileSelected(type.value, e)}
                                             />
                                         </label>
+                                    )}
+
+                                    {pendingUpload?.type === type.value && (
+                                        <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3">
+                                            <p className="text-xs font-medium text-emerald-800">Confirm this is the right file:</p>
+                                            <div className="mt-2 flex items-center gap-3">
+                                                {pendingUpload.isImage ? (
+                                                    <img src={pendingUpload.previewUrl} className="h-14 w-14 rounded-md object-cover" />
+                                                ) : (
+                                                    <PdfBadge className="h-10 w-10 shrink-0" />
+                                                )}
+                                                <p className="min-w-0 flex-1 truncate text-xs text-gray-700">{pendingUpload.file.name}</p>
+                                            </div>
+                                            <div className="mt-3 flex gap-2">
+                                                <Button type="button" size="sm" onClick={confirmUpload} disabled={uploadForm.processing}>
+                                                    {uploadForm.processing ? 'Uploading…' : 'Confirm Upload'}
+                                                </Button>
+                                                <Button type="button" size="sm" variant="outline" onClick={cancelUpload}>
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        </div>
                                     )}
 
                                     {canVerify && doc && doc.status === 'pending' && (
