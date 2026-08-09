@@ -11,6 +11,13 @@ export function QrScanner() {
     const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const hasScannedRef = useRef(false);
+    // Tracks whether the camera scanner has actually completed start()
+    // successfully. html5QrCodeRef.current can be non-null (instance
+    // created) even when start() failed, is still pending, or the camera
+    // was denied — calling stop() on a scanner that isn't really running
+    // can throw synchronously in some html5-qrcode versions, which would
+    // abort handleDecoded before the redirect ever runs.
+    const isScanningRef = useRef(false);
 
     const [status, setStatus] = useState<Status>('idle');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -22,15 +29,27 @@ export function QrScanner() {
         hasScannedRef.current = true;
         setStatus('detected');
 
-        const scanner = html5QrCodeRef.current;
         const redirect = () => {
             if (decodedText.startsWith('http')) {
                 window.location.href = decodedText;
             }
         };
 
-        if (scanner) {
-            scanner.stop().then(() => scanner.clear()).catch(() => {}).finally(redirect);
+        const scanner = html5QrCodeRef.current;
+
+        if (scanner && isScanningRef.current) {
+            isScanningRef.current = false;
+            try {
+                scanner
+                    .stop()
+                    .then(() => scanner.clear())
+                    .catch(() => {})
+                    .finally(redirect);
+            } catch {
+                // stop() threw synchronously instead of rejecting — still
+                // proceed to the record instead of leaving the UI stuck.
+                redirect();
+            }
         } else {
             redirect();
         }
@@ -51,6 +70,7 @@ export function QrScanner() {
                 () => {},
             );
 
+            isScanningRef.current = true;
             setStatus('scanning');
 
             try {
@@ -60,6 +80,7 @@ export function QrScanner() {
                 setTorchSupported(false);
             }
         } catch {
+            isScanningRef.current = false;
             setStatus('error');
             setErrorMessage('Camera access was denied or is unavailable on this device.');
         }
@@ -94,7 +115,8 @@ export function QrScanner() {
     useEffect(() => {
         return () => {
             const scanner = html5QrCodeRef.current;
-            if (scanner) {
+            if (scanner && isScanningRef.current) {
+                isScanningRef.current = false;
                 scanner.stop().then(() => scanner.clear()).catch(() => {});
             }
         };
