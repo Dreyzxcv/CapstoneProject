@@ -45,6 +45,7 @@ interface AssetRow {
     location_apprehended: string;
     apprehending_agency: string;
     mode: string;
+    has_confiscation_order: boolean;
 }
 
 const SPECIES_OPTIONS = [
@@ -83,6 +84,7 @@ function emptyAssetRow(defaults: { municipality: string; agency: string; mode: s
         location_apprehended: defaults.municipality,
         apprehending_agency: defaults.agency,
         mode: defaults.mode,
+        has_confiscation_order: false,
     };
 }
 
@@ -130,8 +132,12 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         place_of_apprehension: defaultMunicipality,
         area: '',
         coordinates: '',
+        has_claimant: true as boolean,
         claimant_offender_name: '',
-        is_abandoned: false as boolean,
+        claimant_address: '',
+        claimant_contact_number: '',
+        claimant_id_type: '',
+        claimant_id_number: '',
         apprehending_parties: ['PENRO Catanduanes MES'] as string[],
         date_report_submitted: '',
         assets: [emptyAssetRow({ municipality: defaultMunicipality, agency: defaultAgency, mode: defaultMode })] as AssetRow[],
@@ -262,16 +268,15 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         setData('apprehending_parties', data.apprehending_parties.filter((_, i) => i !== index));
     }
 
-    function handleAbandonedToggle(checked: boolean) {
+    function handleClaimantToggle(hasClaimant: boolean) {
         setData((prevData) => ({
             ...prevData,
-            is_abandoned: checked,
-            // Clear any claimant name once the item is marked abandoned,
-            // since there's no claimant to record.
-            claimant_offender_name: checked ? '' : prevData.claimant_offender_name,
-            assets: checked
-                ? prevData.assets.map((asset) => ({ ...asset, mode: 'abandoned' }))
-                : prevData.assets,
+            has_claimant: hasClaimant,
+            claimant_offender_name: hasClaimant ? prevData.claimant_offender_name : '',
+            claimant_address: hasClaimant ? prevData.claimant_address : '',
+            claimant_contact_number: hasClaimant ? prevData.claimant_contact_number : '',
+            claimant_id_type: hasClaimant ? prevData.claimant_id_type : '',
+            claimant_id_number: hasClaimant ? prevData.claimant_id_number : '',
         }));
     }
 
@@ -447,29 +452,93 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                             </div>
 
                             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                <div className="grid gap-4 md:grid-cols-2 md:items-end">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="claimant_offender_name">Claimant / Offender Name<span className="text-red-500">*</span></Label>
-                                        <Input
-                                            id="claimant_offender_name"
-                                            placeholder={data.is_abandoned ? 'Not applicable — marked abandoned' : 'Leave blank if unknown / abandoned'}
-                                            value={data.claimant_offender_name}
-                                            onChange={(e) => setData('claimant_offender_name', e.target.value)}
-                                            disabled={data.is_abandoned}
-                                            required
-                                        />
-                                        <InputError message={errors.claimant_offender_name} />
-                                    </div>
-                                    <label className="flex items-center gap-2 pb-2 text-sm text-gray-700">
-                                        <input
-                                            type="checkbox"
-                                            className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                                            checked={data.is_abandoned}
-                                            onChange={(e) => handleAbandonedToggle(e.target.checked)}
-                                        />
-                                        Abandoned (no known claimant)
-                                    </label>
+                                <Label className="mb-2 block">Claimant Status<span className="text-red-500">*</span></Label>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleClaimantToggle(true)}
+                                        className={
+                                            'flex-1 rounded-md border px-4 py-2 text-sm font-medium transition ' +
+                                            (data.has_claimant
+                                                ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                                                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
+                                        }
+                                    >
+                                        With Claimant
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleClaimantToggle(false)}
+                                        className={
+                                            'flex-1 rounded-md border px-4 py-2 text-sm font-medium transition ' +
+                                            (!data.has_claimant
+                                                ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                                                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
+                                        }
+                                    >
+                                        Without Claimant
+                                    </button>
                                 </div>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    {data.has_claimant
+                                        ? 'A claimant/offender has come forward regarding this apprehension.'
+                                        : 'No claimant has come forward — this proceeds toward automatic confiscation per DAO 97-32.'}
+                                </p>
+
+                                {data.has_claimant && (
+                                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="claimant_offender_name">Claimant / Offender Name<span className="text-red-500">*</span></Label>
+                                            <Input
+                                                id="claimant_offender_name"
+                                                value={data.claimant_offender_name}
+                                                onChange={(e) => setData('claimant_offender_name', e.target.value)}
+                                                required
+                                            />
+                                            <InputError message={errors.claimant_offender_name} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="claimant_address">Claimant Address<span className="text-red-500">*</span></Label>
+                                            <Input
+                                                id="claimant_address"
+                                                value={data.claimant_address}
+                                                onChange={(e) => setData('claimant_address', e.target.value)}
+                                                required
+                                            />
+                                            <InputError message={errors.claimant_address} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="claimant_contact_number">Contact Number</Label>
+                                            <Input
+                                                id="claimant_contact_number"
+                                                value={data.claimant_contact_number}
+                                                onChange={(e) => setData('claimant_contact_number', e.target.value)}
+                                            />
+                                            <InputError message={errors.claimant_contact_number} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="claimant_id_type">Valid ID Type</Label>
+                                                <Input
+                                                    id="claimant_id_type"
+                                                    placeholder="e.g. Driver's License"
+                                                    value={data.claimant_id_type}
+                                                    onChange={(e) => setData('claimant_id_type', e.target.value)}
+                                                />
+                                                <InputError message={errors.claimant_id_type} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="claimant_id_number">ID Number</Label>
+                                                <Input
+                                                    id="claimant_id_number"
+                                                    value={data.claimant_id_number}
+                                                    onChange={(e) => setData('claimant_id_number', e.target.value)}
+                                                />
+                                                <InputError message={errors.claimant_id_number} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -776,9 +845,11 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt className="text-gray-500">Claimant / Offender</dt>
+                                    <dt className="text-gray-500">Claimant Status</dt>
                                     <dd className="font-medium text-gray-900">
-                                        {data.is_abandoned ? 'Abandoned (no known claimant)' : (data.claimant_offender_name || '—')}
+                                        {data.has_claimant
+                                            ? `With Claimant — ${data.claimant_offender_name || '—'}`
+                                            : 'Without Claimant (unclaimed)'}
                                     </dd>
                                 </div>
                             </dl>

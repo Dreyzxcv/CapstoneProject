@@ -31,7 +31,8 @@ class CreateAsset
     {
         return DB::transaction(function () use ($data, $user, $issueReceipt) {
             $mode = AssetMode::from($data['mode']);
-            $hasConfiscationOrder = $mode === AssetMode::Abandoned
+            $hasClaimant = $data['has_claimant'] ?? true;
+            $hasConfiscationOrder = ($mode === AssetMode::Apprehended && ! $hasClaimant)
                 || ($data['has_confiscation_order'] ?? false);
             $hasOngoingCase = $data['has_ongoing_case'] ?? false;
             $municipality = Municipality::from($data['municipality_of_origin']);

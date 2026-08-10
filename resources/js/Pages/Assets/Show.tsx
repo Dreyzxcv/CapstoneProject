@@ -734,6 +734,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                                                     e.target.files?.[0] ?? null,
                                                                 )
                                                             }
+                                                            required
                                                         />
                                                     </label>
 

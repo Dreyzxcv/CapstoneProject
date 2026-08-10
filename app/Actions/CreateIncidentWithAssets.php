@@ -34,7 +34,11 @@ class CreateIncidentWithAssets
                 'area' => $incidentData['area'] ?? null,
                 'coordinates' => $incidentData['coordinates'] ?? null,
                 'claimant_offender_name' => $incidentData['claimant_offender_name'] ?? null,
-                'is_abandoned' => $incidentData['is_abandoned'] ?? false,
+                'has_claimant' => $incidentData['has_claimant'] ?? true,
+                'claimant_address' => $incidentData['claimant_address'] ?? null,
+                'claimant_contact_number' => $incidentData['claimant_contact_number'] ?? null,
+                'claimant_id_type' => $incidentData['claimant_id_type'] ?? null,
+                'claimant_id_number' => $incidentData['claimant_id_number'] ?? null,
                 'apprehending_party' => $incidentData['apprehending_party'],
                 'date_report_submitted' => $incidentData['date_report_submitted'] ?? null,
                 'created_by' => $user->id,
@@ -42,6 +46,7 @@ class CreateIncidentWithAssets
 
             foreach ($assetsData as $assetData) {
                 $assetData['incident_id'] = $incident->id;
+                $assetData['has_claimant'] = $incident->has_claimant;
                 $this->createAsset->execute($assetData, $user, issueReceipt: false);
             }
 

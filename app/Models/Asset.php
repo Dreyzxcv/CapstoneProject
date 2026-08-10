@@ -143,22 +143,24 @@ class Asset extends Model
 
     public function requiredDocumentTypes(): array
     {
-        $required = [];
+        return [
+            \App\Enums\DocumentType::DaoForm,
+            \App\Enums\DocumentType::TallySheet,
+            \App\Enums\DocumentType::AapDocument,
+        ];
+    }
 
-        if (in_array($this->mode, [AssetMode::Apprehended, AssetMode::Abandoned], true)) {
-            $required[] = \App\Enums\DocumentType::ConfiscationOrder;
-        }
-
-        if ($this->has_confiscation_order) {
-            $required[] = \App\Enums\DocumentType::ForfeitureOrder;
-        }
-
-        return $required;
+    public function blockingDocumentTypes(): array
+    {
+        return [
+            \App\Enums\DocumentType::DaoForm,
+            \App\Enums\DocumentType::TallySheet,
+        ];
     }
 
     public function hasAllRequiredDocumentsVerified(): bool
     {
-        $required = $this->requiredDocumentTypes();
+        $required = $this->blockingDocumentTypes();
 
         if (empty($required)) {
             return true;

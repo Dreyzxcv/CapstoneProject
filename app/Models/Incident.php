@@ -15,7 +15,11 @@ class Incident extends Model
         'area',
         'coordinates',
         'claimant_offender_name',
-        'is_abandoned',
+        'has_claimant',
+        'claimant_address',
+        'claimant_contact_number',
+        'claimant_id_type',
+        'claimant_id_number',
         'apprehending_party',
         'date_report_submitted',
         'created_by',
@@ -26,7 +30,7 @@ class Incident extends Model
         return [
             'date_of_apprehension' => 'date',
             'date_report_submitted' => 'date',
-            'is_abandoned' => 'boolean',
+            'has_claimant' => 'boolean',
         ];
     }
 
