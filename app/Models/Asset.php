@@ -145,7 +145,7 @@ class Asset extends Model
     {
         $required = [];
 
-        if ($this->mode === AssetMode::Abandoned) {
+        if (in_array($this->mode, [AssetMode::Apprehended, AssetMode::Abandoned], true)) {
             $required[] = \App\Enums\DocumentType::ConfiscationOrder;
         }
 
