@@ -169,8 +169,8 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         : null;
     const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
-    const previewYear = data.date_of_apprehension
-        ? new Date(data.date_of_apprehension).getFullYear()
+    const previewYear = data.date_report_submitted
+        ? new Date(data.date_report_submitted).getFullYear()
         : null;
     const previewCode = previewYear
         ? `AAP-FV-${previewYear}-${String(nextAssetSequence).padStart(5, '0')}`
@@ -327,7 +327,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     </span>
                                 ) : (
                                     <span className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500">
-                                        AAP No. will appear once the date of apprehension is set.
+                                        AAP No. will appear once the date submitted is set.
                                     </span>
                                 )}
                             </div>
