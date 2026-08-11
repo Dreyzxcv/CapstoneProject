@@ -138,10 +138,9 @@ function speciesFieldPlaceholder(type: string): string {
 export default function IncidentsCreate({ types, modes, municipalities, nextAssetSequence, marketPrices }: CreateProps) {
     const defaultMunicipality = municipalities[0]?.value ?? '';
     const defaultAgency = 'PENRO Catanduanes MES';
-    const defaultMode = modes[0]?.value ?? 'apprehended';
 
     const { data, setData, post, processing, errors, transform } = useForm({
-        intake_mode: defaultMode,
+        intake_mode: '',
         date_of_apprehension: '',
         place_of_apprehension: defaultMunicipality,
         area: '',
@@ -158,7 +157,9 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         // party and from the Property Custodian who takes over in Stage 2.
         initial_custodian_name: '',
         date_report_submitted: '',
-        assets: [emptyAssetRow({ municipality: defaultMunicipality, agency: defaultAgency, mode: defaultMode })] as AssetRow[],
+        // No item rows until an intake mode is chosen — mode starts blank
+        // and gets backfilled by handleIntakeModeChange once picked.
+        assets: [emptyAssetRow({ municipality: defaultMunicipality, agency: defaultAgency, mode: '' })] as AssetRow[],
     });
 
     const marketPriceMap = useMemo(() => {
@@ -262,6 +263,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
     // Stage 1 entry point (NewFlow.pdf): Apprehended vs. Turned-Over is
     // decided once, for the whole incident, before anything else is
     // encoded — not per line item. Every asset row inherits this value.
+    // This is also the gate that reveals the rest of the form.
     function handleIntakeModeChange(value: string) {
         setData((prevData) => ({
             ...prevData,
@@ -409,508 +411,518 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     </span>
                                 </button>
                             </div>
+
+                            {!data.intake_mode && (
+                                <p className="mt-3 text-xs text-gray-500">
+                                    Select Apprehended or Turned Over above to continue with the rest of the intake form.
+                                </p>
+                            )}
                         </CardContent>
                     </Card>
 
-                    {/* Incident-level details */}
-                    <Card className="border-0 shadow-sm">
-                        <CardHeader className="border-b border-gray-100">
-                            <CardTitle className="text-xl">Apprehension Details</CardTitle>
-                            <p className="text-sm text-gray-600">
-                                Details shared across every item apprehended in this incident.
-                            </p>
+                    {data.intake_mode && (
+                        <>
+                            {/* Incident-level details */}
+                            <Card className="border-0 shadow-sm">
+                                <CardHeader className="border-b border-gray-100">
+                                    <CardTitle className="text-xl">Apprehension Details</CardTitle>
+                                    <p className="text-sm text-gray-600">
+                                        Details shared across every item apprehended in this incident.
+                                    </p>
 
-                            <div className="mt-2">
-                                {previewCode ? (
-                                    <span className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-mono font-semibold text-emerald-800">
-                                        AAP No.: {previewCode}
-                                    </span>
-                                ) : (
-                                    <span className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500">
-                                        AAP No. will appear once the date submitted is set.
-                                    </span>
-                                )}
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-6 pt-6">
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="date_of_apprehension">Date of Apprehension<span className="text-red-500">*</span></Label>
-                                    <Input
-                                        id="date_of_apprehension"
-                                        type="date"
-                                        value={data.date_of_apprehension}
-                                        onChange={(e) => handleDateOfApprehensionChange(e.target.value)}
-                                        required
-                                    />
-                                    <InputError message={errors.date_of_apprehension} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="date_report_submitted">Date Submitted (Apprehension Report)<span className="text-red-500">*</span></Label>
-                                    <Input
-                                        id="date_report_submitted"
-                                        type="date"
-                                        value={data.date_report_submitted}
-                                        onChange={(e) => setData('date_report_submitted', e.target.value)}
-                                        required
-                                    />
-                                    <InputError message={errors.date_report_submitted} />
-                                </div>
-                            </div>
-
-                            <div className="grid gap-4 md:grid-cols-3">
-                                <div className="space-y-2">
-                                    <Label htmlFor="province">Province</Label>
-                                    <select id="province" className={selectClass} value="Catanduanes" disabled>
-                                        <option value="Catanduanes">Catanduanes</option>
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="place_of_apprehension">Municipality (Place of Apprehension)<span className="text-red-500">*</span></Label>
-                                    <select
-                                        id="place_of_apprehension"
-                                        value={data.place_of_apprehension}
-                                        onChange={(e) => handleMunicipalityChange(e.target.value)}
-                                        className={selectClass}
-                                        required
-                                    >
-                                        <option value="" disabled>Select municipality…</option>
-                                        {municipalities.map((m) => (
-                                            <option key={m.value} value={m.value}>{m.label}</option>
-                                        ))}
-                                    </select>
-                                    <InputError message={errors.place_of_apprehension} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="area">Area<span className="text-red-500">*</span></Label>
-                                    <Input
-                                        id="area"
-                                        placeholder="Forest area / compartment"
-                                        value={data.area}
-                                        onChange={(e) => setData('area', e.target.value)}
-                                        required
-                                    />
-                                    <InputError message={errors.area} />
-                                </div>
-                            </div>
-
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="coordinates">Coordinates<span className="text-red-500">*</span></Label>
-                                    <div className="flex gap-2">
-                                        <Input
-                                            id="coordinates"
-                                            placeholder="e.g. 13.5833, 124.2333"
-                                            value={data.coordinates}
-                                            onChange={(e) => setData('coordinates', e.target.value)}
-                                            required
-                                        />
-                                        <Button type="button" variant="outline" onClick={() => setShowCoordinatesPicker(true)}>
-                                            Pick on Map
-                                        </Button>
+                                    <div className="mt-2">
+                                        {previewCode ? (
+                                            <span className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-mono font-semibold text-emerald-800">
+                                                AAP No.: {previewCode}
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500">
+                                                AAP No. will appear once the date submitted is set.
+                                            </span>
+                                        )}
                                     </div>
-                                    <InputError message={errors.coordinates} />
-                                </div>
-
-                                {/* Apprehending Party — supports multiple entries */}
-                                <div className="space-y-2">
-                                    <Label>Apprehending Party<span className="text-red-500">*</span></Label>
-                                    <div className="space-y-2">
-                                        {data.apprehending_parties.map((party, index) => (
-                                            <div key={index} className="flex gap-2">
-                                                <Input
-                                                    value={party}
-                                                    onChange={(e) => updateApprehendingParty(index, e.target.value)}
-                                                    placeholder="e.g. PENRO Catanduanes MES"
-                                                    required
-                                                />
-                                                {data.apprehending_parties.length > 1 && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => removeApprehendingParty(index)}
-                                                        aria-label="Remove apprehending party"
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <Button type="button" variant="outline" size="sm" onClick={addApprehendingParty}>
-                                        <Plus className="mr-1.5 h-3.5 w-3.5" />
-                                        Add Another Apprehending Party
-                                    </Button>
-                                    <InputError message={(errors as Record<string, string>).apprehending_party} />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="initial_custodian_name">Initial Custodian (before PENRO)</Label>
-                                <Input
-                                    id="initial_custodian_name"
-                                    placeholder="e.g. Barangay Tanod / ENRO field officer who first held the item"
-                                    value={data.initial_custodian_name}
-                                    onChange={(e) => setData('initial_custodian_name', e.target.value)}
-                                />
-                                <p className="text-xs text-gray-500">
-                                    The person or office that held the asset before it reached PENRO custody. Leave blank if
-                                    PENRO received it directly.
-                                </p>
-                                <InputError message={errors.initial_custodian_name} />
-                            </div>
-
-                            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                <Label className="mb-2 block">Claimant Status<span className="text-red-500">*</span></Label>
-                                <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleClaimantToggle(true)}
-                                        className={
-                                            'flex-1 rounded-md border px-4 py-2 text-sm font-medium transition ' +
-                                            (data.has_claimant
-                                                ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-                                                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
-                                        }
-                                    >
-                                        With Claimant
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleClaimantToggle(false)}
-                                        className={
-                                            'flex-1 rounded-md border px-4 py-2 text-sm font-medium transition ' +
-                                            (!data.has_claimant
-                                                ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-                                                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
-                                        }
-                                    >
-                                        Without Claimant
-                                    </button>
-                                </div>
-                                <p className="mt-1 text-xs text-gray-500">
-                                    {data.has_claimant
-                                        ? 'A claimant/offender has come forward regarding this apprehension.'
-                                        : 'No claimant has come forward — this proceeds toward automatic confiscation per DAO 97-32.'}
-                                </p>
-
-                                {data.has_claimant && (
-                                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="claimant_offender_name">Claimant / Offender Name<span className="text-red-500">*</span></Label>
-                                            <Input
-                                                id="claimant_offender_name"
-                                                value={data.claimant_offender_name}
-                                                onChange={(e) => setData('claimant_offender_name', e.target.value)}
-                                                required
-                                            />
-                                            <InputError message={errors.claimant_offender_name} />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="claimant_address">Claimant Address<span className="text-red-500">*</span></Label>
-                                            <Input
-                                                id="claimant_address"
-                                                value={data.claimant_address}
-                                                onChange={(e) => setData('claimant_address', e.target.value)}
-                                                required
-                                            />
-                                            <InputError message={errors.claimant_address} />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="claimant_contact_number">Contact Number</Label>
-                                            <Input
-                                                id="claimant_contact_number"
-                                                value={data.claimant_contact_number}
-                                                onChange={(e) => setData('claimant_contact_number', e.target.value)}
-                                            />
-                                            <InputError message={errors.claimant_contact_number} />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="claimant_id_type">Valid ID Type</Label>
-                                                <Input
-                                                    id="claimant_id_type"
-                                                    placeholder="e.g. Driver's License"
-                                                    value={data.claimant_id_type}
-                                                    onChange={(e) => setData('claimant_id_type', e.target.value)}
-                                                />
-                                                <InputError message={errors.claimant_id_type} />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="claimant_id_number">ID Number</Label>
-                                                <Input
-                                                    id="claimant_id_number"
-                                                    value={data.claimant_id_number}
-                                                    onChange={(e) => setData('claimant_id_number', e.target.value)}
-                                                />
-                                                <InputError message={errors.claimant_id_number} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Repeatable asset rows */}
-                    <div className="space-y-4">
-                        {data.assets.map((asset, index) => (
-                            <Card key={index} className="border-0 shadow-sm">
-                                <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100">
-                                    <CardTitle className="text-base">Item {index + 1}</CardTitle>
-                                    {data.assets.length > 1 && (
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => removeAssetRow(index)}
-                                        >
-                                            <Trash2 className="mr-1.5 h-4 w-4" />
-                                            Remove
-                                        </Button>
-                                    )}
                                 </CardHeader>
                                 <CardContent className="space-y-6 pt-6">
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label htmlFor={`type-${index}`}>Asset Type<span className="text-red-500">*</span></Label>
+                                            <Label htmlFor="date_of_apprehension">Date of Apprehension<span className="text-red-500">*</span></Label>
+                                            <Input
+                                                id="date_of_apprehension"
+                                                type="date"
+                                                value={data.date_of_apprehension}
+                                                onChange={(e) => handleDateOfApprehensionChange(e.target.value)}
+                                                required
+                                            />
+                                            <InputError message={errors.date_of_apprehension} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="date_report_submitted">Date Submitted (Apprehension Report)<span className="text-red-500">*</span></Label>
+                                            <Input
+                                                id="date_report_submitted"
+                                                type="date"
+                                                value={data.date_report_submitted}
+                                                onChange={(e) => setData('date_report_submitted', e.target.value)}
+                                                required
+                                            />
+                                            <InputError message={errors.date_report_submitted} />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-4 md:grid-cols-3">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="province">Province</Label>
+                                            <select id="province" className={selectClass} value="Catanduanes" disabled>
+                                                <option value="Catanduanes">Catanduanes</option>
+                                            </select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="place_of_apprehension">Municipality (Place of Apprehension)<span className="text-red-500">*</span></Label>
                                             <select
-                                                id={`type-${index}`}
-                                                value={asset.type}
-                                                onChange={(e) => updateAsset(index, 'type', e.target.value)}
+                                                id="place_of_apprehension"
+                                                value={data.place_of_apprehension}
+                                                onChange={(e) => handleMunicipalityChange(e.target.value)}
                                                 className={selectClass}
                                                 required
                                             >
-                                                {types.map((t) => (
-                                                    <option key={t.value} value={t.value}>{t.label}</option>
+                                                <option value="" disabled>Select municipality…</option>
+                                                {municipalities.map((m) => (
+                                                    <option key={m.value} value={m.value}>{m.label}</option>
                                                 ))}
                                             </select>
-                                            <InputError message={assetError(index, 'type')} />
+                                            <InputError message={errors.place_of_apprehension} />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor={`quantity-${index}`}>No. of pcs</Label>
+                                            <Label htmlFor="area">Area<span className="text-red-500">*</span></Label>
                                             <Input
-                                                id={`quantity-${index}`}
-                                                type="number"
-                                                min="1"
-                                                value={asset.quantity}
-                                                onChange={(e) => updateAsset(index, 'quantity', e.target.value)}
+                                                id="area"
+                                                placeholder="Forest area / compartment"
+                                                value={data.area}
+                                                onChange={(e) => setData('area', e.target.value)}
+                                                required
                                             />
-                                            <InputError message={assetError(index, 'quantity')} />
+                                            <InputError message={errors.area} />
                                         </div>
                                     </div>
 
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label htmlFor={`species-${index}`}>
-                                                {speciesFieldLabel(asset.type)}<span className="text-red-500">*</span>
-                                            </Label>
+                                            <Label htmlFor="coordinates">Coordinates<span className="text-red-500">*</span></Label>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    id="coordinates"
+                                                    placeholder="e.g. 13.5833, 124.2333"
+                                                    value={data.coordinates}
+                                                    onChange={(e) => setData('coordinates', e.target.value)}
+                                                    required
+                                                />
+                                                <Button type="button" variant="outline" onClick={() => setShowCoordinatesPicker(true)}>
+                                                    Pick on Map
+                                                </Button>
+                                            </div>
+                                            <InputError message={errors.coordinates} />
+                                        </div>
 
-                                            {asset.type === 'log' ? (
-                                                asset.speciesIsOther ? (
-                                                    <div className="flex gap-2">
+                                        {/* Apprehending Party — supports multiple entries */}
+                                        <div className="space-y-2">
+                                            <Label>Apprehending Party<span className="text-red-500">*</span></Label>
+                                            <div className="space-y-2">
+                                                {data.apprehending_parties.map((party, index) => (
+                                                    <div key={index} className="flex gap-2">
                                                         <Input
-                                                            id={`species-${index}`}
-                                                            placeholder="Enter species"
-                                                            value={asset.species}
-                                                            onChange={(e) => updateAsset(index, 'species', e.target.value)}
-                                                            autoFocus
+                                                            value={party}
+                                                            onChange={(e) => updateApprehendingParty(index, e.target.value)}
+                                                            placeholder="e.g. PENRO Catanduanes MES"
                                                             required
                                                         />
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => updateAssetMultiple(index, { speciesIsOther: false, species: '' })}
-                                                        >
-                                                            Choose from list
-                                                        </Button>
+                                                        {data.apprehending_parties.length > 1 && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => removeApprehendingParty(index)}
+                                                                aria-label="Remove apprehending party"
+                                                            >
+                                                                <X className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
                                                     </div>
-                                                ) : (
+                                                ))}
+                                            </div>
+                                            <Button type="button" variant="outline" size="sm" onClick={addApprehendingParty}>
+                                                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                                Add Another Apprehending Party
+                                            </Button>
+                                            <InputError message={(errors as Record<string, string>).apprehending_party} />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="initial_custodian_name">Initial Custodian (before PENRO)</Label>
+                                        <Input
+                                            id="initial_custodian_name"
+                                            placeholder="e.g. Barangay Tanod / ENRO field officer who first held the item"
+                                            value={data.initial_custodian_name}
+                                            onChange={(e) => setData('initial_custodian_name', e.target.value)}
+                                        />
+                                        <p className="text-xs text-gray-500">
+                                            The person or office that held the asset before it reached PENRO custody. Leave blank if
+                                            PENRO received it directly.
+                                        </p>
+                                        <InputError message={errors.initial_custodian_name} />
+                                    </div>
+
+                                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                        <Label className="mb-2 block">Claimant Status<span className="text-red-500">*</span></Label>
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleClaimantToggle(true)}
+                                                className={
+                                                    'flex-1 rounded-md border px-4 py-2 text-sm font-medium transition ' +
+                                                    (data.has_claimant
+                                                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                                                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
+                                                }
+                                            >
+                                                With Claimant
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleClaimantToggle(false)}
+                                                className={
+                                                    'flex-1 rounded-md border px-4 py-2 text-sm font-medium transition ' +
+                                                    (!data.has_claimant
+                                                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                                                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
+                                                }
+                                            >
+                                                Without Claimant
+                                            </button>
+                                        </div>
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            {data.has_claimant
+                                                ? 'A claimant/offender has come forward regarding this apprehension.'
+                                                : 'No claimant has come forward — this proceeds toward automatic confiscation per DAO 97-32.'}
+                                        </p>
+
+                                        {data.has_claimant && (
+                                            <div className="mt-4 grid gap-4 md:grid-cols-2">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="claimant_offender_name">Claimant / Offender Name<span className="text-red-500">*</span></Label>
+                                                    <Input
+                                                        id="claimant_offender_name"
+                                                        value={data.claimant_offender_name}
+                                                        onChange={(e) => setData('claimant_offender_name', e.target.value)}
+                                                        required
+                                                    />
+                                                    <InputError message={errors.claimant_offender_name} />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="claimant_address">Claimant Address<span className="text-red-500">*</span></Label>
+                                                    <Input
+                                                        id="claimant_address"
+                                                        value={data.claimant_address}
+                                                        onChange={(e) => setData('claimant_address', e.target.value)}
+                                                        required
+                                                    />
+                                                    <InputError message={errors.claimant_address} />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="claimant_contact_number">Contact Number</Label>
+                                                    <Input
+                                                        id="claimant_contact_number"
+                                                        value={data.claimant_contact_number}
+                                                        onChange={(e) => setData('claimant_contact_number', e.target.value)}
+                                                    />
+                                                    <InputError message={errors.claimant_contact_number} />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="claimant_id_type">Valid ID Type</Label>
+                                                        <Input
+                                                            id="claimant_id_type"
+                                                            placeholder="e.g. Driver's License"
+                                                            value={data.claimant_id_type}
+                                                            onChange={(e) => setData('claimant_id_type', e.target.value)}
+                                                        />
+                                                        <InputError message={errors.claimant_id_type} />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="claimant_id_number">ID Number</Label>
+                                                        <Input
+                                                            id="claimant_id_number"
+                                                            value={data.claimant_id_number}
+                                                            onChange={(e) => setData('claimant_id_number', e.target.value)}
+                                                        />
+                                                        <InputError message={errors.claimant_id_number} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Repeatable asset rows */}
+                            <div className="space-y-4">
+                                {data.assets.map((asset, index) => (
+                                    <Card key={index} className="border-0 shadow-sm">
+                                        <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100">
+                                            <CardTitle className="text-base">Item {index + 1}</CardTitle>
+                                            {data.assets.length > 1 && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => removeAssetRow(index)}
+                                                >
+                                                    <Trash2 className="mr-1.5 h-4 w-4" />
+                                                    Remove
+                                                </Button>
+                                            )}
+                                        </CardHeader>
+                                        <CardContent className="space-y-6 pt-6">
+                                            <div className="grid gap-4 md:grid-cols-2">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor={`type-${index}`}>Asset Type<span className="text-red-500">*</span></Label>
                                                     <select
-                                                        id={`species-${index}`}
-                                                        value={asset.species}
-                                                        onChange={(e) => handleSpeciesSelect(index, e.target.value)}
+                                                        id={`type-${index}`}
+                                                        value={asset.type}
+                                                        onChange={(e) => updateAsset(index, 'type', e.target.value)}
                                                         className={selectClass}
+                                                        required
                                                     >
-                                                        <option value="" disabled>Select species…</option>
-                                                        {SPECIES_OPTIONS.map((s) => (
-                                                            <option key={s} value={s}>{s}</option>
+                                                        {types.map((t) => (
+                                                            <option key={t.value} value={t.value}>{t.label}</option>
                                                         ))}
                                                     </select>
-                                                )
-                                            ) : asset.type === 'equipment' ? (
-                                                asset.speciesIsOther ? (
-                                                    <div className="flex gap-2">
+                                                    <InputError message={assetError(index, 'type')} />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor={`quantity-${index}`}>No. of pcs</Label>
+                                                    <Input
+                                                        id={`quantity-${index}`}
+                                                        type="number"
+                                                        min="1"
+                                                        value={asset.quantity}
+                                                        onChange={(e) => updateAsset(index, 'quantity', e.target.value)}
+                                                    />
+                                                    <InputError message={assetError(index, 'quantity')} />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid gap-4 md:grid-cols-2">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor={`species-${index}`}>
+                                                        {speciesFieldLabel(asset.type)}<span className="text-red-500">*</span>
+                                                    </Label>
+
+                                                    {asset.type === 'log' ? (
+                                                        asset.speciesIsOther ? (
+                                                            <div className="flex gap-2">
+                                                                <Input
+                                                                    id={`species-${index}`}
+                                                                    placeholder="Enter species"
+                                                                    value={asset.species}
+                                                                    onChange={(e) => updateAsset(index, 'species', e.target.value)}
+                                                                    autoFocus
+                                                                    required
+                                                                />
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => updateAssetMultiple(index, { speciesIsOther: false, species: '' })}
+                                                                >
+                                                                    Choose from list
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <select
+                                                                id={`species-${index}`}
+                                                                value={asset.species}
+                                                                onChange={(e) => handleSpeciesSelect(index, e.target.value)}
+                                                                className={selectClass}
+                                                            >
+                                                                <option value="" disabled>Select species…</option>
+                                                                {SPECIES_OPTIONS.map((s) => (
+                                                                    <option key={s} value={s}>{s}</option>
+                                                                ))}
+                                                            </select>
+                                                        )
+                                                    ) : asset.type === 'equipment' ? (
+                                                        asset.speciesIsOther ? (
+                                                            <div className="flex gap-2">
+                                                                <Input
+                                                                    id={`species-${index}`}
+                                                                    placeholder={speciesFieldPlaceholder(asset.type)}
+                                                                    value={asset.species}
+                                                                    onChange={(e) => updateAsset(index, 'species', e.target.value)}
+                                                                    autoFocus
+                                                                    required
+                                                                />
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => updateAssetMultiple(index, { speciesIsOther: false, species: '' })}
+                                                                >
+                                                                    Choose from list
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <select
+                                                                id={`species-${index}`}
+                                                                value={asset.species}
+                                                                onChange={(e) => handleEquipmentSelect(index, e.target.value)}
+                                                                className={selectClass}
+                                                            >
+                                                                <option value="" disabled>Select equipment type…</option>
+                                                                {EQUIPMENT_OPTIONS.map((s) => (
+                                                                    <option key={s} value={s}>{s}</option>
+                                                                ))}
+                                                            </select>
+                                                        )
+                                                    ) : (
                                                         <Input
                                                             id={`species-${index}`}
                                                             placeholder={speciesFieldPlaceholder(asset.type)}
                                                             value={asset.species}
                                                             onChange={(e) => updateAsset(index, 'species', e.target.value)}
-                                                            autoFocus
                                                             required
                                                         />
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => updateAssetMultiple(index, { speciesIsOther: false, species: '' })}
-                                                        >
-                                                            Choose from list
-                                                        </Button>
-                                                    </div>
-                                                ) : (
-                                                    <select
-                                                        id={`species-${index}`}
-                                                        value={asset.species}
-                                                        onChange={(e) => handleEquipmentSelect(index, e.target.value)}
-                                                        className={selectClass}
-                                                    >
-                                                        <option value="" disabled>Select equipment type…</option>
-                                                        {EQUIPMENT_OPTIONS.map((s) => (
-                                                            <option key={s} value={s}>{s}</option>
-                                                        ))}
-                                                    </select>
-                                                )
-                                            ) : (
+                                                    )}
+
+                                                    <InputError message={assetError(index, 'species')} />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor={`apprehending_agency-${index}`}>Apprehending Agency<span className="text-red-500">*</span></Label>
+                                                    <Input
+                                                        id={`apprehending_agency-${index}`}
+                                                        value={asset.apprehending_agency}
+                                                        onChange={(e) => updateAsset(index, 'apprehending_agency', e.target.value)}
+                                                        required
+                                                    />
+                                                    <InputError message={assetError(index, 'apprehending_agency')} />
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`description-${index}`}>Description<span className="text-red-500">*</span></Label>
                                                 <Input
-                                                    id={`species-${index}`}
-                                                    placeholder={speciesFieldPlaceholder(asset.type)}
-                                                    value={asset.species}
-                                                    onChange={(e) => updateAsset(index, 'species', e.target.value)}
+                                                    id={`description-${index}`}
+                                                    value={asset.description}
+                                                    onChange={(e) => updateAsset(index, 'description', e.target.value)}
                                                     required
                                                 />
+                                                <InputError message={assetError(index, 'description')} />
+                                            </div>
+
+                                            {asset.type === 'log' && (
+                                                <div className="grid gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4 md:grid-cols-3">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor={`volume_bd_ft-${index}`}>Volume (bd.ft)<span className="text-red-500">*</span></Label>
+                                                        <Input
+                                                            id={`volume_bd_ft-${index}`}
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            value={asset.volume_bd_ft}
+                                                            onChange={(e) => handleVolumeBdFtChange(index, e.target.value)}
+                                                            required
+                                                        />
+                                                        <InputError message={assetError(index, 'volume_bd_ft')} />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor={`volume_cu_m-${index}`}>Volume (cu.m)</Label>
+                                                        <Input
+                                                            id={`volume_cu_m-${index}`}
+                                                            type="number"
+                                                            step="0.0001"
+                                                            min="0"
+                                                            value={asset.volume_cu_m}
+                                                            readOnly
+                                                            disabled
+                                                            className="bg-gray-100"
+                                                        />
+                                                        <p className="text-xs text-gray-500">Auto-converted from bd.ft</p>
+                                                        <InputError message={assetError(index, 'volume_cu_m')} />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor={`estimated_value-${index}`}>Estimated Value (php)<span className="text-red-500">*</span></Label>
+                                                        <Input
+                                                            id={`estimated_value-${index}`}
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            value={asset.estimated_value}
+                                                            onChange={(e) => updateAssetMultiple(index, { estimated_value: e.target.value, estimated_value_auto: false })}
+                                                            readOnly={asset.estimated_value_auto}
+                                                            className={asset.estimated_value_auto ? 'bg-gray-100' : undefined}
+                                                            required
+                                                        />
+                                                        {asset.estimated_value_auto ? (
+                                                            <p className="text-xs text-emerald-700">
+                                                                Auto-computed: {asset.volume_bd_ft} bd.ft × ₱{marketPriceMap[`${asset.species}|${apprehensionYear}`]?.toFixed(2)} (market price {apprehensionYear})
+                                                            </p>
+                                                        ) : asset.type === 'log' && asset.species && !asset.speciesIsOther && apprehensionYear ? (
+                                                            <p className="text-xs text-amber-700">
+                                                                No market price set for {asset.species} ({apprehensionYear}) — enter manually.
+                                                            </p>
+                                                        ) : null}
+                                                        <InputError message={assetError(index, 'estimated_value')} />
+                                                    </div>
+                                                </div>
                                             )}
 
-                                            <InputError message={assetError(index, 'species')} />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor={`apprehending_agency-${index}`}>Apprehending Agency<span className="text-red-500">*</span></Label>
-                                            <Input
-                                                id={`apprehending_agency-${index}`}
-                                                value={asset.apprehending_agency}
-                                                onChange={(e) => updateAsset(index, 'apprehending_agency', e.target.value)}
-                                                required
-                                            />
-                                            <InputError message={assetError(index, 'apprehending_agency')} />
-                                        </div>
-                                    </div>
+                                            {asset.type === 'vehicle' && (
+                                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                                    <div className="max-w-xs space-y-2">
+                                                        <Label htmlFor={`plate_number-${index}`}>Conveyance / Plate No.<span className="text-red-500">*</span></Label>
+                                                        <Input
+                                                            id={`plate_number-${index}`}
+                                                            value={asset.plate_number}
+                                                            onChange={(e) => updateAsset(index, 'plate_number', e.target.value)}
+                                                            required
+                                                        />
+                                                        <InputError message={assetError(index, 'plate_number')} />
+                                                    </div>
+                                                </div>
+                                            )}
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor={`description-${index}`}>Description<span className="text-red-500">*</span></Label>
-                                        <Input
-                                            id={`description-${index}`}
-                                            value={asset.description}
-                                            onChange={(e) => updateAsset(index, 'description', e.target.value)}
-                                            required
-                                        />
-                                        <InputError message={assetError(index, 'description')} />
-                                    </div>
+                                            {asset.type !== 'log' && (
+                                                <div className="space-y-2 md:max-w-xs">
+                                                    <Label htmlFor={`estimated_value_other-${index}`}>Estimated Value (php)<span className="text-red-500">*</span></Label>
+                                                    <Input
+                                                        id={`estimated_value_other-${index}`}
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        value={asset.estimated_value}
+                                                        onChange={(e) => updateAsset(index, 'estimated_value', e.target.value)}
+                                                        required
+                                                    />
+                                                    <InputError message={assetError(index, 'estimated_value')} />
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                ))}
 
-                                    {asset.type === 'log' && (
-                                        <div className="grid gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4 md:grid-cols-3">
-                                            <div className="space-y-2">
-                                                <Label htmlFor={`volume_bd_ft-${index}`}>Volume (bd.ft)<span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    id={`volume_bd_ft-${index}`}
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    value={asset.volume_bd_ft}
-                                                    onChange={(e) => handleVolumeBdFtChange(index, e.target.value)}
-                                                    required
-                                                />
-                                                <InputError message={assetError(index, 'volume_bd_ft')} />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor={`volume_cu_m-${index}`}>Volume (cu.m)</Label>
-                                                <Input
-                                                    id={`volume_cu_m-${index}`}
-                                                    type="number"
-                                                    step="0.0001"
-                                                    min="0"
-                                                    value={asset.volume_cu_m}
-                                                    readOnly
-                                                    disabled
-                                                    className="bg-gray-100"
-                                                />
-                                                <p className="text-xs text-gray-500">Auto-converted from bd.ft</p>
-                                                <InputError message={assetError(index, 'volume_cu_m')} />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor={`estimated_value-${index}`}>Estimated Value (php)<span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    id={`estimated_value-${index}`}
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    value={asset.estimated_value}
-                                                    onChange={(e) => updateAssetMultiple(index, { estimated_value: e.target.value, estimated_value_auto: false })}
-                                                    readOnly={asset.estimated_value_auto}
-                                                    className={asset.estimated_value_auto ? 'bg-gray-100' : undefined}
-                                                    required
-                                                />
-                                                {asset.estimated_value_auto ? (
-                                                    <p className="text-xs text-emerald-700">
-                                                        Auto-computed: {asset.volume_bd_ft} bd.ft × ₱{marketPriceMap[`${asset.species}|${apprehensionYear}`]?.toFixed(2)} (market price {apprehensionYear})
-                                                    </p>
-                                                ) : asset.type === 'log' && asset.species && !asset.speciesIsOther && apprehensionYear ? (
-                                                    <p className="text-xs text-amber-700">
-                                                        No market price set for {asset.species} ({apprehensionYear}) — enter manually.
-                                                    </p>
-                                                ) : null}
-                                                <InputError message={assetError(index, 'estimated_value')} />
-                                            </div>
-                                        </div>
-                                    )}
+                                <Button type="button" variant="outline" onClick={addAssetRow}>
+                                    <Plus className="mr-1.5 h-4 w-4" />
+                                    Add Another Item
+                                </Button>
+                            </div>
 
-                                    {asset.type === 'vehicle' && (
-                                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                            <div className="max-w-xs space-y-2">
-                                                <Label htmlFor={`plate_number-${index}`}>Conveyance / Plate No.<span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    id={`plate_number-${index}`}
-                                                    value={asset.plate_number}
-                                                    onChange={(e) => updateAsset(index, 'plate_number', e.target.value)}
-                                                    required
-                                                />
-                                                <InputError message={assetError(index, 'plate_number')} />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {asset.type !== 'log' && (
-                                        <div className="space-y-2 md:max-w-xs">
-                                            <Label htmlFor={`estimated_value_other-${index}`}>Estimated Value (php)<span className="text-red-500">*</span></Label>
-                                            <Input
-                                                id={`estimated_value_other-${index}`}
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                value={asset.estimated_value}
-                                                onChange={(e) => updateAsset(index, 'estimated_value', e.target.value)}
-                                                required
-                                            />
-                                            <InputError message={assetError(index, 'estimated_value')} />
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        ))}
-
-                        <Button type="button" variant="outline" onClick={addAssetRow}>
-                            <Plus className="mr-1.5 h-4 w-4" />
-                            Add Another Item
-                        </Button>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3 pb-8">
-                        <Button type="submit" disabled={processing}>Record Incident</Button>
-                        <Link href={route('assets.index')}>
-                            <Button type="button" variant="outline">Cancel</Button>
-                        </Link>
-                    </div>
+                            <div className="flex flex-wrap gap-3 pb-8">
+                                <Button type="submit" disabled={processing}>Record Incident</Button>
+                                <Link href={route('assets.index')}>
+                                    <Button type="button" variant="outline">Cancel</Button>
+                                </Link>
+                            </div>
+                        </>
+                    )}
                 </form>
             </div>
 
