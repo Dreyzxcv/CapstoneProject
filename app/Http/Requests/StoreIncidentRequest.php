@@ -40,6 +40,7 @@ class StoreIncidentRequest extends FormRequest
             'assets.*.species' => ['nullable', 'string', 'max:255'],
             'assets.*.description' => ['nullable', 'string', 'max:2000'],
             'assets.*.quantity' => ['nullable', 'integer', 'min:1'],
+            'assets.*.quantity_unit' => ['nullable', 'string', 'max:50'],
             'assets.*.volume_bd_ft' => ['nullable', 'numeric', 'min:0'],
             'assets.*.volume_cu_m' => ['nullable', 'numeric', 'min:0'],
             'assets.*.estimated_value' => ['nullable', 'numeric', 'min:0'],

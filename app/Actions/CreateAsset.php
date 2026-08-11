@@ -44,6 +44,7 @@ class CreateAsset
                 'species' => $data['species'] ?? null,
                 'description' => $data['description'] ?? null,
                 'quantity' => $data['quantity'] ?? 1,
+                'quantity_unit' => $data['quantity_unit'] ?? 'pcs',
                 'volume_bd_ft' => $data['volume_bd_ft'] ?? null,
                 'volume_cu_m' => $data['volume_cu_m'] ?? null,
                 'estimated_value' => $data['estimated_value'] ?? null,

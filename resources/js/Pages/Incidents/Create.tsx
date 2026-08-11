@@ -36,6 +36,7 @@ interface AssetRow {
     speciesIsOther: boolean;
     description: string;
     quantity: string;
+    quantity_unit: string;
     volume_bd_ft: string;
     volume_cu_m: string;
     estimated_value: string;
@@ -65,9 +66,8 @@ const SPECIES_OPTIONS = [
     'Others',
 ];
 
-// Dropdown selection for Equipment / Tools, per NewFlow.pdf Data Encoding
-// Module ("Equipment / Tools / Implements — Dropdown Selection"). Kept
-// separate from SPECIES_OPTIONS since equipment isn't a species.
+const QUANTITY_UNIT_OPTIONS = ['pcs', 'sack', 'bundle', 'piece', 'box', 'container', 'roll', 'lot'];
+
 const EQUIPMENT_OPTIONS = [
     'Chainsaw',
     'Power Saw',
@@ -87,6 +87,7 @@ function emptyAssetRow(defaults: { municipality: string; agency: string; mode: s
         speciesIsOther: false,
         description: '',
         quantity: '1',
+        quantity_unit: 'pcs',
         volume_bd_ft: '',
         volume_cu_m: '',
         estimated_value: '',
@@ -699,16 +700,32 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                     </select>
                                                     <InputError message={assetError(index, 'type')} />
                                                 </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor={`quantity-${index}`}>No. of pcs</Label>
-                                                    <Input
-                                                        id={`quantity-${index}`}
-                                                        type="number"
-                                                        min="1"
-                                                        value={asset.quantity}
-                                                        onChange={(e) => updateAsset(index, 'quantity', e.target.value)}
-                                                    />
-                                                    <InputError message={assetError(index, 'quantity')} />
+                                                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_160px]">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor={`quantity-${index}`}>No. of Units</Label>
+                                                        <Input
+                                                            id={`quantity-${index}`}
+                                                            type="number"
+                                                            min="1"
+                                                            value={asset.quantity}
+                                                            onChange={(e) => updateAsset(index, 'quantity', e.target.value)}
+                                                        />
+                                                        <InputError message={assetError(index, 'quantity')} />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor={`quantity_unit-${index}`}>Unit</Label>
+                                                        <select
+                                                            id={`quantity_unit-${index}`}
+                                                            value={asset.quantity_unit}
+                                                            onChange={(e) => updateAsset(index, 'quantity_unit', e.target.value)}
+                                                            className={selectClass}
+                                                        >
+                                                            {QUANTITY_UNIT_OPTIONS.map((unit) => (
+                                                                <option key={unit} value={unit}>{unit}</option>
+                                                            ))}
+                                                        </select>
+                                                        <InputError message={assetError(index, 'quantity_unit')} />
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -1018,8 +1035,10 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     </p>
                                     <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-sm md:grid-cols-2">
                                         <div>
-                                            <dt className="text-gray-500">No. of pcs</dt>
-                                            <dd className="text-gray-900">{asset.quantity || '—'}</dd>
+                                            <dt className="text-gray-500">No. of Units</dt>
+                                            <dd className="text-gray-900">
+                                                {asset.quantity || '—'} {asset.quantity_unit || 'pcs'}
+                                            </dd>
                                         </div>
                                         <div>
                                             <dt className="text-gray-500">{speciesFieldLabel(asset.type)}</dt>

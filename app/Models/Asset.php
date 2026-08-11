@@ -22,7 +22,7 @@ class Asset extends Model
         'type',
         'species',
         'description',
-        'quantity', 'volume_bd_ft', 'volume_cu_m',
+        'quantity', 'quantity_unit', 'volume_bd_ft', 'volume_cu_m',
         'disposed_quantity', 'disposed_volume_bd_ft', 'disposed_volume_cu_m',
         'estimated_value',
         'plate_number',
