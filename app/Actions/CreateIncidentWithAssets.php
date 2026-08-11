@@ -3,6 +3,7 @@
 
 namespace App\Actions;
 
+use App\Enums\AssetMode;
 use App\Models\Incident;
 use App\Models\User;
 use App\Services\AuditLogService;
@@ -27,8 +28,10 @@ class CreateIncidentWithAssets
         }
 
         return DB::transaction(function () use ($incidentData, $assetsData, $user) {
+            $firstAssetMode = AssetMode::from($assetsData[0]['mode'] ?? 'apprehended');
+
             $incident = Incident::create([
-                'incident_code' => $this->generateIncidentCode($incidentData['date_of_apprehension'] ?? null),
+                'incident_code' => $this->generateIncidentCode($incidentData['date_of_apprehension'] ?? null, $firstAssetMode),
                 'date_of_apprehension' => $incidentData['date_of_apprehension'],
                 'place_of_apprehension' => $incidentData['place_of_apprehension'],
                 'area' => $incidentData['area'] ?? null,
@@ -59,14 +62,19 @@ class CreateIncidentWithAssets
         });
     }
 
-    protected function generateIncidentCode(?string $dateOfApprehension = null): string
+    protected function generateIncidentCode(?string $dateOfApprehension = null, ?AssetMode $mode = null): string
     {
         $year = $dateOfApprehension
             ? \Illuminate\Support\Carbon::parse($dateOfApprehension)->format('Y')
             : now()->format('Y');
 
         $sequence = \App\Models\Incident::count() + 1;
+        $prefix = match ($mode) {
+            AssetMode::Apprehended => 'AP',
+            AssetMode::TurnedOver => 'TO',
+            default => 'AP',
+        };
 
-        return 'AAP-FV-'.$year.'-'.str_pad((string) $sequence, 5, '0', STR_PAD_LEFT);
+        return $prefix.'-'.$year.'-'.str_pad((string) $sequence, 5, '0', STR_PAD_LEFT);
     }
 }

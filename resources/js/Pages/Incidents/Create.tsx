@@ -197,8 +197,9 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
     const previewYear = data.date_report_submitted
         ? new Date(data.date_report_submitted).getFullYear()
         : null;
-    const previewCode = previewYear
-        ? `AAP-FV-${previewYear}-${String(nextAssetSequence).padStart(5, '0')}`
+    const previewPrefix = data.intake_mode === 'turned_over' ? 'TO' : data.intake_mode === 'apprehended' ? 'AP' : null;
+    const previewCode = previewYear && previewPrefix
+        ? `${previewPrefix}-${previewYear}-${String(nextAssetSequence).padStart(5, '0')}`
         : null;
 
     function updateAsset(index: number, field: keyof AssetRow, value: string | boolean) {
@@ -433,11 +434,11 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     <div className="mt-2">
                                         {previewCode ? (
                                             <span className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-mono font-semibold text-emerald-800">
-                                                AAP No.: {previewCode}
+                                                Asset ID: {previewCode}
                                             </span>
                                         ) : (
                                             <span className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500">
-                                                AAP No. will appear once the date submitted is set.
+                                                Asset ID will appear once the date submitted is set.
                                             </span>
                                         )}
                                     </div>

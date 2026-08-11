@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AssetMode;
 use App\Enums\Municipality;
 use App\Models\Asset;
 
@@ -12,6 +13,12 @@ class AssetCodeService
         $year = $asset->incident?->date_report_submitted?->format('Y') ?? now()->format('Y');
         $sequence = str_pad((string) $asset->id, 5, '0', STR_PAD_LEFT);
 
-        return 'AAP-FV-'.$year.'-'.$sequence;
+        $prefix = match ($asset->mode) {
+            AssetMode::Apprehended => 'AP',
+            AssetMode::TurnedOver => 'TO',
+            default => 'AP',
+        };
+
+        return $prefix.'-'.$year.'-'.$sequence;
     }
 }
