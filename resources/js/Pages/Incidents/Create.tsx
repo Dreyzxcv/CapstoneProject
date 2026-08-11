@@ -49,6 +49,7 @@ interface AssetRow {
     location_apprehended: string;
     apprehending_agency: string;
     mode: string;
+    has_ongoing_case: boolean;
     has_confiscation_order: boolean;
 }
 
@@ -108,6 +109,7 @@ function emptyAssetRow(defaults: { municipality: string; agency: string; mode: s
         location_apprehended: defaults.municipality,
         apprehending_agency: defaults.agency,
         mode: defaults.mode,
+        has_ongoing_case: false,
         has_confiscation_order: false,
     };
 }
@@ -870,17 +872,6 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                 </div>
                                             </div>
 
-                                            <div className="space-y-2">
-                                                <Label htmlFor={`description-${index}`}>Description<span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    id={`description-${index}`}
-                                                    value={asset.description}
-                                                    onChange={(e) => updateAsset(index, 'description', e.target.value)}
-                                                    required
-                                                />
-                                                <InputError message={assetError(index, 'description')} />
-                                            </div>
-
                                             {asset.type === 'log' && (
                                                 <div className="grid gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4 md:grid-cols-3">
                                                     <div className="space-y-2">
@@ -917,7 +908,6 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                                 required
                                                             />
                                                         </div>
-                                                        <p className="text-xs text-gray-500">Formula: (Length × Width × Height) / 12 = bd.ft</p>
                                                         <InputError message={assetError(index, 'length')} />
                                                     </div>
                                                     <div className="space-y-2">
@@ -930,8 +920,10 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                             value={asset.volume_bd_ft}
                                                             onChange={(e) => handleVolumeBdFtChange(index, e.target.value)}
                                                             readOnly={Boolean(asset.length || asset.width || asset.height)}
-                                                            required
+                                                            disabled
+                                                            className="bg-gray-100"
                                                         />
+                                                        <p className="text-xs text-gray-500">Auto-converted from dimensions</p>
                                                         <InputError message={assetError(index, 'volume_bd_ft')} />
                                                     </div>
                                                     <div className="space-y-2">
@@ -1006,6 +998,52 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                     <InputError message={assetError(index, 'estimated_value')} />
                                                 </div>
                                             )}
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`description-${index}`}>Description<span className="text-red-500">*</span></Label>
+                                                <Input
+                                                    id={`description-${index}`}
+                                                    value={asset.description}
+                                                    onChange={(e) => updateAsset(index, 'description', e.target.value)}
+                                                    required
+                                                />
+                                                <InputError message={assetError(index, 'description')} />
+                                            </div>
+
+                                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                                                <Label className="mb-2 block">Legal</Label>
+                                                <div className="grid gap-3 md:grid-cols-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateAsset(index, 'has_ongoing_case', !asset.has_ongoing_case)}
+                                                        className={
+                                                            'rounded-md border px-4 py-2 text-sm font-medium transition ' +
+                                                            (asset.has_ongoing_case
+                                                                ? 'border-amber-600 bg-amber-100 text-amber-900'
+                                                                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
+                                                        }
+                                                    >
+                                                        {asset.has_ongoing_case ? 'Ongoing case' : 'No ongoing case'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateAsset(index, 'has_confiscation_order', !asset.has_confiscation_order)}
+                                                        className={
+                                                            'rounded-md border px-4 py-2 text-sm font-medium transition ' +
+                                                            (asset.has_confiscation_order
+                                                                ? 'border-red-600 bg-red-100 text-red-900'
+                                                                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
+                                                        }
+                                                    >
+                                                        {asset.has_confiscation_order ? 'Confiscation / Forfeiture Order' : 'No order yet'}
+                                                    </button>
+                                                </div>
+                                                <p className="mt-2 text-xs text-gray-500">
+                                                    {asset.has_ongoing_case
+                                                        ? 'This case is still under trial / legal review.'
+                                                        : 'No active court branch is linked at this intake step.'}
+                                                </p>
+                                            </div>
                                         </CardContent>
                                     </Card>
                                 ))}
@@ -1049,7 +1087,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                             <h3 className="text-sm font-semibold text-gray-700">Apprehension Details</h3>
                             {previewCode && (
                                 <p className="mt-1 font-mono text-xs font-semibold text-emerald-700">
-                                    AAP No.: {previewCode}
+                                    Asset ID: {previewCode}
                                 </p>
                             )}
                             <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm md:grid-cols-2">
@@ -1134,6 +1172,14 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                         <div className="md:col-span-2">
                                             <dt className="text-gray-500">Description</dt>
                                             <dd className="text-gray-900">{asset.description || '—'}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-gray-500">Ongoing Case</dt>
+                                            <dd className="text-gray-900">{asset.has_ongoing_case ? 'Yes' : 'No'}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-gray-500">Confiscation / Forfeiture Order</dt>
+                                            <dd className="text-gray-900">{asset.has_confiscation_order ? 'Yes' : 'No'}</dd>
                                         </div>
 
                                         {asset.type === 'log' && (

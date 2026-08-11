@@ -39,7 +39,15 @@ export interface Asset {
     species: string | null;
     description: string | null;
     quantity: number;
+    quantity_unit?: string | null;
+    length?: number | string | null;
+    width?: number | string | null;
+    height?: number | string | null;
+    volume_bd_ft?: number | string | null;
+    volume_cu_m?: number | string | null;
     disposed_quantity: number;
+    estimated_value?: number | string | null;
+    plate_number?: string | null;
     remaining_quantity?: number;
     municipality_of_origin: string;
     location_apprehended: string;

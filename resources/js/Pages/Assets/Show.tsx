@@ -221,13 +221,35 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                         <CardContent className="grid gap-3 text-sm md:grid-cols-2 break-words">
                             <p><span className="font-medium">Types:</span> {asset.type}</p>
                             <p><span className="font-medium">Mode:</span> {asset.mode}</p>
+                            <p><span className="font-medium">No. of Units:</span> {asset.quantity ?? '—'}</p>
+                            <p><span className="font-medium">Unit:</span> {asset.quantity_unit ?? 'pcs'}</p>
                             <p><span className="font-medium">Species:</span> {asset.species ?? '—'}</p>
                             <p><span className="font-medium">Municipality:</span> {asset.municipality_of_origin}</p>
                             <p className="md:col-span-2"><span className="font-medium">Description:</span> {asset.description ?? '—'}</p>
                             <p><span className="font-medium">Location:</span> {asset.location_apprehended}</p>
                             <p><span className="font-medium">Agency:</span> {asset.apprehending_agency}</p>
+                            <p><span className="font-medium">Estimated Value (php):</span> {asset.estimated_value ?? '—'}</p>
+                            {asset.type === 'log' && (
+                                <>
+                                    <p><span className="font-medium">Dimensions (L × W × H):</span> {asset.length ?? '—'} × {asset.width ?? '—'} × {asset.height ?? '—'}</p>
+                                    <p><span className="font-medium">Volume (bd.ft):</span> {asset.volume_bd_ft ?? '—'}</p>
+                                    <p><span className="font-medium">Volume (cu.m):</span> {asset.volume_cu_m ?? '—'}</p>
+                                </>
+                            )}
+                            {asset.type === 'vehicle' && (
+                                <p><span className="font-medium">Plate / Conveyance No.:</span> {asset.plate_number ?? '—'}</p>
+                            )}
                             <p><span className="font-medium">Ongoing case:</span> {asset.has_ongoing_case ? 'Yes' : 'No'}</p>
                             <p><span className="font-medium">Confiscation order:</span> {asset.has_confiscation_order ? 'Yes' : 'No'}</p>
+                            {asset.case_number && (
+                                <p><span className="font-medium">Case Number:</span> {asset.case_number}</p>
+                            )}
+                            {asset.court_branch && (
+                                <p><span className="font-medium">Court / Branch:</span> {asset.court_branch}</p>
+                            )}
+                            {asset.next_hearing_date && (
+                                <p><span className="font-medium">Next Hearing Date:</span> {new Date(asset.next_hearing_date).toLocaleDateString()}</p>
+                            )}
 
                             {asset.incident && (
                                 <>
