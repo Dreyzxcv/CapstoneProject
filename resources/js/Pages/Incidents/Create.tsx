@@ -65,6 +65,18 @@ const SPECIES_OPTIONS = [
     'Others',
 ];
 
+// Dropdown selection for Equipment / Tools, per NewFlow.pdf Data Encoding
+// Module ("Equipment / Tools / Implements — Dropdown Selection"). Kept
+// separate from SPECIES_OPTIONS since equipment isn't a species.
+const EQUIPMENT_OPTIONS = [
+    'Chainsaw',
+    'Power Saw',
+    'Handheld Circular Saw',
+    'Winch / Cable Puller',
+    'Hand Tools (Axe, Bolo, Wedge)',
+    'Others',
+];
+
 // 1 board foot = 0.002359737 cubic meters.
 const BD_FT_TO_CU_M = 0.002359737;
 
@@ -98,8 +110,9 @@ function convertBdFtToCuM(bdFt: string): string {
 }
 
 // Field label/placeholder for the "species" text depends on asset type —
-// Log keeps the species dropdown, Equipment/Vehicle get a free-text field
-// with a relabeled prompt, since "species" doesn't apply to them.
+// Log keeps the species dropdown, Equipment now also uses a dropdown
+// (EQUIPMENT_OPTIONS), Vehicle keeps a free-text field with a relabeled
+// prompt, since "species" doesn't apply to it.
 function speciesFieldLabel(type: string): string {
     switch (type) {
         case 'vehicle':
@@ -139,6 +152,10 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         claimant_id_type: '',
         claimant_id_number: '',
         apprehending_parties: ['PENRO Catanduanes MES'] as string[],
+        // Initial handler/custodian before the asset reaches PENRO custody
+        // (NewFlow.pdf Data Encoding Module). Distinct from apprehending
+        // party and from the Property Custodian who takes over in Stage 2.
+        initial_custodian_name: '',
         date_report_submitted: '',
         assets: [emptyAssetRow({ municipality: defaultMunicipality, agency: defaultAgency, mode: defaultMode })] as AssetRow[],
     });
@@ -198,6 +215,17 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
             updateAssetMultiple(index, { species: '', speciesIsOther: true, estimated_value_auto: false });
         } else {
             updateAssetMultiple(index, { species: value, speciesIsOther: false }, true);
+        }
+    }
+
+    // Equipment dropdown uses the same speciesIsOther/species fields as Log,
+    // just sourced from EQUIPMENT_OPTIONS instead of SPECIES_OPTIONS, so no
+    // schema or backend change is needed.
+    function handleEquipmentSelect(index: number, value: string) {
+        if (value === 'Others') {
+            updateAssetMultiple(index, { species: '', speciesIsOther: true });
+        } else {
+            updateAssetMultiple(index, { species: value, speciesIsOther: false });
         }
     }
 
@@ -451,6 +479,21 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                 </div>
                             </div>
 
+                            <div className="space-y-2">
+                                <Label htmlFor="initial_custodian_name">Initial Custodian (before PENRO)</Label>
+                                <Input
+                                    id="initial_custodian_name"
+                                    placeholder="e.g. Barangay Tanod / ENRO field officer who first held the item"
+                                    value={data.initial_custodian_name}
+                                    onChange={(e) => setData('initial_custodian_name', e.target.value)}
+                                />
+                                <p className="text-xs text-gray-500">
+                                    The person or office that held the asset before it reached PENRO custody. Leave blank if
+                                    PENRO received it directly.
+                                </p>
+                                <InputError message={errors.initial_custodian_name} />
+                            </div>
+
                             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                                 <Label className="mb-2 block">Claimant Status<span className="text-red-500">*</span></Label>
                                 <div className="flex gap-2">
@@ -641,6 +684,39 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                     >
                                                         <option value="" disabled>Select species…</option>
                                                         {SPECIES_OPTIONS.map((s) => (
+                                                            <option key={s} value={s}>{s}</option>
+                                                        ))}
+                                                    </select>
+                                                )
+                                            ) : asset.type === 'equipment' ? (
+                                                asset.speciesIsOther ? (
+                                                    <div className="flex gap-2">
+                                                        <Input
+                                                            id={`species-${index}`}
+                                                            placeholder={speciesFieldPlaceholder(asset.type)}
+                                                            value={asset.species}
+                                                            onChange={(e) => updateAsset(index, 'species', e.target.value)}
+                                                            autoFocus
+                                                            required
+                                                        />
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => updateAssetMultiple(index, { speciesIsOther: false, species: '' })}
+                                                        >
+                                                            Choose from list
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <select
+                                                        id={`species-${index}`}
+                                                        value={asset.species}
+                                                        onChange={(e) => handleEquipmentSelect(index, e.target.value)}
+                                                        className={selectClass}
+                                                    >
+                                                        <option value="" disabled>Select equipment type…</option>
+                                                        {EQUIPMENT_OPTIONS.map((s) => (
                                                             <option key={s} value={s}>{s}</option>
                                                         ))}
                                                     </select>
@@ -842,6 +918,12 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     <dt className="text-gray-500">Apprehending Party</dt>
                                     <dd className="font-medium text-gray-900">
                                         {data.apprehending_parties.filter((p) => p.trim() !== '').join('; ') || '—'}
+                                    </dd>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <dt className="text-gray-500">Initial Custodian (before PENRO)</dt>
+                                    <dd className="font-medium text-gray-900">
+                                        {data.initial_custodian_name || '—'}
                                     </dd>
                                 </div>
                                 <div>

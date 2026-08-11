@@ -40,6 +40,7 @@ class CreateIncidentWithAssets
                 'claimant_id_type' => $incidentData['claimant_id_type'] ?? null,
                 'claimant_id_number' => $incidentData['claimant_id_number'] ?? null,
                 'apprehending_party' => $incidentData['apprehending_party'],
+                'initial_custodian_name' => $incidentData['initial_custodian_name'] ?? null,
                 'date_report_submitted' => $incidentData['date_report_submitted'] ?? null,
                 'created_by' => $user->id,
             ]);

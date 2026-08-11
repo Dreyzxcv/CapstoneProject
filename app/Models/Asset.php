@@ -141,21 +141,40 @@ class Asset extends Model
             ?->acknowledgementReceipt;
     }
 
+    /**
+     * Required upload set per NewFlow.pdf Stage 1: Apprehended intakes need
+     * DAO Form / Tally Sheet / AAP; Turned Over intakes follow the separate
+     * "STCP Document Ingestion" branch and only need the STCP document.
+     */
     public function requiredDocumentTypes(): array
     {
-        return [
-            \App\Enums\DocumentType::DaoForm,
-            \App\Enums\DocumentType::TallySheet,
-            \App\Enums\DocumentType::AapDocument,
-        ];
+        return match ($this->mode) {
+            AssetMode::TurnedOver => [
+                \App\Enums\DocumentType::StcpDocument,
+            ],
+            default => [
+                \App\Enums\DocumentType::DaoForm,
+                \App\Enums\DocumentType::TallySheet,
+                \App\Enums\DocumentType::AapDocument,
+            ],
+        };
     }
 
+    /**
+     * Subset of requiredDocumentTypes() that actually blocks markStored —
+     * mirrors requiredDocumentTypes() per mode (see note above).
+     */
     public function blockingDocumentTypes(): array
     {
-        return [
-            \App\Enums\DocumentType::DaoForm,
-            \App\Enums\DocumentType::TallySheet,
-        ];
+        return match ($this->mode) {
+            AssetMode::TurnedOver => [
+                \App\Enums\DocumentType::StcpDocument,
+            ],
+            default => [
+                \App\Enums\DocumentType::DaoForm,
+                \App\Enums\DocumentType::TallySheet,
+            ],
+        };
     }
 
     public function hasAllRequiredDocumentsVerified(): bool

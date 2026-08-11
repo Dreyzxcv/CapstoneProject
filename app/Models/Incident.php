@@ -21,6 +21,7 @@ class Incident extends Model
         'claimant_id_type',
         'claimant_id_number',
         'apprehending_party',
+        'initial_custodian_name',
         'date_report_submitted',
         'created_by',
     ];
