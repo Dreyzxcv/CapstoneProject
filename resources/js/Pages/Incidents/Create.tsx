@@ -37,6 +37,9 @@ interface AssetRow {
     description: string;
     quantity: string;
     quantity_unit: string;
+    length: string;
+    width: string;
+    height: string;
     volume_bd_ft: string;
     volume_cu_m: string;
     estimated_value: string;
@@ -66,8 +69,13 @@ const SPECIES_OPTIONS = [
     'Others',
 ];
 
+// Quantity units that may be used as the intake measurement for an asset
+// rather than forcing the UI to always call it "pcs".
 const QUANTITY_UNIT_OPTIONS = ['pcs', 'sack', 'bundle', 'piece', 'box', 'container', 'roll', 'lot'];
 
+// Dropdown selection for Equipment / Tools, per NewFlow.pdf Data Encoding
+// Module ("Equipment / Tools / Implements — Dropdown Selection"). Kept
+// separate from SPECIES_OPTIONS since equipment isn't a species.
 const EQUIPMENT_OPTIONS = [
     'Chainsaw',
     'Power Saw',
@@ -88,6 +96,9 @@ function emptyAssetRow(defaults: { municipality: string; agency: string; mode: s
         description: '',
         quantity: '1',
         quantity_unit: 'pcs',
+        length: '',
+        width: '',
+        height: '',
         volume_bd_ft: '',
         volume_cu_m: '',
         estimated_value: '',
@@ -108,6 +119,18 @@ function convertBdFtToCuM(bdFt: string): string {
     const value = parseFloat(bdFt);
     if (Number.isNaN(value) || value <= 0) return '';
     return (value * BD_FT_TO_CU_M).toFixed(4);
+}
+
+function calculateBdFtFromDimensions(length: string, width: string, height: string): string {
+    const lengthValue = parseFloat(length);
+    const widthValue = parseFloat(width);
+    const heightValue = parseFloat(height);
+
+    if ([lengthValue, widthValue, heightValue].some((value) => Number.isNaN(value) || value <= 0)) {
+        return '';
+    }
+
+    return ((lengthValue * widthValue * heightValue) / 12).toFixed(2);
 }
 
 // Field label/placeholder for the "species" text depends on asset type —
@@ -248,6 +271,28 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
             volume_bd_ft: value,
             volume_cu_m: convertBdFtToCuM(value),
         }, true);
+    }
+
+    function handleDimensionChange(index: number, field: 'length' | 'width' | 'height', value: string) {
+        const next = [...data.assets];
+        const asset = next[index];
+        const updated = {
+            ...asset,
+            [field]: value,
+        } as AssetRow;
+
+        if (asset.type === 'log') {
+            const bdFt = calculateBdFtFromDimensions(updated.length, updated.width, updated.height);
+            updated.volume_bd_ft = bdFt;
+            updated.volume_cu_m = convertBdFtToCuM(bdFt);
+            const estimated = withAutoEstimate(updated, apprehensionYear);
+            next[index] = estimated;
+            setData('assets', next);
+            return;
+        }
+
+        next[index] = updated;
+        setData('assets', next);
     }
 
     function handleMunicipalityChange(value: string) {
@@ -839,6 +884,43 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             {asset.type === 'log' && (
                                                 <div className="grid gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4 md:grid-cols-3">
                                                     <div className="space-y-2">
+                                                        <Label htmlFor={`dimensions-${index}`}>Dimensions (L × W × H) <span className="text-red-500">*</span></Label>
+                                                        <div className="grid grid-cols-3 gap-2">
+                                                            <Input
+                                                                id={`length-${index}`}
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.01"
+                                                                placeholder="Length"
+                                                                value={asset.length}
+                                                                onChange={(e) => handleDimensionChange(index, 'length', e.target.value)}
+                                                                required
+                                                            />
+                                                            <Input
+                                                                id={`width-${index}`}
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.01"
+                                                                placeholder="Width"
+                                                                value={asset.width}
+                                                                onChange={(e) => handleDimensionChange(index, 'width', e.target.value)}
+                                                                required
+                                                            />
+                                                            <Input
+                                                                id={`height-${index}`}
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.01"
+                                                                placeholder="Height"
+                                                                value={asset.height}
+                                                                onChange={(e) => handleDimensionChange(index, 'height', e.target.value)}
+                                                                required
+                                                            />
+                                                        </div>
+                                                        <p className="text-xs text-gray-500">Formula: (Length × Width × Height) / 12 = bd.ft</p>
+                                                        <InputError message={assetError(index, 'length')} />
+                                                    </div>
+                                                    <div className="space-y-2">
                                                         <Label htmlFor={`volume_bd_ft-${index}`}>Volume (bd.ft)<span className="text-red-500">*</span></Label>
                                                         <Input
                                                             id={`volume_bd_ft-${index}`}
@@ -847,6 +929,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                             min="0"
                                                             value={asset.volume_bd_ft}
                                                             onChange={(e) => handleVolumeBdFtChange(index, e.target.value)}
+                                                            readOnly={Boolean(asset.length || asset.width || asset.height)}
                                                             required
                                                         />
                                                         <InputError message={assetError(index, 'volume_bd_ft')} />
