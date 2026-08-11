@@ -7,7 +7,7 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { FormEventHandler, useMemo, useState } from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, Shield, Trash2, Truck, X } from 'lucide-react';
 import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 
 interface Option {
@@ -138,9 +138,10 @@ function speciesFieldPlaceholder(type: string): string {
 export default function IncidentsCreate({ types, modes, municipalities, nextAssetSequence, marketPrices }: CreateProps) {
     const defaultMunicipality = municipalities[0]?.value ?? '';
     const defaultAgency = 'PENRO Catanduanes MES';
-    const defaultMode = 'apprehended';
+    const defaultMode = modes[0]?.value ?? 'apprehended';
 
     const { data, setData, post, processing, errors, transform } = useForm({
+        intake_mode: defaultMode,
         date_of_apprehension: '',
         place_of_apprehension: defaultMunicipality,
         area: '',
@@ -258,6 +259,17 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         );
     }
 
+    // Stage 1 entry point (NewFlow.pdf): Apprehended vs. Turned-Over is
+    // decided once, for the whole incident, before anything else is
+    // encoded — not per line item. Every asset row inherits this value.
+    function handleIntakeModeChange(value: string) {
+        setData((prevData) => ({
+            ...prevData,
+            intake_mode: value,
+            assets: prevData.assets.map((asset) => ({ ...asset, mode: value })),
+        }));
+    }
+
     function handleDateOfApprehensionChange(value: string) {
         setData((prevData) => {
             const year = value ? new Date(value).getFullYear() : null;
@@ -272,7 +284,11 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
     function addAssetRow() {
         setData('assets', [
             ...data.assets,
-            emptyAssetRow({ municipality: data.place_of_apprehension || defaultMunicipality, agency: defaultAgency, mode: defaultMode }),
+            emptyAssetRow({
+                municipality: data.place_of_apprehension || defaultMunicipality,
+                agency: defaultAgency,
+                mode: data.intake_mode,
+            }),
         ]);
     }
 
@@ -345,6 +361,57 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
 
             <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
                 <form onSubmit={handleReviewClick} className="space-y-6">
+                    {/* Stage 1 entry point — Intake Mode (Apprehended vs. Turned-Over) */}
+                    <Card className="border-0 shadow-sm">
+                        <CardHeader className="border-b border-gray-100">
+                            <CardTitle className="text-xl">Intake Mode</CardTitle>
+                            <p className="text-sm text-gray-600">
+                                How did this asset reach MES? This determines which documents are required later
+                                and applies to every item in this incident.
+                            </p>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <button
+                                    type="button"
+                                    onClick={() => handleIntakeModeChange('apprehended')}
+                                    className={
+                                        'flex items-start gap-3 rounded-lg border-2 p-4 text-left transition ' +
+                                        (data.intake_mode === 'apprehended'
+                                            ? 'border-emerald-600 bg-emerald-50'
+                                            : 'border-gray-200 bg-white hover:bg-gray-50')
+                                    }
+                                >
+                                    <Shield className={'mt-0.5 h-5 w-5 shrink-0 ' + (data.intake_mode === 'apprehended' ? 'text-emerald-700' : 'text-gray-400')} />
+                                    <span>
+                                        <span className="block text-sm font-semibold text-gray-900">Apprehended</span>
+                                        <span className="mt-0.5 block text-xs text-gray-500">
+                                            Requires DAO Forms, Tally Sheets, and a scanned AAP document.
+                                        </span>
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleIntakeModeChange('turned_over')}
+                                    className={
+                                        'flex items-start gap-3 rounded-lg border-2 p-4 text-left transition ' +
+                                        (data.intake_mode === 'turned_over'
+                                            ? 'border-emerald-600 bg-emerald-50'
+                                            : 'border-gray-200 bg-white hover:bg-gray-50')
+                                    }
+                                >
+                                    <Truck className={'mt-0.5 h-5 w-5 shrink-0 ' + (data.intake_mode === 'turned_over' ? 'text-emerald-700' : 'text-gray-400')} />
+                                    <span>
+                                        <span className="block text-sm font-semibold text-gray-900">Turned Over</span>
+                                        <span className="mt-0.5 block text-xs text-gray-500">
+                                            Requires an STCP document upload.
+                                        </span>
+                                    </span>
+                                </button>
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     {/* Incident-level details */}
                     <Card className="border-0 shadow-sm">
                         <CardHeader className="border-b border-gray-100">
@@ -605,7 +672,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     )}
                                 </CardHeader>
                                 <CardContent className="space-y-6 pt-6">
-                                    <div className="grid gap-4 md:grid-cols-3">
+                                    <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
                                             <Label htmlFor={`type-${index}`}>Asset Type<span className="text-red-500">*</span></Label>
                                             <select
@@ -620,21 +687,6 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                 ))}
                                             </select>
                                             <InputError message={assetError(index, 'type')} />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor={`mode-${index}`}>Intake Mode<span className="text-red-500">*</span></Label>
-                                            <select
-                                                id={`mode-${index}`}
-                                                value={asset.mode}
-                                                onChange={(e) => updateAsset(index, 'mode', e.target.value)}
-                                                className={selectClass}
-                                                required
-                                            >
-                                                {modes.map((m) => (
-                                                    <option key={m.value} value={m.value}>{m.label}</option>
-                                                ))}
-                                            </select>
-                                            <InputError message={assetError(index, 'mode')} />
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor={`quantity-${index}`}>No. of pcs</Label>
@@ -889,6 +941,10 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                             )}
                             <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm md:grid-cols-2">
                                 <div>
+                                    <dt className="text-gray-500">Intake Mode</dt>
+                                    <dd className="font-medium text-gray-900">{labelFor(modes, data.intake_mode)}</dd>
+                                </div>
+                                <div>
                                     <dt className="text-gray-500">Date of Apprehension</dt>
                                     <dd className="font-medium text-gray-900">{data.date_of_apprehension || '—'}</dd>
                                 </div>
@@ -948,10 +1004,6 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                         Item {index + 1} — {labelFor(types, asset.type)}
                                     </p>
                                     <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-sm md:grid-cols-2">
-                                        <div>
-                                            <dt className="text-gray-500">Mode</dt>
-                                            <dd className="text-gray-900">{labelFor(modes, asset.mode)}</dd>
-                                        </div>
                                         <div>
                                             <dt className="text-gray-500">No. of pcs</dt>
                                             <dd className="text-gray-900">{asset.quantity || '—'}</dd>
