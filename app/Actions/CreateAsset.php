@@ -37,6 +37,22 @@ class CreateAsset
             $hasOngoingCase = $data['has_ongoing_case'] ?? false;
             $municipality = Municipality::from($data['municipality_of_origin']);
 
+            $length = array_key_exists('length', $data) && $data['length'] !== null && $data['length'] !== ''
+                ? (float) $data['length']
+                : null;
+            $width = array_key_exists('width', $data) && $data['width'] !== null && $data['width'] !== ''
+                ? (float) $data['width']
+                : null;
+            $height = array_key_exists('height', $data) && $data['height'] !== null && $data['height'] !== ''
+                ? (float) $data['height']
+                : null;
+            $volumeBdFt = array_key_exists('volume_bd_ft', $data) && $data['volume_bd_ft'] !== null && $data['volume_bd_ft'] !== ''
+                ? (float) $data['volume_bd_ft']
+                : null;
+            $volumeCuM = array_key_exists('volume_cu_m', $data) && $data['volume_cu_m'] !== null && $data['volume_cu_m'] !== ''
+                ? (float) $data['volume_cu_m']
+                : null;
+
             $asset = Asset::create([
                 'incident_id' => $data['incident_id'] ?? null,
                 'asset_code' => 'PENDING', // placeholder; replaced below once we have the DB id
@@ -45,8 +61,11 @@ class CreateAsset
                 'description' => $data['description'] ?? null,
                 'quantity' => $data['quantity'] ?? 1,
                 'quantity_unit' => $data['quantity_unit'] ?? 'pcs',
-                'volume_bd_ft' => $data['volume_bd_ft'] ?? null,
-                'volume_cu_m' => $data['volume_cu_m'] ?? null,
+                'length' => $length,
+                'width' => $width,
+                'height' => $height,
+                'volume_bd_ft' => $volumeBdFt,
+                'volume_cu_m' => $volumeCuM,
                 'estimated_value' => $data['estimated_value'] ?? null,
                 'plate_number' => $data['plate_number'] ?? null,
                 'municipality_of_origin' => $municipality->value,
