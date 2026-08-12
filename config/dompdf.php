@@ -26,7 +26,7 @@ return [
 
         'font_cache' => env('DOMPDF_FONT_CACHE', storage_path('fonts')),
 
-        'temp_dir' => env('DOMPDF_TEMP_DIR', storage_path('app/dompdf-tmp')),
+        'temp_dir' => env('DOMPDF_TEMP_DIR', sys_get_temp_dir()),
         /**
          * The location of the DOMPDF font directory
          *
@@ -70,7 +70,7 @@ return [
          * The temporary directory is required to download remote images and when
          * using the PDFLib back end.
          */
-        'temp_dir' => storage_path('app/dompdf-tmp'),
+        'temp_dir' => sys_get_temp_dir(),
 
         /**
          * ==== IMPORTANT ====

@@ -10,13 +10,16 @@ use App\Models\Jev;
 use App\Models\ParRecord;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 class PdfDocumentService
 {
     public function __construct(
         protected QrCodeService $qrCodeService,
-    ) {}
+    ) {
+        $this->ensurePdfEnvironment();
+    }
 
     public function generateAcknowledgementReceipt(Asset $asset, AcknowledgementReceipt $receipt): string
     {
@@ -253,4 +256,36 @@ class PdfDocumentService
 
         return $path;
     }
+
+    protected function ensurePdfEnvironment(): void
+    {
+        $options = config('dompdf.options', []);
+        $tempDir = $options['temp_dir'] ?? config('dompdf.temp_dir') ?? sys_get_temp_dir();
+        $fontDir = $options['font_dir'] ?? config('dompdf.font_dir') ?? storage_path('fonts');
+        $fontCache = $options['font_cache'] ?? config('dompdf.font_cache') ?? storage_path('fonts');
+
+        foreach ([$fontDir, $fontCache] as $directory) {
+            if ($directory && ! File::isDirectory($directory)) {
+                File::ensureDirectoryExists($directory, 0775, true);
+            }
+        }
+
+        if ($tempDir && ! File::isDirectory($tempDir)) {
+            try {
+                File::ensureDirectoryExists($tempDir, 0775, true);
+            } catch (\Throwable $exception) {
+                $tempDir = sys_get_temp_dir();
+            }
+        }
+
+        if (! is_writable($tempDir)) {
+            $tempDir = sys_get_temp_dir();
+        }
+
+        config([
+            'dompdf.options.temp_dir' => $tempDir,
+            'dompdf.temp_dir' => $tempDir,
+        ]);
+    }
 }
+
