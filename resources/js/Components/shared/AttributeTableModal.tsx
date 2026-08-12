@@ -407,55 +407,57 @@ export default function AttributeTableModal({ show, onClose }: AttributeTableMod
                                 {loading && <Loader2 className="h-4 w-4 animate-spin text-emerald-700" />}
                             </div>
                             <div className="max-h-[62vh] overflow-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            {columns.map((col) => (
-                                                <TableHead
-                                                    key={col.key}
-                                                    className="cursor-pointer select-none whitespace-nowrap"
-                                                    onClick={() => toggleSort(col.key)}
-                                                >
-                                                    <span className="flex items-center gap-1">
-                                                        {col.label}
-                                                        {sort === col.key &&
-                                                            (direction === 'asc' ? (
-                                                                <ArrowUp className="h-3 w-3" />
-                                                            ) : (
-                                                                <ArrowDown className="h-3 w-3" />
-                                                            ))}
-                                                    </span>
-                                                </TableHead>
-                                            ))}
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {!assets || assets.data.length === 0 ? (
+                                <div className="min-w-max">
+                                    <Table>
+                                        <TableHeader>
                                             <TableRow>
-                                                <TableCell colSpan={columns.length || 1} className="py-10 text-center text-sm text-gray-400">
-                                                    {loading ? 'Loading…' : 'No records match this query.'}
-                                                </TableCell>
+                                                {columns.map((col) => (
+                                                    <TableHead
+                                                        key={col.key}
+                                                        className="cursor-pointer select-none whitespace-nowrap"
+                                                        onClick={() => toggleSort(col.key)}
+                                                    >
+                                                        <span className="flex items-center gap-1">
+                                                            {col.label}
+                                                            {sort === col.key &&
+                                                                (direction === 'asc' ? (
+                                                                    <ArrowUp className="h-3 w-3" />
+                                                                ) : (
+                                                                    <ArrowDown className="h-3 w-3" />
+                                                                ))}
+                                                        </span>
+                                                    </TableHead>
+                                                ))}
                                             </TableRow>
-                                        ) : (
-                                            assets.data.map((row, i) => (
-                                                <TableRow key={(row.id as number) ?? i}>
-                                                    {columns.map((col) => {
-                                                        const value = row[col.key];
-                                                        let display: string;
-                                                        if (value === null || value === undefined) display = '—';
-                                                        else if (typeof value === 'boolean') display = value ? 'Yes' : 'No';
-                                                        else display = String(value);
-                                                        return (
-                                                            <TableCell key={col.key} className="whitespace-nowrap text-sm">
-                                                                {display}
-                                                            </TableCell>
-                                                        );
-                                                    })}
+                                        </TableHeader>
+                                        <TableBody>
+                                            {!assets || assets.data.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={columns.length || 1} className="py-10 text-center text-sm text-gray-400">
+                                                        {loading ? 'Loading…' : 'No records match this query.'}
+                                                    </TableCell>
                                                 </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
+                                            ) : (
+                                                assets.data.map((row, i) => (
+                                                    <TableRow key={(row.id as number) ?? i}>
+                                                        {columns.map((col) => {
+                                                            const value = row[col.key];
+                                                            let display: string;
+                                                            if (value === null || value === undefined) display = '—';
+                                                            else if (typeof value === 'boolean') display = value ? 'Yes' : 'No';
+                                                            else display = String(value);
+                                                            return (
+                                                                <TableCell key={col.key} className="whitespace-nowrap text-sm">
+                                                                    {display}
+                                                                </TableCell>
+                                                            );
+                                                        })}
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </div>
 
                             {assets && assets.last_page > 1 && (
