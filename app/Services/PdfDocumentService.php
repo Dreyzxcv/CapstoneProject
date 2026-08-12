@@ -259,32 +259,27 @@ class PdfDocumentService
 
     protected function ensurePdfEnvironment(): void
     {
-        $options = config('dompdf.options', []);
-        $tempDir = $options['temp_dir'] ?? config('dompdf.temp_dir') ?? sys_get_temp_dir();
-        $fontDir = $options['font_dir'] ?? config('dompdf.font_dir') ?? storage_path('fonts');
-        $fontCache = $options['font_cache'] ?? config('dompdf.font_cache') ?? storage_path('fonts');
+        // Never trust sys_get_temp_dir() here — on this Windows setup it can
+        // resolve to C:\WINDOWS itself (not a writable temp subfolder), which
+        // breaks dompdf's fwrite() calls. Always use a fixed folder inside the
+        // project instead, outside any OneDrive-synced path.
+        $tempDir = storage_path('app/dompdf-tmp');
+        $fontDir = storage_path('fonts');
+        $fontCache = storage_path('fonts');
 
-        foreach ([$fontDir, $fontCache] as $directory) {
-            if ($directory && ! File::isDirectory($directory)) {
+        foreach ([$tempDir, $fontDir, $fontCache] as $directory) {
+            if (! File::isDirectory($directory)) {
                 File::ensureDirectoryExists($directory, 0775, true);
             }
-        }
-
-        if ($tempDir && ! File::isDirectory($tempDir)) {
-            try {
-                File::ensureDirectoryExists($tempDir, 0775, true);
-            } catch (\Throwable $exception) {
-                $tempDir = sys_get_temp_dir();
-            }
-        }
-
-        if (! is_writable($tempDir)) {
-            $tempDir = sys_get_temp_dir();
         }
 
         config([
             'dompdf.options.temp_dir' => $tempDir,
             'dompdf.temp_dir' => $tempDir,
+            'dompdf.options.font_dir' => $fontDir,
+            'dompdf.font_dir' => $fontDir,
+            'dompdf.options.font_cache' => $fontCache,
+            'dompdf.font_cache' => $fontCache,
         ]);
     }
 }
