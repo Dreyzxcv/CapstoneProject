@@ -8,6 +8,8 @@ use App\Actions\SignAcknowledgementReceipt;
 use App\Actions\UpdateCaseDetails;
 use App\Http\Requests\UpdateCaseDetailsRequest;
 use App\Http\Requests\UpdateAapNumberRequest;
+use Illuminate\Support\Facades\Storage;
+use App\Services\PdfDocumentService;
 use App\Enums\AssetMode;
 use App\Enums\AssetStatus;
 use App\Enums\AssetType;
@@ -163,6 +165,19 @@ class AssetController extends Controller
         $action->execute($asset, request()->user());
 
         return back()->with('success', 'Asset marked as stored.');
+    }
+
+    public function printStickers(Asset $asset, PdfDocumentService $pdfService)
+    {
+        $this->authorize('view', $asset);
+
+        $path = $pdfService->generateAssetTagStickers($asset);
+        $content = Storage::disk('local')->get($path);
+
+        return response($content, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="stickers-'.$asset->asset_code.'.pdf"',
+        ]);
     }
 
     public function resolveTrial(Asset $asset, \App\Actions\ResolveTrial $action): RedirectResponse

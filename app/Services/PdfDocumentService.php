@@ -73,6 +73,21 @@ class PdfDocumentService
         return $path;
     }
 
+    public function generateAssetTagStickers(Asset $asset): string
+    {
+        $qrPayload = $this->qrCodeService->buildScanUrl($asset->qr_code_token);
+        $qrPngDataUri = $this->qrCodeService->generatePngDataUri($qrPayload);
+        $totalPieces = max(1, (int) ($asset->quantity ?? 1));
+
+        $pdf = Pdf::loadView('pdf.asset-tag-stickers', [
+            'asset' => $asset->loadMissing('incident'),
+            'qrPngDataUri' => $qrPngDataUri,
+            'totalPieces' => $totalPieces,
+        ]);
+
+        return $this->storePdf($pdf->output(), 'stickers', 'stickers-'.$asset->asset_code);
+    }
+
     /**
      * Donation waybill — a shipping-label-style document affixed to the
      * physical item(s) being released to a donee. One page is generated
