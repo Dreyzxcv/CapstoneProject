@@ -21,6 +21,12 @@ return [
     'convert_entities' => true,
 
     'options' => [
+
+        'font_dir' => env('DOMPDF_FONT_DIR', storage_path('fonts')),
+
+        'font_cache' => env('DOMPDF_FONT_CACHE', storage_path('fonts')),
+
+        'temp_dir' => env('DOMPDF_TEMP_DIR', storage_path('app/dompdf-tmp')),
         /**
          * The location of the DOMPDF font directory
          *
