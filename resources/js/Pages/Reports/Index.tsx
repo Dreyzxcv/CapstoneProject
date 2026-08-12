@@ -255,7 +255,16 @@ export default function ReportsIndex({
     }
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">Reports & Trends</h2>}>
+        <AuthenticatedLayout
+            header={
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-xl font-semibold text-gray-800">Reports & Trends</h2>
+                    <Button variant="outline" onClick={() => setShowAttributeTable(true)}>
+                        Attribute Table
+                    </Button>
+                </div>
+            }
+        >
             <Head title="Reports" />
 
             <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
@@ -533,9 +542,6 @@ export default function ReportsIndex({
                         <Link href={route('audit-logs.index')}>
                             <Button variant="secondary">View Audit Logs</Button>
                         </Link>
-                        <Button variant="outline" onClick={() => setShowAttributeTable(true)}>
-                            Attribute Table
-                        </Button>
                     </CardContent>
                 </Card>
             </div>
