@@ -1141,6 +1141,26 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             : 'Without Claimant (unclaimed)'}
                                     </dd>
                                 </div>
+                                {data.has_claimant && (
+                                    <>
+                                        <div>
+                                            <dt className="text-gray-500">Claimant Address</dt>
+                                            <dd className="font-medium text-gray-900">{data.claimant_address || '—'}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-gray-500">Claimant Contact Number</dt>
+                                            <dd className="font-medium text-gray-900">{data.claimant_contact_number || '—'}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-gray-500">Valid ID</dt>
+                                            <dd className="font-medium text-gray-900">
+                                                {data.claimant_id_type || data.claimant_id_number
+                                                    ? `${data.claimant_id_type || '—'} ${data.claimant_id_number ? `(${data.claimant_id_number})` : ''}`
+                                                    : '—'}
+                                            </dd>
+                                        </div>
+                                    </>
+                                )}
                             </dl>
                         </div>
 
@@ -1184,6 +1204,12 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
 
                                         {asset.type === 'log' && (
                                             <>
+                                                <div>
+                                                    <dt className="text-gray-500">Dimensions (L × W × H)</dt>
+                                                    <dd className="text-gray-900">
+                                                        {asset.length || '—'} × {asset.width || '—'} × {asset.height || '—'}
+                                                    </dd>
+                                                </div>
                                                 <div>
                                                     <dt className="text-gray-500">Volume (bd.ft)</dt>
                                                     <dd className="text-gray-900">{asset.volume_bd_ft || '—'}</dd>
