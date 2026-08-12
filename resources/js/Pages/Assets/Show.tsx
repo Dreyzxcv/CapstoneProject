@@ -9,7 +9,7 @@ import Modal from '@/Components/Modal';
 import { Asset, Disposal, PageProps } from '@/types';
 import { documentUrl } from '@/lib/utils';
 import { Head, Link, router, useForm, usePage, usePoll } from '@inertiajs/react';
-import { FormEvent, useState, useRef, useEffect } from 'react';
+import { FormEvent, useState} from 'react';
 import { FileText, MapPin, Upload } from 'lucide-react';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
 import { PdfBadge } from '@/Components/shared/PdfBadge';
@@ -44,21 +44,9 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
     const { auth } = usePage<PageProps>().props;
     const [confirmAction, setConfirmAction] = useState<string | null>(null);
     const [showJevModal, setShowJevModal] = useState(false);
-    const qrContainerRef = useRef<HTMLDivElement | null>(null);
     const [showRequiredDocsModal, setShowRequiredDocsModal] = useState(false);
     const [viewingDisposal, setViewingDisposal] = useState<Disposal | null>(null);
 
-    useEffect(() => {
-        if (!qrContainerRef.current) return;
-        const svg = qrContainerRef.current.querySelector('svg');
-        if (svg instanceof SVGElement) {
-            svg.setAttribute('width', '160');
-            svg.setAttribute('height', '160');
-            svg.style.display = 'block';
-            svg.style.maxWidth = '100%';  
-            svg.style.height = 'auto';   
-        }
-    }, [qrSvg]);
 
     const jevForm = useForm({
         jev_number: '',
@@ -816,14 +804,20 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                         {qrSvg && (
                             <Card className={donationReadyForRelease ? "" : "lg:col-span-3"}>
                                 <CardHeader>
-                                    <CardTitle className="text-base">QR Code Sticker</CardTitle>
+                                    <CardTitle className="text-base">Asset Tag Stickers</CardTitle>
                                     <p className="text-sm text-gray-500">
-                                        Quarter-page sticker — print on sticker sheet (4 per page) and affix to the physical asset.
+                                        One label per piece ({stickerPcs} total) — print on sticker sheet and affix to each physical unit.
                                     </p>
                                 </CardHeader>
 
                                 <CardContent className="flex flex-col items-center gap-4">
                                     <style>{`
+                                        .qr-label-page .qr-sticker-svg svg {
+                                            width: 120px;
+                                            height: 120px;
+                                            display: block;
+                                        }
+
                                         @media print {
                                             body * {
                                                 visibility: hidden;
@@ -838,47 +832,125 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                                 position: absolute;
                                                 top: 0;
                                                 left: 0;
-                                                width: 4.25in;
-                                                height: 5.5in;
-                                                padding: 0.25in;
-                                                box-sizing: border-box;
-                                                border: none;
-                                                display: flex;
-                                                flex-direction: column;
-                                                align-items: center;
-                                                justify-content: center;
-                                                gap: 6px;
+                                                width: 100%;
+                                            }
+
+                                            .qr-label-page {
+                                                page-break-after: always;
+                                                border: none !important;
+                                                width: 4in !important;
+                                                margin: 0 !important;
+                                            }
+
+                                            .qr-label-page:last-child {
+                                                page-break-after: auto;
                                             }
 
                                             @page {
                                                 size: letter;
-                                                margin: 0;
+                                                margin: 0.25in;
                                             }
                                         }
                                     `}</style>
 
-                                   <div
-                                        id="qr-print-area"
-                                        className="flex w-full max-w-[4.25in] flex-col items-center justify-center gap-1.5 border border-dashed border-gray-300 p-4 text-center"
-                                        style={{ aspectRatio: '4.25 / 5.5' }}
-                                    >
-                                        <div
-                                            ref={qrContainerRef}
-                                            dangerouslySetInnerHTML={{ __html: qrSvg }}
-                                        />
+                                    <div id="qr-print-area" className="flex w-full max-w-md flex-col items-center gap-6">
+                                        {Array.from({ length: stickerPcs }, (_, i) => i + 1).map((pieceNumber) => (
+                                            <div
+                                                key={pieceNumber}
+                                                className="qr-label-page w-full max-w-sm border border-gray-300 bg-white p-4 text-sm"
+                                            >
+                                                {/* Header strip */}
+                                                <div className="flex items-center gap-3 border-b-2 border-gray-900 pb-2">
+                                                    <img
+                                                        src="/images/denr-logo.jpg"
+                                                        alt="DENR"
+                                                        className="h-10 w-10 shrink-0 object-contain"
+                                                    />
+                                                    <div>
+                                                        <p className="text-sm font-bold leading-tight text-gray-900">
+                                                            DENR · PENRO CATANDUANES
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">Asset Tracking · LogTrack Insight</p>
+                                                    </div>
+                                                </div>
 
-                                        <p className="text-sm font-semibold text-gray-900">{asset.asset_code}</p>
+                                                {/* Piece badge */}
+                                                <div className="mt-3 border-2 border-gray-900 py-2 text-center">
+                                                    <p className="text-lg font-bold tracking-wide text-gray-900">
+                                                        PIECE {pieceNumber} / {stickerPcs}
+                                                    </p>
+                                                </div>
 
-                                        <div className="mt-1 w-full space-y-0.5 text-left text-xs text-gray-700">
-                                            <p><span className="font-semibold">Date Apprehended:</span> {dateOfApprehension}</p>
-                                            <p><span className="font-semibold">Place Apprehended:</span> {placeOfApprehension}</p>
-                                            <p><span className="font-semibold">Species:</span> {stickerSpecies}</p>
-                                            <p><span className="font-semibold">Pcs:</span> {stickerPcs}</p>
-                                        </div>
+                                                <p className="mt-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                    Asset Tag
+                                                </p>
+
+                                                {/* Info table */}
+                                                <table className="mt-2 w-full border border-gray-900 text-xs">
+                                                    <tbody>
+                                                        <tr className="border-b border-gray-900">
+                                                            <td className="w-24 border-r border-gray-900 bg-gray-50 p-1.5 font-semibold">
+                                                                Asset ID
+                                                            </td>
+                                                            <td className="p-1.5">{asset.asset_code}</td>
+                                                        </tr>
+                                                        <tr className="border-b border-gray-900">
+                                                            <td className="border-r border-gray-900 bg-gray-50 p-1.5 font-semibold">
+                                                                AAP No.
+                                                            </td>
+                                                            <td className="p-1.5">
+                                                                {asset.aap_number ? (
+                                                                    asset.aap_number
+                                                                ) : (
+                                                                    <span className="inline-block w-full min-w-[6rem] border-b border-gray-900">
+                                                                        &nbsp;
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                        <tr className="border-b border-gray-900">
+                                                            <td className="border-r border-gray-900 bg-gray-50 p-1.5 font-semibold">
+                                                                Species
+                                                            </td>
+                                                            <td className="p-1.5">{stickerSpecies}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td className="border-r border-gray-900 bg-gray-50 p-1.5 font-semibold">
+                                                                Dimension
+                                                            </td>
+                                                            <td className="p-1.5">
+                                                                {asset.type === 'log'
+                                                                    ? (asset.length && asset.width && asset.height
+                                                                        ? `${asset.length} × ${asset.width} × ${asset.height}`
+                                                                        : asset.volume_bd_ft
+                                                                            ? `${asset.volume_bd_ft} bd.ft`
+                                                                            : '—')
+                                                                    : '—'}
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+
+                                                {/* QR + footer */}
+                                                <div className="mt-3 flex items-start gap-3 border-t border-gray-300 pt-3">
+                                                    <div
+                                                        className="qr-sticker-svg shrink-0"
+                                                        dangerouslySetInnerHTML={{ __html: qrSvg }}
+                                                    />
+                                                    <div className="text-[10px] leading-relaxed text-gray-600">
+                                                        <p><span className="font-semibold">Date Apprehended:</span> {dateOfApprehension}</p>
+                                                        <p><span className="font-semibold">Place:</span> {placeOfApprehension}</p>
+                                                        <p className="mt-1 italic">
+                                                            Scan to view the live asset record.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
 
                                     <Button variant="outline" onClick={() => window.print()}>
-                                        Print Sticker
+                                        Print All Stickers
                                     </Button>
                                 </CardContent>
                             </Card>
