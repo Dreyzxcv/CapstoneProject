@@ -19,6 +19,7 @@ class Asset extends Model
     protected $fillable = [
         'incident_id',
         'asset_code',
+        'aap_number',
         'type',
         'species',
         'description',

@@ -7,6 +7,7 @@ use App\Actions\MarkAssetStored;
 use App\Actions\SignAcknowledgementReceipt;
 use App\Actions\UpdateCaseDetails;
 use App\Http\Requests\UpdateCaseDetailsRequest;
+use App\Http\Requests\UpdateAapNumberRequest;
 use App\Enums\AssetMode;
 use App\Enums\AssetStatus;
 use App\Enums\AssetType;
@@ -127,6 +128,7 @@ class AssetController extends Controller
             'can' => [
                 'markStored' => $request->user()?->can('markStored', $asset) ?? false,
                 'generateQr' => $request->user()?->can('generateQr', $asset) ?? false,
+                'updateAap' => $request->user()?->can('updateAap', $asset) ?? false,
                 'createJev' => $request->user()?->can('create', \App\Models\Jev::class) ?? false,
                 'uploadJev' => $asset->jev ? ($request->user()?->can('upload', $asset->jev) ?? false) : false,
                 'resolveCase' => $request->user()?->can('updateCaseStatus', $asset) ?? false,
@@ -139,6 +141,19 @@ class AssetController extends Controller
                 'uploadJevOut' => $request->user()?->can('jev.upload') ?? false,
             ],
         ]);
+    }
+
+    public function updateAapNumber(UpdateAapNumberRequest $request, Asset $asset, \App\Services\AuditLogService $auditLog): RedirectResponse
+    {
+        $this->authorize('updateAap', $asset);
+
+        $before = $asset->only('aap_number');
+
+        $asset->update(['aap_number' => $request->validated('aap_number')]);
+
+        $auditLog->log('asset.aap_number_updated', $asset, $before, $asset->fresh()->only('aap_number'), $request->user()->id);
+
+        return back()->with('success', 'AAP No. updated.');
     }
 
     public function markStored(Asset $asset, MarkAssetStored $action): RedirectResponse

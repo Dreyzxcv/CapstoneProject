@@ -23,6 +23,7 @@ interface ShowProps {
     can: {
         signReceipt: boolean;
         markStored: boolean;
+        updateAap: boolean
         generateQr: boolean;
         createJev: boolean;
         uploadJev: boolean;
@@ -82,6 +83,17 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
     function submitCaseDetails(e: FormEvent) {
         e.preventDefault();
         caseForm.post(route('assets.case-details.update', asset.id), { preserveScroll: true });
+    }
+
+    const [editingAap, setEditingAap] = useState(false);
+    const aapForm = useForm({ aap_number: asset.aap_number ?? '' });
+
+    function submitAap(e: FormEvent) {
+        e.preventDefault();
+        aapForm.post(route('assets.aap-number.update', asset.id), {
+            preserveScroll: true,
+            onSuccess: () => setEditingAap(false),
+        });
     }
 
     const currentRole = auth.user?.roles?.[0] ?? 'User';
@@ -221,6 +233,36 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                         <CardContent className="grid gap-3 text-sm md:grid-cols-2 break-words">
                             <p><span className="font-medium">Types:</span> {asset.type}</p>
                             <p><span className="font-medium">Mode:</span> {asset.mode}</p>
+                            <div className="md:col-span-2">
+                            <span className="font-medium">AAP No.:</span>{' '}
+                            {editingAap ? (
+                                <form onSubmit={submitAap} className="mt-1 flex items-center gap-2">
+                                    <Input
+                                        value={aapForm.data.aap_number}
+                                        onChange={(e) => aapForm.setData('aap_number', e.target.value)}
+                                        placeholder="e.g. AAP-2026-0042"
+                                        className="max-w-xs"
+                                        autoFocus
+                                    />
+                                    <Button type="submit" size="sm" disabled={aapForm.processing}>Save</Button>
+                                    <Button type="button" size="sm" variant="outline" onClick={() => setEditingAap(false)}>Cancel</Button>
+                                </form>
+                            ) : (
+                                <>
+                                    {asset.aap_number ?? <span className="text-gray-400">Not yet received</span>}
+                                    {can.updateAap && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingAap(true)}
+                                            className="ml-2 text-xs font-medium text-emerald-700 hover:underline"
+                                        >
+                                            {asset.aap_number ? 'Edit' : 'Add'}
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                            <InputError message={aapForm.errors.aap_number} className="mt-1" />
+                        </div>
                             <p><span className="font-medium">No. of Units:</span> {asset.quantity ?? '—'}</p>
                             <p><span className="font-medium">Unit:</span> {asset.quantity_unit ?? 'pcs'}</p>
                             <p><span className="font-medium">Species:</span> {asset.species ?? '—'}</p>

@@ -35,6 +35,7 @@ export interface Incident {
 export interface Asset {
     id: number;
     asset_code: string;
+    aap_number: string | null;
     type: string;
     species: string | null;
     description: string | null;

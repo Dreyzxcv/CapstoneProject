@@ -33,6 +33,11 @@ class AssetPolicy
     {
         return $user->can('assets.generate_qr');
     }
+    
+    public function updateAap(User $user, Asset $asset): bool
+    {
+        return $user->can('assets.update_aap');
+    }
 
     public function updateCaseStatus(User $user, Asset $asset): bool
     {
