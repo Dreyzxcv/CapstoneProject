@@ -62,6 +62,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::get('/reports/inventory.csv', [ReportController::class, 'inventory'])->name('reports.inventory');
     Route::get('/reports/compliance.pdf', [ReportController::class, 'compliance'])->name('reports.compliance');
     Route::get('/reports/attribute-table', [ReportController::class, 'attributeTable'])->name('reports.attribute-table');
+    Route::get('/reports/attribute-table/data', [ReportController::class, 'attributeTableData'])->name('reports.attribute-table.data');
     Route::get('/reports/attribute-table/export.csv', [ReportController::class, 'attributeTableExport'])->name('reports.attribute-table.export');
     Route::get('/audit-logs', [ReportController::class, 'auditLogs'])->name('audit-logs.index');
 

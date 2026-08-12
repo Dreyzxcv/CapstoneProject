@@ -3,6 +3,7 @@ import { AssetStatusBadge } from '@/Components/shared/AssetStatusBadge';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Head, Link, router, usePoll } from '@inertiajs/react';
+import AttributeTableModal from '@/Components/shared/AttributeTableModal';
 import {
     Bar,
     BarChart,
@@ -135,6 +136,7 @@ export default function ReportsIndex({
 
     const [chartMonth, setChartMonth] = useState<string>(chartFilters.month);
     const [chartYear, setChartYear] = useState<string>(chartFilters.year);
+    const [showAttributeTable, setShowAttributeTable] = useState(false);
 
     function handleChartFilterChange(nextMonth: string, nextYear: string) {
         setChartMonth(nextMonth);
@@ -531,12 +533,13 @@ export default function ReportsIndex({
                         <Link href={route('audit-logs.index')}>
                             <Button variant="secondary">View Audit Logs</Button>
                         </Link>
-                        <Link href={route('reports.attribute-table')}>
-                            <Button variant="outline">Attribute Table</Button>
-                        </Link>
+                        <Button variant="outline" onClick={() => setShowAttributeTable(true)}>
+                            Attribute Table
+                        </Button>
                     </CardContent>
                 </Card>
             </div>
+            <AttributeTableModal show={showAttributeTable} onClose={() => setShowAttributeTable(false)} />
         </AuthenticatedLayout>
     );
 }

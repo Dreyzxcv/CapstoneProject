@@ -248,6 +248,18 @@ class ReportController extends Controller
     {
         $this->authorize('viewAny', Asset::class);
 
+        return Inertia::render('Reports/AttributeTable', $this->resolveAttributeTableData($request));
+    }
+
+    public function attributeTableData(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $this->authorize('viewAny', Asset::class);
+
+        return response()->json($this->resolveAttributeTableData($request));
+    }
+
+    protected function resolveAttributeTableData(Request $request): array
+    {
         $columns = $this->attributeColumns();
         $clauses = $this->parseClauses($request->input('clauses', []), $columns);
         $combinator = $request->input('combinator') === 'or' ? 'or' : 'and';
@@ -263,7 +275,7 @@ class ReportController extends Controller
             ->paginate(50)
             ->withQueryString();
 
-        return Inertia::render('Reports/AttributeTable', [
+        return [
             'assets' => $assets,
             'columns' => array_values($columns),
             'filters' => [
@@ -273,7 +285,7 @@ class ReportController extends Controller
                 'direction' => $sortDirection,
             ],
             'resultCount' => $assets->total(),
-        ]);
+        ];
     }
 
     public function attributeTableExport(Request $request): StreamedResponse
