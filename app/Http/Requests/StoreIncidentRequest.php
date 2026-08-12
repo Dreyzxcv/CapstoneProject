@@ -29,9 +29,6 @@ class StoreIncidentRequest extends FormRequest
             'claimant_id_type' => ['nullable', 'string', 'max:100'],
             'claimant_id_number' => ['nullable', 'string', 'max:100'],
             'apprehending_party' => ['required', 'string', 'max:255'],
-            // Initial handler/custodian before the asset reaches PENRO —
-            // per NewFlow.pdf Data Encoding Module. Optional since not every
-            // intake has a distinct pre-PENRO custodian to record.
             'initial_custodian_name' => ['nullable', 'string', 'max:255'],
             'date_report_submitted' => ['nullable', 'date'],
 
@@ -41,6 +38,9 @@ class StoreIncidentRequest extends FormRequest
             'assets.*.description' => ['nullable', 'string', 'max:2000'],
             'assets.*.quantity' => ['nullable', 'integer', 'min:1'],
             'assets.*.quantity_unit' => ['nullable', 'string', 'max:50'],
+            'assets.*.length' => ['nullable', 'numeric', 'min:0'],
+            'assets.*.width' => ['nullable', 'numeric', 'min:0'],
+            'assets.*.height' => ['nullable', 'numeric', 'min:0'],   
             'assets.*.volume_bd_ft' => ['nullable', 'numeric', 'min:0'],
             'assets.*.volume_cu_m' => ['nullable', 'numeric', 'min:0'],
             'assets.*.estimated_value' => ['nullable', 'numeric', 'min:0'],
