@@ -531,6 +531,9 @@ export default function ReportsIndex({
                         <Link href={route('audit-logs.index')}>
                             <Button variant="secondary">View Audit Logs</Button>
                         </Link>
+                        <Link href={route('reports.attribute-table')}>
+                            <Button variant="outline">Attribute Table</Button>
+                        </Link>
                     </CardContent>
                 </Card>
             </div>
