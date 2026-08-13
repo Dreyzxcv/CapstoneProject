@@ -23,18 +23,38 @@ use App\Http\Requests\UploadDisposalJevOutRequest;
 
 class DisposalController extends Controller
 {
-    public function index(): Response
+    protected const MODES = ['log', 'vehicle', 'equipment'];
+
+    public function index(Request $request): Response
     {
         $this->authorize('viewAny', Disposal::class);
 
-        $assets = Asset::query()
-            ->where('current_status', 'for_disposal')
+        $mode = $request->query('mode');
+        if (! in_array($mode, self::MODES, true)) {
+            $mode = null;
+        }
+
+        $baseQuery = Asset::query()->where('current_status', 'for_disposal');
+
+        // Counts per mode, shown on the mode-selection cards regardless of
+        // which mode (if any) is currently selected.
+        $modeCounts = [
+            'log' => (clone $baseQuery)->where('type', 'log')->count(),
+            'vehicle' => (clone $baseQuery)->where('type', 'vehicle')->count(),
+            'equipment' => (clone $baseQuery)->where('type', 'equipment')->count(),
+        ];
+
+        $assets = (clone $baseQuery)
+            ->when($mode, fn ($q) => $q->where('type', $mode))
             ->with(['jev', 'creator'])
             ->latest()
-            ->paginate(15);
+            ->paginate(15)
+            ->withQueryString();
 
         return Inertia::render('Disposals/Index', [
             'assets' => $assets,
+            'mode' => $mode,
+            'modeCounts' => $modeCounts,
             'can' => [
                 'process' => request()->user()->can('create', Disposal::class),
             ],

@@ -562,6 +562,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                     placeholder="e.g. 13.5833, 124.2333"
                                                     value={data.coordinates}
                                                     onChange={(e) => setData('coordinates', e.target.value)}
+                                                    disabled
                                                     required
                                                 />
                                                 <Button type="button" variant="outline" onClick={() => setShowCoordinatesPicker(true)}>
