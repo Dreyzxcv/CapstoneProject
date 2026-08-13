@@ -235,4 +235,65 @@ class DisposalController extends Controller
 
         return back()->with('success', 'JEV Out uploaded. Release Order and Waybill generated.');
     }
+
+    public function scanLookup(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $this->authorize('create', Disposal::class);
+
+        $request->validate([
+            'payload' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $token = $this->extractQrToken($request->input('payload'));
+
+        if (! $token) {
+            return response()->json(['message' => 'Could not read a valid QR code.'], 422);
+        }
+
+        $asset = Asset::where('qr_code_token', $token)->first();
+
+        if (! $asset) {
+            return response()->json(['message' => 'No asset found for this QR code.'], 404);
+        }
+
+        if ($asset->type !== \App\Enums\AssetType::Log) {
+            return response()->json(['message' => "{$asset->asset_code} is not a log asset and cannot be donated."], 422);
+        }
+
+        if ($asset->current_status !== \App\Enums\AssetStatus::ForDisposal) {
+            return response()->json(['message' => "{$asset->asset_code} is not marked for disposal."], 422);
+        }
+
+        $remaining = $asset->remainingQuantity();
+
+        if ($remaining <= 0) {
+            return response()->json(['message' => "{$asset->asset_code} has already been fully disposed."], 422);
+        }
+
+        return response()->json([
+            'id' => $asset->id,
+            'asset_code' => $asset->asset_code,
+            'species' => $asset->species,
+            'description' => $asset->description,
+            'quantity' => $asset->quantity,
+            'remaining_quantity' => $remaining,
+        ]);
+    }
+
+    protected function extractQrToken(string $payload): ?string
+    {
+        $payload = trim($payload);
+
+        if (preg_match('/^[a-f0-9]{64}$/i', $payload)) {
+            return $payload;
+        }
+
+        $path = parse_url($payload, PHP_URL_PATH);
+
+        if ($path && preg_match('#/scan/([a-f0-9]{64})#i', $path, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
+    }
 }

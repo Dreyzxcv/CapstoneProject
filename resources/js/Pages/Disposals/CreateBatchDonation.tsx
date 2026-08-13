@@ -8,7 +8,8 @@ import { Head, Link, useForm } from "@inertiajs/react";
 import { FormEventHandler, useMemo, useState } from "react";
 import CoordinatesPickerModal from "@/Components/shared/CoordinatesPickerModal";
 import { IncidentLocationMap } from "@/Components/shared/IncidentLocationMap";
-import { MapPin, Plus, Trash2 } from "lucide-react";
+import { MapPin, Plus, Trash2, ScanLine } from "lucide-react";
+import AssetScanModal, { ScannedAsset } from "@/Components/shared/AssetScanModal";
 
 interface Option {
     value: string;
@@ -53,9 +54,17 @@ export default function CreateBatchDonation({
     municipalities,
     barangaysByMunicipality,
 }: CreateBatchDonationProps) {
+    const [scanning, setScanning] = useState(false);
+    const [extraAssets, setExtraAssets] = useState<DonatableAsset[]>([]);
+
+    const allAssets = useMemo(
+        () => [...assets, ...extraAssets.filter((ea) => !assets.some((a) => a.id === ea.id))],
+        [assets, extraAssets],
+    );
+
     const assetsById = useMemo(
-        () => new Map(assets.map((a) => [String(a.id), a])),
-        [assets],
+        () => new Map(allAssets.map((a) => [String(a.id), a])),
+        [allAssets],
     );
 
     const { data, setData, post, processing, errors } = useForm({
@@ -128,7 +137,30 @@ export default function CreateBatchDonation({
                 .map((l) => l.asset_id)
                 .filter(Boolean),
         );
-        return assets.filter((a) => !chosenElsewhere.has(String(a.id)));
+        return allAssets.filter((a) => !chosenElsewhere.has(String(a.id)));
+    }
+
+    function handleAssetScanned(scanned: ScannedAsset) {
+        setExtraAssets((prev) => (prev.some((a) => a.id === scanned.id) ? prev : [...prev, scanned]));
+
+        setData((prevData) => {
+            const alreadyIndex = prevData.lines.findIndex((l) => l.asset_id === String(scanned.id));
+            if (alreadyIndex !== -1) return prevData;
+
+            const emptyIndex = prevData.lines.findIndex((l) => !l.asset_id);
+            const newLine = { asset_id: String(scanned.id), quantity: String(scanned.remaining_quantity) };
+
+            const nextLines = [...prevData.lines];
+            if (emptyIndex !== -1) {
+                nextLines[emptyIndex] = newLine;
+            } else {
+                nextLines.push(newLine);
+            }
+
+            return { ...prevData, lines: nextLines };
+        });
+
+        setScanning(false);
     }
 
     function handleMunicipalityChange(value: string) {
@@ -325,6 +357,16 @@ export default function CreateBatchDonation({
                                         Add Another Asset
                                     </Button>
                                 )}
+                                {data.lines.length < assets.length && (
+                                    <Button type="button" variant="outline" size="sm" onClick={addLine}>
+                                        <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                        Add Another Asset
+                                    </Button>
+                                )}
+                                <Button type="button" variant="outline" size="sm" onClick={() => setScanning(true)}>
+                                    <ScanLine className="mr-1.5 h-3.5 w-3.5" />
+                                    Scan Barcode
+                                </Button>
                             </CardContent>
                         </Card>
 
@@ -838,6 +880,11 @@ export default function CreateBatchDonation({
                 onClose={() => setShowCoordinatesPicker(false)}
                 onSelect={(coords) => setData("delivery_coordinates", coords)}
                 initialCoordinates={data.delivery_coordinates}
+            />
+            <AssetScanModal
+                show={scanning}
+                onClose={() => setScanning(false)}
+                onFound={handleAssetScanned}
             />
         </AuthenticatedLayout>
     );

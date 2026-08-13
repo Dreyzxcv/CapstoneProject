@@ -8,7 +8,8 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { FormEventHandler, useMemo, useState } from 'react';
 import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
-import { MapPin, Plus, Trash2 } from 'lucide-react';
+import { MapPin, Plus, Trash2, ScanLine } from 'lucide-react';
+import AssetScanModal, { ScannedAsset } from '@/Components/shared/AssetScanModal';
 
 interface Option {
     value: string;
@@ -56,6 +57,9 @@ export default function DisposalsCreate({
         { value: 'other', label: 'Other' },
     ];
 
+    const [scanning, setScanning] = useState(false);
+    const [extraAssets, setExtraAssets] = useState<DonatableAsset[]>([]);
+
     // Current asset + whatever other donatable log assets the controller
     // sent along, combined so the line-item picker can look either up.
     const allDonatableAssets: DonatableAsset[] = useMemo(
@@ -69,14 +73,40 @@ export default function DisposalsCreate({
                 remaining_quantity: assetQuantity,
             },
             ...availableAssets,
+            ...extraAssets.filter(
+                (ea) => ea.id !== asset.id && !availableAssets.some((a) => a.id === ea.id),
+            ),
         ],
-        [asset, assetQuantity, availableAssets],
+        [asset, assetQuantity, availableAssets, extraAssets],
     );
 
     const assetsById = useMemo(
         () => new Map(allDonatableAssets.map((a) => [String(a.id), a])),
         [allDonatableAssets],
     );
+
+    function handleAssetScanned(scanned: ScannedAsset) {
+        setExtraAssets((prev) => (prev.some((a) => a.id === scanned.id) ? prev : [...prev, scanned]));
+
+        setData((prevData) => {
+            const alreadyIndex = prevData.lines.findIndex((l) => l.asset_id === String(scanned.id));
+            if (alreadyIndex !== -1) return prevData;
+
+            const emptyIndex = prevData.lines.findIndex((l) => !l.asset_id);
+            const newLine = { asset_id: String(scanned.id), quantity: String(scanned.remaining_quantity) };
+
+            const nextLines = [...prevData.lines];
+            if (emptyIndex !== -1) {
+                nextLines[emptyIndex] = newLine;
+            } else {
+                nextLines.push(newLine);
+            }
+
+            return { ...prevData, lines: nextLines };
+        });
+
+        setScanning(false);
+    }
 
     const { data, setData, post, processing, errors } = useForm({
         disposal_type: disposalTypes[0]?.value ?? '',
@@ -284,6 +314,16 @@ export default function DisposalsCreate({
                                     Add Another Asset
                                 </Button>
                             )}
+                            {data.lines.length < allDonatableAssets.length && (
+                                <Button type="button" variant="outline" size="sm" onClick={addLine}>
+                                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                    Add Another Asset
+                                </Button>
+                            )}
+                            <Button type="button" variant="outline" size="sm" onClick={() => setScanning(true)}>
+                                <ScanLine className="mr-1.5 h-3.5 w-3.5" />
+                                Scan Barcode
+                            </Button>
                         </div>
                     ) : (
                         !isVehicleDecision && (
@@ -605,6 +645,11 @@ export default function DisposalsCreate({
                 onClose={() => setShowCoordinatesPicker(false)}
                 onSelect={(coords) => setData('delivery_coordinates', coords)}
                 initialCoordinates={data.delivery_coordinates}
+            />
+            <AssetScanModal
+                show={scanning}
+                onClose={() => setScanning(false)}
+                onFound={handleAssetScanned}
             />
         </AuthenticatedLayout>
     );
