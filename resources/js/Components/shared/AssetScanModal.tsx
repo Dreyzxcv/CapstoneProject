@@ -18,6 +18,7 @@ export interface ScannedAsset {
     incident?: {
         place_of_apprehension: string;
     } | null;
+    piece_number?: number | null;
 }
 
 interface AssetScanModalProps {

@@ -25,6 +25,8 @@ interface DonatableAsset {
     remaining_quantity: number;
     municipality_of_origin: string;
     incident?: { place_of_apprehension: string } | null;
+    // Optional piece number when a per-piece QR was scanned
+    piece_number?: number | null;
 }
 
 interface CreateBatchDonationProps {
@@ -280,6 +282,10 @@ export default function CreateBatchDonation({
                                                             "asset_id",
                                                         )}
                                                     />
+
+                                                    {selectedAsset?.piece_number != null && (
+                                                        <p className="mt-1 text-sm text-gray-600">Piece #{selectedAsset.piece_number}</p>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <Label

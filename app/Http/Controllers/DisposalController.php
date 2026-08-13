@@ -273,7 +273,13 @@ class DisposalController extends Controller
             return response()->json(['message' => "{$asset->asset_code} is not marked for disposal."], 422);
         }
 
-        $remaining = $asset->remainingQuantity();
+        // If the QR refers to a specific piece, only expose that single piece
+        // as available to donate; otherwise expose the asset's remaining amount.
+        if ($assetPiece) {
+            $remaining = 1;
+        } else {
+            $remaining = $asset->remainingQuantity();
+        }
 
         if ($remaining <= 0) {
             return response()->json(['message' => "{$asset->asset_code} has already been fully disposed."], 422);

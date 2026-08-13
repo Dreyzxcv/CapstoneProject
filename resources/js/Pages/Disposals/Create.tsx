@@ -23,6 +23,8 @@ interface DonatableAsset {
     description: string | null;
     quantity: number;
     remaining_quantity: number;
+    // Optional per-piece info if the asset was added via a per-piece QR scan
+    piece_number?: number | null;
 }
 
 interface DisposalsCreateProps {
@@ -271,6 +273,13 @@ export default function DisposalsCreate({
                                                     ))}
                                                 </select>
                                                 <InputError message={lineError(index, 'asset_id')} />
+                                                {selectedAsset?.piece_number !== undefined && selectedAsset?.piece_number !== null && (
+                                                    <div className="mt-2">
+                                                        <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
+                                                            Piece {selectedAsset.piece_number} / {selectedAsset.quantity ?? 1}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div>
                                                 <Label htmlFor={`line-qty-${index}`}>Quantity</Label>
