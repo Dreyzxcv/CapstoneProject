@@ -40,7 +40,10 @@ export default function AssetScanModal({ show, onClose, onFound }: AssetScanModa
 
             await html5QrCode.start(
                 { facingMode: 'environment' },
-                { fps: 10, qrbox: { width: 240, height: 240 } },
+                {
+                    fps: 10,
+                    qrbox: undefined,
+                },
                 handleDecoded,
                 () => {},
             );
@@ -119,30 +122,52 @@ export default function AssetScanModal({ show, onClose, onFound }: AssetScanModa
                 </p>
 
                 <div className="relative mx-auto mt-4 aspect-square w-full max-w-xs overflow-hidden rounded-xl bg-black">
+                    {/* html5-qrcode camera */}
                     <div
                         id={CAMERA_REGION_ID}
                         className="absolute inset-0 [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
                     />
 
+                    {/* Custom centered scanning guide */}
+                    {status === 'scanning' && (
+                        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+                            <div className="relative h-60 w-60">
+                                {/* Top-left */}
+                                <div className="absolute left-0 top-0 h-10 w-10 border-l-8 border-t-8 border-white" />
+
+                                {/* Top-right */}
+                                <div className="absolute right-0 top-0 h-10 w-10 border-r-8 border-t-8 border-white" />
+
+                                {/* Bottom-left */}
+                                <div className="absolute bottom-0 left-0 h-10 w-10 border-b-8 border-l-8 border-white" />
+
+                                {/* Bottom-right */}
+                                <div className="absolute bottom-0 right-0 h-10 w-10 border-b-8 border-r-8 border-white" />
+                            </div>
+                        </div>
+                    )}
+
                     {status === 'starting' && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white">
+                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 text-white">
                             <Loader2 className="h-6 w-6 animate-spin" />
                             <p className="text-xs text-white/80">Starting camera…</p>
                         </div>
                     )}
 
                     {status === 'looking-up' && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 text-white">
+                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 bg-black/70 text-white">
                             <Loader2 className="h-6 w-6 animate-spin" />
                             <p className="text-xs text-white/80">Looking up asset…</p>
                         </div>
                     )}
 
                     {status === 'error' && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 px-6 text-center text-white">
+                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/80 px-6 text-center text-white">
                             <Camera className="h-8 w-8 text-white/60" />
                             <p className="text-xs text-white/90">{errorMessage}</p>
-                            <Button type="button" size="sm" onClick={retry}>Try Again</Button>
+                            <Button type="button" size="sm" onClick={retry}>
+                                Try Again
+                            </Button>
                         </div>
                     )}
                 </div>
