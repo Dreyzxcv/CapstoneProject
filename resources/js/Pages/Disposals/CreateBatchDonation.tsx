@@ -25,8 +25,6 @@ interface DonatableAsset {
     remaining_quantity: number;
     municipality_of_origin: string;
     incident?: { place_of_apprehension: string } | null;
-    // Optional piece number when a per-piece QR was scanned
-    piece_number?: number | null;
 }
 
 interface CreateBatchDonationProps {
@@ -38,6 +36,7 @@ interface CreateBatchDonationProps {
 interface DonationLine {
     asset_id: string;
     quantity: string;
+    piece_number?: number | null;
 }
 
 const selectClass =
@@ -106,14 +105,16 @@ export default function CreateBatchDonation({
         value: string,
     ) {
         const next = [...data.lines];
-        next[index] = { ...next[index], [field]: value };
-
-        // Default quantity to the asset's full on-hand amount when first selected.
+        // When changing the selected asset manually, clear any piece_number
+        // previously associated with that line to avoid showing a stale piece.
         if (field === "asset_id") {
+            next[index] = { ...next[index], [field]: value, piece_number: undefined } as DonationLine;
             const asset = assetsById.get(value);
             if (asset && !next[index].quantity) {
                 next[index].quantity = String(asset.remaining_quantity);
             }
+        } else {
+            next[index] = { ...next[index], [field]: value };
         }
 
         setData("lines", next);
@@ -150,7 +151,11 @@ export default function CreateBatchDonation({
             if (alreadyIndex !== -1) return prevData;
 
             const emptyIndex = prevData.lines.findIndex((l) => !l.asset_id);
-            const newLine = { asset_id: String(scanned.id), quantity: String(scanned.remaining_quantity) };
+            const newLine: DonationLine = {
+                asset_id: String(scanned.id),
+                quantity: String(scanned.remaining_quantity),
+                piece_number: (scanned as any).piece_number ?? null,
+            };
 
             const nextLines = [...prevData.lines];
             if (emptyIndex !== -1) {
@@ -283,8 +288,12 @@ export default function CreateBatchDonation({
                                                         )}
                                                     />
 
-                                                    {selectedAsset?.piece_number != null && (
-                                                        <p className="mt-1 text-sm text-gray-600">Piece #{selectedAsset.piece_number}</p>
+                                                    {typeof line.piece_number !== 'undefined' && line.piece_number !== null && selectedAsset && (
+                                                        <div className="mt-2">
+                                                            <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
+                                                                Piece {line.piece_number} / {selectedAsset.quantity ?? 1}
+                                                            </span>
+                                                        </div>
                                                     )}
                                                 </div>
                                                 <div>

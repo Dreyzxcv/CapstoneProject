@@ -23,8 +23,6 @@ interface DonatableAsset {
     description: string | null;
     quantity: number;
     remaining_quantity: number;
-    // Optional per-piece info if the asset was added via a per-piece QR scan
-    piece_number?: number | null;
 }
 
 interface DisposalsCreateProps {
@@ -38,6 +36,7 @@ interface DisposalsCreateProps {
 interface DonationLine {
     asset_id: string;
     quantity: string;
+    piece_number?: number | null;
 }
 
 const selectClass = 'mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm';
@@ -95,7 +94,11 @@ export default function DisposalsCreate({
             if (alreadyIndex !== -1) return prevData;
 
             const emptyIndex = prevData.lines.findIndex((l) => !l.asset_id);
-            const newLine = { asset_id: String(scanned.id), quantity: String(scanned.remaining_quantity) };
+            const newLine: DonationLine = {
+                asset_id: String(scanned.id),
+                quantity: String(scanned.remaining_quantity),
+                piece_number: (scanned as any).piece_number ?? null,
+            };
 
             const nextLines = [...prevData.lines];
             if (emptyIndex !== -1) {
@@ -157,13 +160,15 @@ export default function DisposalsCreate({
 
     function updateLine(index: number, field: keyof DonationLine, value: string) {
         const next = [...data.lines];
-        next[index] = { ...next[index], [field]: value };
-
+        // Clear piece_number when user picks a different asset manually.
         if (field === 'asset_id') {
+            next[index] = { ...next[index], [field]: value, piece_number: undefined } as DonationLine;
             const selected = assetsById.get(value);
             if (selected && !next[index].quantity) {
                 next[index].quantity = String(selected.remaining_quantity);
             }
+        } else {
+            next[index] = { ...next[index], [field]: value };
         }
 
         setData('lines', next);
@@ -273,10 +278,11 @@ export default function DisposalsCreate({
                                                     ))}
                                                 </select>
                                                 <InputError message={lineError(index, 'asset_id')} />
-                                                {selectedAsset?.piece_number !== undefined && selectedAsset?.piece_number !== null && (
+
+                                                {typeof line.piece_number !== 'undefined' && line.piece_number !== null && selectedAsset && (
                                                     <div className="mt-2">
                                                         <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
-                                                            Piece {selectedAsset.piece_number} / {selectedAsset.quantity ?? 1}
+                                                            Piece {line.piece_number} / {selectedAsset.quantity ?? 1}
                                                         </span>
                                                     </div>
                                                 )}
