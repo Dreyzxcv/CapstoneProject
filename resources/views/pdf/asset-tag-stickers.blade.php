@@ -74,7 +74,7 @@
 
     <table class="qr-footer">
         <tr>
-            <td class="qr-cell"><img src="{{ $qrPngDataUri }}" alt="QR code"></td>
+            <td class="qr-cell"><img src="{{ $qrPngDataUris[$piece] ?? '' }}" alt="QR code"></td>
             <td class="doc-cell">
                 <p><strong>Date Apprehended:</strong> {{ $asset->incident?->date_of_apprehension?->format('M d, Y') ?? '—' }}</p>
                 <p><strong>Place:</strong> {{ $asset->incident?->place_of_apprehension ?? $asset->location_apprehended ?? '—' }}</p>
