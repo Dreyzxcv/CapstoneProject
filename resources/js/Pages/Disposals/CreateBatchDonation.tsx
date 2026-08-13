@@ -147,14 +147,30 @@ export default function CreateBatchDonation({
         setExtraAssets((prev) => (prev.some((a) => a.id === scanned.id) ? prev : [...prev, scanned]));
 
         setData((prevData) => {
-            const alreadyIndex = prevData.lines.findIndex((l) => l.asset_id === String(scanned.id));
-            if (alreadyIndex !== -1) return prevData;
+            // If this scan refers to a specific piece, allow multiple lines for the same
+            // asset as long as the piece_number differs. Only treat as duplicate when the
+            // exact asset + piece combination already exists. For non-piece scans (whole
+            // asset), preserve the old behavior and avoid adding another line for an
+            // asset that's already present.
+            const scannedPiece = (scanned as any).piece_number ?? null;
+
+            const duplicateIndex = prevData.lines.findIndex((l) =>
+                l.asset_id === String(scanned.id) && (l.piece_number ?? null) === scannedPiece
+            );
+
+            if (duplicateIndex !== -1) return prevData;
+
+            // If this is a whole-asset scan (no piece_number) and there's already any
+            // line for this asset, don't add another line to avoid duplicates.
+            if (scannedPiece === null && prevData.lines.some((l) => l.asset_id === String(scanned.id))) {
+                return prevData;
+            }
 
             const emptyIndex = prevData.lines.findIndex((l) => !l.asset_id);
             const newLine: DonationLine = {
                 asset_id: String(scanned.id),
                 quantity: String(scanned.remaining_quantity),
-                piece_number: (scanned as any).piece_number ?? null,
+                piece_number: scannedPiece,
             };
 
             const nextLines = [...prevData.lines];
@@ -244,6 +260,11 @@ export default function CreateBatchDonation({
                                                         htmlFor={`asset-${index}`}
                                                     >
                                                         Asset
+                                                        {typeof line.piece_number !== 'undefined' && line.piece_number !== null && selectedAsset && (
+                                                            <span className="ml-2 items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
+                                                                Piece {line.piece_number} / {selectedAsset.quantity ?? 1}
+                                                            </span>
+                                                        )}
                                                     </Label>
                                                     <select
                                                         id={`asset-${index}`}
@@ -272,12 +293,8 @@ export default function CreateBatchDonation({
                                                                 {a.asset_code} —{" "}
                                                                 {a.species ??
                                                                     a.description ??
-                                                                    "Log"}{" "}
-                                                                (
-                                                                {
-                                                                    a.remaining_quantity
-                                                                }{" "}
-                                                                on hand)
+                                                                    "Log"}
+                                                                {" "}
                                                             </option>
                                                         ))}
                                                     </select>
@@ -288,13 +305,6 @@ export default function CreateBatchDonation({
                                                         )}
                                                     />
 
-                                                    {typeof line.piece_number !== 'undefined' && line.piece_number !== null && selectedAsset && (
-                                                        <div className="mt-2">
-                                                            <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
-                                                                Piece {line.piece_number} / {selectedAsset.quantity ?? 1}
-                                                            </span>
-                                                        </div>
-                                                    )}
                                                 </div>
                                                 <div>
                                                     <Label
@@ -339,24 +349,17 @@ export default function CreateBatchDonation({
                                                     </Button>
                                                 )}
                                             </div>
-                                            {selectedAsset &&
-                                                Number(line.quantity) > 0 &&
-                                                Number(line.quantity) <
-                                                    selectedAsset.remaining_quantity && (
+                                            {selectedAsset && (() => {
+                                                const totalAssigned = data.lines
+                                                    .filter((l) => l.asset_id === String(selectedAsset.id))
+                                                    .reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+                                                const remaining = selectedAsset.remaining_quantity - totalAssigned;
+                                                return totalAssigned > 0 && remaining >= 0 ? (
                                                     <p className="mt-2 text-xs text-amber-700">
-                                                        The remaining{" "}
-                                                        {selectedAsset.remaining_quantity -
-                                                            Number(
-                                                                line.quantity,
-                                                            )}{" "}
-                                                        pc(s) of{" "}
-                                                        {
-                                                            selectedAsset.asset_code
-                                                        }{" "}
-                                                        will stay available for
-                                                        future disposal.
+                                                        The remaining {remaining} pc(s) of {selectedAsset.asset_code} will stay available for future disposal.
                                                     </p>
-                                                )}
+                                                ) : null;
+                                            })()}
                                         </div>
                                     );
                                 })}
@@ -471,7 +474,7 @@ export default function CreateBatchDonation({
                                     </Label>
                                     <Input
                                         id="agency_name"
-                                        placeholder="e.g. Virac Fire Station"
+                                        placeholder="Agency / Institution Name"
                                         value={data.agency_name}
                                         onChange={(e) =>
                                             setData(
@@ -761,7 +764,7 @@ export default function CreateBatchDonation({
                                             </Label>
                                             <Input
                                                 id="donor_representative_title"
-                                                placeholder="e.g. OIC, PENR Officer"
+                                                placeholder="Donor Representative Title"
                                                 value={
                                                     data.donor_representative_title
                                                 }
@@ -806,7 +809,7 @@ export default function CreateBatchDonation({
                                             </Label>
                                             <Input
                                                 id="witness_1_title"
-                                                placeholder="e.g. FIII / Chief, MES"
+                                                placeholder="Witness 1 Title"
                                                 value={data.witness_1_title}
                                                 onChange={(e) =>
                                                     setData(
@@ -828,7 +831,7 @@ export default function CreateBatchDonation({
                                             </Label>
                                             <Input
                                                 id="witness_2_name"
-                                                placeholder="WITNESS 2 Name"
+                                                placeholder="Witness 2 Name"
                                                 value={data.witness_2_name}
                                                 onChange={(e) =>
                                                     setData(
@@ -847,7 +850,7 @@ export default function CreateBatchDonation({
                                             </Label>
                                             <Input
                                                 id="witness_2_title"
-                                                placeholder="e.g. OIC, Chief, Technical Services Division"
+                                                placeholder="Witness 2 Title"
                                                 value={data.witness_2_title}
                                                 onChange={(e) =>
                                                     setData(
