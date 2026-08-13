@@ -5,14 +5,23 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Asset } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { FormEventHandler, useState } from 'react';
+import { FormEventHandler, useMemo, useState } from 'react';
 import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
-import { MapPin } from 'lucide-react';
+import { MapPin, Plus, Trash2 } from 'lucide-react';
 
 interface Option {
     value: string;
     label: string;
+}
+
+interface DonatableAsset {
+    id: number;
+    asset_code: string;
+    species: string | null;
+    description: string | null;
+    quantity: number;
+    remaining_quantity: number;
 }
 
 interface DisposalsCreateProps {
@@ -20,11 +29,23 @@ interface DisposalsCreateProps {
     disposalTypes: Option[];
     municipalities: Option[];
     barangaysByMunicipality: Record<string, string[]>;
+    availableAssets: DonatableAsset[];
+}
+
+interface DonationLine {
+    asset_id: string;
+    quantity: string;
 }
 
 const selectClass = 'mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm';
 
-export default function DisposalsCreate({ asset, disposalTypes, municipalities, barangaysByMunicipality }: DisposalsCreateProps) {
+export default function DisposalsCreate({
+    asset,
+    disposalTypes,
+    municipalities,
+    barangaysByMunicipality,
+    availableAssets,
+}: DisposalsCreateProps) {
     const assetQuantity = asset.remaining_quantity ?? asset.quantity ?? 1;
 
     const ORG_TYPES = [
@@ -35,9 +56,34 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
         { value: 'other', label: 'Other' },
     ];
 
+    // Current asset + whatever other donatable log assets the controller
+    // sent along, combined so the line-item picker can look either up.
+    const allDonatableAssets: DonatableAsset[] = useMemo(
+        () => [
+            {
+                id: asset.id,
+                asset_code: asset.asset_code,
+                species: asset.species,
+                description: asset.description,
+                quantity: asset.quantity ?? 1,
+                remaining_quantity: assetQuantity,
+            },
+            ...availableAssets,
+        ],
+        [asset, assetQuantity, availableAssets],
+    );
+
+    const assetsById = useMemo(
+        () => new Map(allDonatableAssets.map((a) => [String(a.id), a])),
+        [allDonatableAssets],
+    );
+
     const { data, setData, post, processing, errors } = useForm({
         disposal_type: disposalTypes[0]?.value ?? '',
         quantity: String(assetQuantity),
+        // Donation line items — this asset is pre-added as the first line
+        // since the user got here by clicking "Process" on it specifically.
+        lines: [{ asset_id: String(asset.id), quantity: String(assetQuantity) }] as DonationLine[],
         requester_name: '',
         donee_position: '',
         purpose_statement: '',
@@ -51,8 +97,6 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
         delivery_coordinates: '',
         appeal_filed: false as boolean,
         notes: '',
-        // Deed of Donation signatories — left blank to use the office's
-        // standing defaults; fill in to override for this document only.
         donor_representative_name: '',
         donor_representative_title: '',
         witness_1_name: '',
@@ -75,8 +119,61 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
         setData('barangay', '');
     }
 
+    function lineError(index: number, field: 'asset_id' | 'quantity'): string | undefined {
+        return (errors as Record<string, string>)[`lines.${index}.${field}`];
+    }
+
+    function updateLine(index: number, field: keyof DonationLine, value: string) {
+        const next = [...data.lines];
+        next[index] = { ...next[index], [field]: value };
+
+        if (field === 'asset_id') {
+            const selected = assetsById.get(value);
+            if (selected && !next[index].quantity) {
+                next[index].quantity = String(selected.remaining_quantity);
+            }
+        }
+
+        setData('lines', next);
+    }
+
+    function addLine() {
+        setData('lines', [...data.lines, { asset_id: '', quantity: '' }]);
+    }
+
+    function removeLine(index: number) {
+        if (data.lines.length === 1) return;
+        setData('lines', data.lines.filter((_, i) => i !== index));
+    }
+
+    function availableOptionsFor(currentIndex: number): DonatableAsset[] {
+        const chosenElsewhere = new Set(
+            data.lines
+                .filter((_, i) => i !== currentIndex)
+                .map((l) => l.asset_id)
+                .filter(Boolean),
+        );
+        return allDonatableAssets.filter((a) => !chosenElsewhere.has(String(a.id)));
+    }
+
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
+
+        if (isDonation) {
+            const lineSummaries = data.lines
+                .map((line) => {
+                    const donatable = assetsById.get(line.asset_id);
+                    return donatable ? `${line.quantity || '?'} pc(s) of ${donatable.asset_code}` : null;
+                })
+                .filter(Boolean)
+                .join(', ');
+
+            if (confirm(`Confirm donation of ${lineSummaries} to ${data.requester_name || 'this recipient'}? This cannot be undone.`)) {
+                post(route('disposals.donate.store'));
+            }
+            return;
+        }
+
         const confirmMsg =
             remainder > 0
                 ? `Confirm disposal of ${quantityValue} of ${assetQuantity} unit(s)? The remaining ${remainder} unit(s) will be split into a new asset record and kept in storage.`
@@ -111,28 +208,107 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
                         <InputError message={errors.disposal_type} />
                     </div>
 
-                    {!isVehicleDecision && (
-                        <div>
-                            <Label htmlFor="quantity">Quantity to Dispose</Label>
-                            <Input
-                                id="quantity"
-                                type="number"
-                                min={1}
-                                max={assetQuantity}
-                                value={data.quantity}
-                                onChange={(e) => setData('quantity', e.target.value)}
-                                required
-                            />
-                            <p className="mt-1 text-xs text-gray-500">
-                                Out of {assetQuantity} unit(s) currently on hand.
-                                {remainder > 0 && (
-                                    <span className="text-amber-700">
-                                        {' '}The remaining {remainder} unit(s) will be split off and kept in storage.
-                                    </span>
-                                )}
+                    {isDonation ? (
+                        <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                Assets to Donate
                             </p>
-                            <InputError message={errors.quantity} />
+                            <p className="text-xs text-gray-500">
+                                {asset.asset_code} is already added below. Add more log assets to this donation if needed.
+                            </p>
+
+                            {data.lines.map((line, index) => {
+                                const selectedAsset = assetsById.get(line.asset_id);
+                                const options = availableOptionsFor(index);
+
+                                return (
+                                    <div key={index} className="rounded-lg border border-gray-200 bg-white p-3">
+                                        <div className="grid gap-3 sm:grid-cols-[1fr_120px_auto] sm:items-end">
+                                            <div>
+                                                <Label htmlFor={`line-asset-${index}`}>Asset</Label>
+                                                <select
+                                                    id={`line-asset-${index}`}
+                                                    value={line.asset_id}
+                                                    onChange={(e) => updateLine(index, 'asset_id', e.target.value)}
+                                                    className={selectClass}
+                                                    required
+                                                >
+                                                    <option value="" disabled>Select an asset…</option>
+                                                    {options.map((a) => (
+                                                        <option key={a.id} value={a.id}>
+                                                            {a.asset_code} — {a.species ?? a.description ?? 'Log'} ({a.remaining_quantity} on hand)
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <InputError message={lineError(index, 'asset_id')} />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor={`line-qty-${index}`}>Quantity</Label>
+                                                <Input
+                                                    id={`line-qty-${index}`}
+                                                    type="number"
+                                                    min={1}
+                                                    max={selectedAsset?.remaining_quantity}
+                                                    value={line.quantity}
+                                                    onChange={(e) => updateLine(index, 'quantity', e.target.value)}
+                                                    required
+                                                />
+                                                <InputError message={lineError(index, 'quantity')} />
+                                            </div>
+                                            {data.lines.length > 1 && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => removeLine(index)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                        {selectedAsset &&
+                                            Number(line.quantity) > 0 &&
+                                            Number(line.quantity) < selectedAsset.remaining_quantity && (
+                                                <p className="mt-2 text-xs text-amber-700">
+                                                    The remaining {selectedAsset.remaining_quantity - Number(line.quantity)} pc(s) of{' '}
+                                                    {selectedAsset.asset_code} will stay available for future disposal.
+                                                </p>
+                                            )}
+                                    </div>
+                                );
+                            })}
+
+                            {data.lines.length < allDonatableAssets.length && (
+                                <Button type="button" variant="outline" size="sm" onClick={addLine}>
+                                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                    Add Another Asset
+                                </Button>
+                            )}
                         </div>
+                    ) : (
+                        !isVehicleDecision && (
+                            <div>
+                                <Label htmlFor="quantity">Quantity to Dispose</Label>
+                                <Input
+                                    id="quantity"
+                                    type="number"
+                                    min={1}
+                                    max={assetQuantity}
+                                    value={data.quantity}
+                                    onChange={(e) => setData('quantity', e.target.value)}
+                                    required
+                                />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Out of {assetQuantity} unit(s) currently on hand.
+                                    {remainder > 0 && (
+                                        <span className="text-amber-700">
+                                            {' '}The remaining {remainder} unit(s) will be split off and kept in storage.
+                                        </span>
+                                    )}
+                                </p>
+                                <InputError message={errors.quantity} />
+                            </div>
+                        )
                     )}
 
                     {isDonation && (
@@ -223,7 +399,6 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
                                 <InputError message={errors.confiscation_order_reference} />
                             </div>
 
-                            {/* Address block: Municipality, Barangay, Street */}
                             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Donee Address
@@ -306,7 +481,6 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
                                 )}
                             </div>
 
-                            {/* Deed of Donation signatories */}
                             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Deed of Donation Signatories
@@ -320,7 +494,7 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
                                         <Label htmlFor="donor_representative_name">OIC / PENR Officer Name</Label>
                                         <Input
                                             id="donor_representative_name"
-                                            placeholder="e.g. Cyril C. Magdaraog"
+                                            placeholder="OIC Name"
                                             value={data.donor_representative_name}
                                             onChange={(e) => setData('donor_representative_name', e.target.value)}
                                         />
@@ -343,7 +517,7 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
                                         <Label htmlFor="witness_1_name">Witness 1 Name</Label>
                                         <Input
                                             id="witness_1_name"
-                                            placeholder="e.g. Domingo O. Bagunu"
+                                            placeholder="Witness 1 Name"
                                             value={data.witness_1_name}
                                             onChange={(e) => setData('witness_1_name', e.target.value)}
                                         />
@@ -353,7 +527,7 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
                                         <Label htmlFor="witness_1_title">Witness 1 Title</Label>
                                         <Input
                                             id="witness_1_title"
-                                            placeholder="e.g. FIII / Chief, MES"
+                                            placeholder="Witness 1 Title"
                                             value={data.witness_1_title}
                                             onChange={(e) => setData('witness_1_title', e.target.value)}
                                         />
@@ -366,7 +540,7 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
                                         <Label htmlFor="witness_2_name">Witness 2 Name</Label>
                                         <Input
                                             id="witness_2_name"
-                                            placeholder="e.g. Anro B. Orlanes"
+                                            placeholder="Witness 2 Name"
                                             value={data.witness_2_name}
                                             onChange={(e) => setData('witness_2_name', e.target.value)}
                                         />
@@ -376,7 +550,7 @@ export default function DisposalsCreate({ asset, disposalTypes, municipalities, 
                                         <Label htmlFor="witness_2_title">Witness 2 Title</Label>
                                         <Input
                                             id="witness_2_title"
-                                            placeholder="e.g. OIC, Chief, Technical Services Division"
+                                            placeholder="Witness 2 Title"
                                             value={data.witness_2_title}
                                             onChange={(e) => setData('witness_2_title', e.target.value)}
                                         />
