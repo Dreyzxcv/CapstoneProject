@@ -250,7 +250,16 @@ class DisposalController extends Controller
             return response()->json(['message' => 'Could not read a valid QR code.'], 422);
         }
 
-        $asset = Asset::where('qr_code_token', $token)->first();
+        // Prefer per-piece lookup but fall back to legacy asset token.
+        $assetPiece = \App\Models\AssetPiece::where('qr_code_token', $token)->first();
+
+        if ($assetPiece) {
+            $asset = $assetPiece->asset;
+            $pieceNumber = $assetPiece->piece_number;
+        } else {
+            $asset = Asset::where('qr_code_token', $token)->first();
+            $pieceNumber = null;
+        }
 
         if (! $asset) {
             return response()->json(['message' => 'No asset found for this QR code.'], 404);
@@ -277,6 +286,7 @@ class DisposalController extends Controller
             'description' => $asset->description,
             'quantity' => $asset->quantity,
             'remaining_quantity' => $remaining,
+            'piece_number' => $pieceNumber,
         ]);
     }
 

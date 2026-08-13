@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AcknowledgementReceipt;
 use App\Models\Asset;
+use App\Models\AssetPiece;
 use App\Models\Disposal;
 use App\Models\IcsRecord;
 use App\Models\Jev;
@@ -78,13 +79,37 @@ class PdfDocumentService
 
     public function generateAssetTagStickers(Asset $asset): string
     {
-        $qrPayload = $this->qrCodeService->buildScanUrl($asset->qr_code_token);
-        $qrPngDataUri = $this->qrCodeService->generatePngDataUri($qrPayload);
         $totalPieces = max(1, (int) ($asset->quantity ?? 1));
+
+        $existing = AssetPiece::query()
+            ->where('asset_id', $asset->id)
+            ->orderBy('piece_number')
+            ->get();
+
+        if ($existing->count() < $totalPieces) {
+            for ($i = 1; $i <= $totalPieces; $i++) {
+                AssetPiece::firstOrCreate(
+                    ['asset_id' => $asset->id, 'piece_number' => $i],
+                    ['qr_code_token' => $this->qrCodeService->generateToken()]
+                );
+            }
+
+            // reload
+            $existing = AssetPiece::query()
+                ->where('asset_id', $asset->id)
+                ->orderBy('piece_number')
+                ->get();
+        }
+
+        $qrPngDataUris = [];
+        foreach ($existing as $pieceRow) {
+            $payload = $this->qrCodeService->buildScanUrl($pieceRow->qr_code_token);
+            $qrPngDataUris[$pieceRow->piece_number] = $this->qrCodeService->generatePngDataUri($payload);
+        }
 
         $pdf = Pdf::loadView('pdf.asset-tag-stickers', [
             'asset' => $asset->loadMissing('incident'),
-            'qrPngDataUri' => $qrPngDataUri,
+            'qrPngDataUris' => $qrPngDataUris,
             'totalPieces' => $totalPieces,
         ]);
 
