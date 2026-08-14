@@ -36,7 +36,7 @@ interface CreateBatchDonationProps {
 interface DonationLine {
     asset_id: string;
     quantity: string;
-    piece_number?: number | null;
+    piece_numbers?: number[];
 }
 
 const selectClass =
@@ -105,10 +105,8 @@ export default function CreateBatchDonation({
         value: string,
     ) {
         const next = [...data.lines];
-        // When changing the selected asset manually, clear any piece_number
-        // previously associated with that line to avoid showing a stale piece.
         if (field === "asset_id") {
-            next[index] = { ...next[index], [field]: value, piece_number: undefined } as DonationLine;
+            next[index] = { ...next[index], [field]: value, piece_numbers: undefined } as DonationLine;
             const asset = assetsById.get(value);
             if (asset && !next[index].quantity) {
                 next[index].quantity = String(asset.remaining_quantity);
@@ -147,30 +145,34 @@ export default function CreateBatchDonation({
         setExtraAssets((prev) => (prev.some((a) => a.id === scanned.id) ? prev : [...prev, scanned]));
 
         setData((prevData) => {
-            // If this scan refers to a specific piece, allow multiple lines for the same
-            // asset as long as the piece_number differs. Only treat as duplicate when the
-            // exact asset + piece combination already exists. For non-piece scans (whole
-            // asset), preserve the old behavior and avoid adding another line for an
-            // asset that's already present.
-            const scannedPiece = (scanned as any).piece_number ?? null;
+            const pieceNum = scanned.piece_number ?? null;
+            const existingIndex = prevData.lines.findIndex((l) => l.asset_id === String(scanned.id));
 
-            const duplicateIndex = prevData.lines.findIndex((l) =>
-                l.asset_id === String(scanned.id) && (l.piece_number ?? null) === scannedPiece
-            );
+            // Same AAP already in the list — bump quantity instead of adding
+            // a duplicate asset_id line (backend requires distinct asset_id).
+            if (existingIndex !== -1) {
+                const nextLines = [...prevData.lines];
+                const existing = nextLines[existingIndex];
+                const currentQty = Number(existing.quantity) || 0;
+                const existingPieces = existing.piece_numbers ?? [];
+                const nextPieces = pieceNum !== null && !existingPieces.includes(pieceNum)
+                    ? [...existingPieces, pieceNum]
+                    : existingPieces;
 
-            if (duplicateIndex !== -1) return prevData;
+                nextLines[existingIndex] = {
+                    ...existing,
+                    quantity: String(Math.min(currentQty + 1, scanned.quantity)),
+                    piece_numbers: nextPieces,
+                };
 
-            // If this is a whole-asset scan (no piece_number) and there's already any
-            // line for this asset, don't add another line to avoid duplicates.
-            if (scannedPiece === null && prevData.lines.some((l) => l.asset_id === String(scanned.id))) {
-                return prevData;
+                return { ...prevData, lines: nextLines };
             }
 
             const emptyIndex = prevData.lines.findIndex((l) => !l.asset_id);
             const newLine: DonationLine = {
                 asset_id: String(scanned.id),
-                quantity: String(scanned.remaining_quantity),
-                piece_number: scannedPiece,
+                quantity: "1",
+                piece_numbers: pieceNum !== null ? [pieceNum] : undefined,
             };
 
             const nextLines = [...prevData.lines];
@@ -260,10 +262,14 @@ export default function CreateBatchDonation({
                                                         htmlFor={`asset-${index}`}
                                                     >
                                                         Asset
-                                                        {typeof line.piece_number !== 'undefined' && line.piece_number !== null && selectedAsset && (
-                                                            <span className="ml-2 items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
-                                                                Piece {line.piece_number} / {selectedAsset.quantity ?? 1}
-                                                            </span>
+                                                        {(line.piece_numbers?.length ?? 0) > 0 && selectedAsset && (
+                                                            <div className="mt-2">
+                                                                <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
+                                                                    {line.piece_numbers!.length === 1
+                                                                        ? `Piece ${line.piece_numbers![0]} / ${selectedAsset.quantity ?? 1}`
+                                                                        : `Pieces ${[...line.piece_numbers!].sort((a, b) => a - b).join(', ')} / ${selectedAsset.quantity ?? 1}`}
+                                                                </span>
+                                                            </div>
                                                         )}
                                                     </Label>
                                                     <select
