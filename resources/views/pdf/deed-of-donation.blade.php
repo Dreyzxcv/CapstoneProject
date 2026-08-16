@@ -25,6 +25,7 @@
         /* ---------- Letterhead (repeats on every page) ---------- */
         .page-header {
             position: fixed;
+            top: -1.6in;
             margin-top: 10px;
             left: 0;
             right: 0;
@@ -118,6 +119,10 @@
             text-align: center;
         }
 
+        table.asset-table tbody tr {
+            page-break-inside: avoid;
+        }
+
         table.asset-table thead th {
             background-color: #e5e5e5;
             font-weight: bold;
@@ -133,6 +138,7 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 20pt;
+            page-break-inside: avoid;
         }
 
         table.signatures td {
@@ -176,6 +182,7 @@
         table.witnesses {
             width: 100%;
             border-collapse: collapse;
+            page-break-inside: avoid;
         }
 
         table.witnesses td {
@@ -241,16 +248,13 @@
     $witness2Name = $donation->witness2Name();
     $witness2Title = $donation->witness2Title();
 
-    $volumeBdFt = $disposal->volume_bd_ft ?? $asset->volume_bd_ft;
-    $executionDate = $disposal->processed_at ?? now();
-
-    // Dimensions rendered as L x W x H, omitting the row's own units since
-    // the Asset model doesn't carry a dimension-unit field. Falls back to
-    // an em-dash when none of the three are recorded.
-    $hasDimensions = $asset->length || $asset->width || $asset->height;
-    $dimensionsText = $hasDimensions
-        ? number_format((float) $asset->length, 2) . ' x ' . number_format((float) $asset->width, 2) . ' x ' . number_format((float) $asset->height, 2)
-        : '—';
+    // Totals across every asset in this donation. $disposals always holds
+    // at least one Disposal (a plain single-asset donation is just a
+    // one-item collection); for a batch donation it holds every Disposal
+    // sharing the same donation_batch_id, so the totals here cover the
+    // whole batch, not just one asset.
+    $totalVolumeBdFt = $disposals->sum(fn ($d) => (float) ($d->volume_bd_ft ?? $d->asset->volume_bd_ft ?? 0));
+    $executionDate = $disposals->first()->processed_at ?? now();
 @endphp
 
 <div class="page-header">
@@ -301,7 +305,7 @@
 
 <p class="body-text">
     That the DONOR has available lumber with a total volume of
-    {{ $volumeBdFt ? number_format((float) $volumeBdFt, 2) : '_____' }} board feet
+    {{ $totalVolumeBdFt ? number_format((float) $totalVolumeBdFt, 2) : '_____' }} board feet
     @if($donation->confiscation_order_reference)
         with approved Confiscation Order {{ $donation->confiscation_order_reference }} from the Regional Executive Director
     @else
@@ -321,11 +325,26 @@
         </tr>
     </thead>
     <tbody>
-        <tr>
-            <td>{{ $asset->aap_number ?: '—' }}</td>
-            <td>{{ $dimensionsText }}</td>
-            <td>{{ $volumeBdFt ? number_format((float) $volumeBdFt, 2) : '—' }}</td>
-        </tr>
+        @foreach($disposals as $d)
+            @php
+                $rowAsset = $d->asset;
+
+                // Dimensions rendered as L x W x H, omitting the row's own
+                // units since the Asset model doesn't carry a
+                // dimension-unit field. Falls back to an em-dash when none
+                // of the three are recorded.
+                $rowHasDimensions = $rowAsset->length || $rowAsset->width || $rowAsset->height;
+                $rowDimensionsText = $rowHasDimensions
+                    ? number_format((float) $rowAsset->length, 2) . ' x ' . number_format((float) $rowAsset->width, 2) . ' x ' . number_format((float) $rowAsset->height, 2)
+                    : '—';
+                $rowVolumeBdFt = $d->volume_bd_ft ?? $rowAsset->volume_bd_ft;
+            @endphp
+            <tr>
+                <td>{{ $rowAsset->aap_number ?: '—' }}</td>
+                <td>{{ $rowDimensionsText }}</td>
+                <td>{{ $rowVolumeBdFt ? number_format((float) $rowVolumeBdFt, 2) : '—' }}</td>
+            </tr>
+        @endforeach
     </tbody>
 </table>
 

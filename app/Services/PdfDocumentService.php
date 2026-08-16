@@ -62,17 +62,38 @@ class PdfDocumentService
         return $path;
     }
 
-    public function generateDeedOfDonation(Asset $asset, Disposal $disposal, \App\Models\Donation $donation): string
+    /**
+     * Deed of Donation — one PDF per donation, listing every asset that
+     * belongs to it as its own row in the asset table.
+     *
+     * $disposals is always a collection (never a bare Asset/Disposal pair):
+     * for a plain single-asset donation it holds exactly one Disposal; for
+     * a batch donation (several assets/pieces donated together) it holds
+     * every Disposal that shares the same donation_batch_id. This is what
+     * lets one call cover both flows without generating a separate PDF per
+     * asset.
+     *
+     * The resulting file path is written back onto every Donation record
+     * tied to the disposals passed in, so the combined PDF resolves
+     * correctly no matter which asset's page the user opens it from.
+     */
+    public function generateDeedOfDonation(\Illuminate\Support\Collection $disposals, \App\Models\Donation $donation): string
     {
+        $disposals = $disposals->map(function (Disposal $disposal) {
+            return $disposal->relationLoaded('asset') ? $disposal : tap($disposal)->load('asset');
+        });
+
+        $primaryAsset = $disposals->first()->asset;
+
         $pdf = Pdf::loadView('pdf.deed-of-donation', [
-            'asset' => $asset,
-            'disposal' => $disposal,
+            'disposals' => $disposals,
             'donation' => $donation,
         ]);
 
-        $path = $this->storePdf($pdf->output(), 'donations', 'deed-'.$asset->asset_code);
+        $path = $this->storePdf($pdf->output(), 'donations', 'deed-'.$primaryAsset->asset_code);
 
-        $donation->update(['deed_of_donation_path' => $path]);
+        \App\Models\Donation::whereIn('disposal_id', $disposals->pluck('id'))
+            ->update(['deed_of_donation_path' => $path]);
 
         return $path;
     }
@@ -308,4 +329,3 @@ class PdfDocumentService
         ]);
     }
 }
-

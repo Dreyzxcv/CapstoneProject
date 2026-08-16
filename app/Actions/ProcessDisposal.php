@@ -132,7 +132,10 @@ class ProcessDisposal
             'witness_2_title' => $details['witness_2_title'] ?? null,
         ]);
 
-        $this->pdfDocumentService->generateDeedOfDonation($asset, $disposal, $donation);
+        // Single-asset donation — a one-item collection so it goes through
+        // the same batch-aware PDF generation as ProcessBatchDonation.
+        $disposal->setRelation('asset', $asset);
+        $this->pdfDocumentService->generateDeedOfDonation(collect([$disposal]), $donation);
     }
 
     protected function handleFabricated(Asset $asset, Disposal $disposal, User $user, array $details): void

@@ -155,8 +155,6 @@ class ProcessBatchDonation
                     'witness_2_title' => $donationDetails['witness_2_title'] ?? null,
                 ]);
 
-                $this->pdfDocumentService->generateDeedOfDonation($asset, $disposal, $donation);
-
                 if ($asset->isFullyDisposed()) {
                     $this->lifecycleService->transition(
                         $asset,
@@ -177,6 +175,11 @@ class ProcessBatchDonation
 
                 $disposals->push($disposal->fresh(['donation', 'asset']));
             }
+
+            // One Deed of Donation PDF for the whole batch — every asset in
+            // $disposals gets its own row in the document, rather than each
+            // asset getting its own separate PDF.
+            $this->pdfDocumentService->generateDeedOfDonation($disposals, $disposals->first()->donation);
 
             $this->auditLogService->log('donation.batch_created', null, null, [
                 'donation_batch_id' => $batchId,
