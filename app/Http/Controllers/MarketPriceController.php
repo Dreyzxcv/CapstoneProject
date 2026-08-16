@@ -22,8 +22,12 @@ class MarketPriceController extends Controller
         abort_unless($request->user()?->can('market_prices.manage'), 403);
 
         return Inertia::render('Settings/MarketPrices/Index', [
-            'marketPrices' => MarketPrice::orderByDesc('year')->orderBy('species')->get(),
+            'marketPrices' => MarketPrice::orderByDesc('year')
+                ->orderBy('species')
+                ->orderBy('month')
+                ->get(),
             'speciesOptions' => self::SPECIES_OPTIONS,
+            'monthOptions' => MarketPrice::MONTH_LABELS,
         ]);
     }
 
@@ -34,13 +38,16 @@ class MarketPriceController extends Controller
         $validated = $request->validate([
             'species' => ['required', 'string', 'max:255'],
             'year' => ['required', 'integer', 'min:2000', 'max:2100'],
+            'month' => ['nullable', 'integer', 'between:0,12'],
             'price_per_bd_ft' => ['required', 'numeric', 'min:0'],
         ]);
 
-        // updateOrCreate so re-submitting the same species/year edits the existing rate
-        // instead of hitting the unique constraint.
+        $month = $validated['month'] ?? MarketPrice::WHOLE_YEAR;
+
+        // updateOrCreate so re-submitting the same species/year/month edits the
+        // existing rate instead of hitting the unique constraint.
         MarketPrice::updateOrCreate(
-            ['species' => $validated['species'], 'year' => $validated['year']],
+            ['species' => $validated['species'], 'year' => $validated['year'], 'month' => $month],
             ['price_per_bd_ft' => $validated['price_per_bd_ft']],
         );
 

@@ -12,23 +12,28 @@ interface MarketPrice {
     id: number;
     species: string;
     year: number;
+    month: number;
+    month_label: string;
     price_per_bd_ft: string;
 }
 
 interface Props {
     marketPrices: MarketPrice[];
     speciesOptions: string[];
+    monthOptions: Record<string, string>;
 }
 
 const selectClass =
     'flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600';
 
-export default function MarketPricesIndex({ marketPrices, speciesOptions }: Props) {
+export default function MarketPricesIndex({ marketPrices, speciesOptions, monthOptions }: Props) {
     const currentYear = new Date().getFullYear();
+    const monthEntries = Object.entries(monthOptions); // [["0","Whole Year"], ["1","January"], ...]
 
     const { data, setData, post, processing, errors, reset } = useForm({
         species: speciesOptions[0] ?? '',
         year: String(currentYear),
+        month: '0',
         price_per_bd_ft: '',
     });
 
@@ -55,12 +60,13 @@ export default function MarketPricesIndex({ marketPrices, speciesOptions }: Prop
                     <CardHeader className="border-b border-gray-100">
                         <CardTitle className="text-lg">Set / Update Market Price</CardTitle>
                         <p className="text-sm text-gray-600">
-                            One price per species per year. Saving an existing species/year combo updates the rate.
-                            Used to auto-compute Estimated Value for logs in the intake form.
+                            One price per species per year, with an optional month override for seasonal spikes.
+                            Leave month as "Whole Year" for the default rate. Saving an existing species/year/month
+                            combo updates the rate. Used to auto-compute Estimated Value for logs in the intake form.
                         </p>
                     </CardHeader>
                     <CardContent className="pt-6">
-                        <form onSubmit={submit} className="grid gap-4 sm:grid-cols-[1fr_140px_160px_auto] sm:items-end">
+                        <form onSubmit={submit} className="grid gap-4 sm:grid-cols-[1fr_110px_140px_160px_auto] sm:items-end">
                             <div className="space-y-2">
                                 <Label htmlFor="species">Species</Label>
                                 <select
@@ -85,6 +91,20 @@ export default function MarketPricesIndex({ marketPrices, speciesOptions }: Prop
                                     required
                                 />
                                 <InputError message={errors.year} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="month">Month</Label>
+                                <select
+                                    id="month"
+                                    value={data.month}
+                                    onChange={(e) => setData('month', e.target.value)}
+                                    className={selectClass}
+                                >
+                                    {monthEntries.map(([value, label]) => (
+                                        <option key={value} value={value}>{label}</option>
+                                    ))}
+                                </select>
+                                <InputError message={errors.month} />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="price_per_bd_ft">Price per bd.ft (php)</Label>
@@ -118,6 +138,7 @@ export default function MarketPricesIndex({ marketPrices, speciesOptions }: Prop
                                         <tr>
                                             <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Species</th>
                                             <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Year</th>
+                                            <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Month</th>
                                             <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Price / bd.ft</th>
                                             <th className="px-3 py-2 text-right text-xs font-medium uppercase text-gray-500">Action</th>
                                         </tr>
@@ -127,6 +148,13 @@ export default function MarketPricesIndex({ marketPrices, speciesOptions }: Prop
                                             <tr key={mp.id}>
                                                 <td className="px-3 py-2 text-sm text-gray-800">{mp.species}</td>
                                                 <td className="px-3 py-2 text-sm text-gray-600">{mp.year}</td>
+                                                <td className="px-3 py-2 text-sm text-gray-600">
+                                                    {mp.month === 0 ? (
+                                                        <span className="text-gray-500">Whole Year</span>
+                                                    ) : (
+                                                        <span className="font-medium text-emerald-700">{mp.month_label}</span>
+                                                    )}
+                                                </td>
                                                 <td className="px-3 py-2 text-sm text-gray-600">
                                                     ₱{Number(mp.price_per_bd_ft).toFixed(2)}
                                                 </td>

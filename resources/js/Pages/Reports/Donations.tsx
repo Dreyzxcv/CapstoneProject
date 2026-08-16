@@ -146,8 +146,8 @@ export default function Donations({ donations, filters }: DonationsProps) {
                     </CardContent>
                 </Card>
 
-                <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-                    <table className="min-w-full divide-y divide-gray-200">
+                <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-x-auto">
+                    <table className="min-w-[900px] w-full divide-y divide-gray-200"> 
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Asset</th>
