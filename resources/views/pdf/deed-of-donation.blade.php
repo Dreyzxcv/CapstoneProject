@@ -4,9 +4,15 @@
     <meta charset="utf-8">
     <title>Deed of Donation</title>
     <style>
+        /* Top/bottom margins are enlarged to reserve room for the fixed
+           header and footer below — DomPDF only repeats position:fixed
+           elements on every page, so the letterhead and footer are pulled
+           out of normal flow and placed inside these reserved margins
+           (see .page-header / .footer, which use negative offsets to sit
+           inside the margin area instead of the content area). */
         @page {
             size: legal;
-            margin: 0.6in 0.7in;
+            margin: 1.6in 0.7in 0.95in 0.7in;
         }
 
         body {
@@ -16,7 +22,15 @@
             line-height: 1.35;
         }
 
-        /* ---------- Letterhead ---------- */
+        /* ---------- Letterhead (repeats on every page) ---------- */
+        .page-header {
+            position: fixed;
+            margin-top: 10px;
+            left: 0;
+            right: 0;
+            height: 1.6in;
+        }
+
         .header-table {
             width: 100%;
             border-collapse: collapse;
@@ -180,9 +194,14 @@
             margin: 14pt 0 0;
         }
 
-        /* ---------- Footer ---------- */
+        /* ---------- Footer (repeats on every page) ---------- */
         .footer {
-            margin-top: 34pt;
+            position: fixed;
+            bottom: -0.95in;
+            left: 0;
+            right: 0;
+            height: 0.95in;
+            margin-top: 0;
             text-align: center;
             font-size: 9pt;
             font-style: italic;
@@ -234,21 +253,28 @@
         : '—';
 @endphp
 
-<table class="header-table">
-    <tr>
-        <td class="header-logo-left">
-            <img src="{{ $denrLogo }}">
-        </td>
-        <td style="width:70%;">
-            <div class="header-title">DEPARTMENT OF ENVIRONMENT AND NATURAL RESOURCES</div>
-            <div class="header-subtitle">KAGAWARAN NG KAPALIGIRAN AT LIKAS NA YAMAN</div>
-        </td>
-        <td class="header-logo-right">
-            <img src="{{ $bagongPilipinasLogo }}">
-        </td>
-    </tr>
-</table>
-<hr class="header-rule">
+<div class="page-header">
+    <table class="header-table">
+        <tr>
+            <td class="header-logo-left">
+                <img src="{{ $denrLogo }}">
+            </td>
+            <td style="width:70%;">
+                <div class="header-title">DEPARTMENT OF ENVIRONMENT AND NATURAL RESOURCES</div>
+                <div class="header-subtitle">KAGAWARAN NG KAPALIGIRAN AT LIKAS NA YAMAN</div>
+            </td>
+            <td class="header-logo-right">
+                <img src="{{ $bagongPilipinasLogo }}">
+            </td>
+        </tr>
+    </table>
+    <hr class="header-rule">
+</div>
+
+<div class="footer">
+    San Isidro Village, Virac, Catanduanes, Philippines<br>
+    eMail: penrocatanduanes@denr.gov.ph | Tel. no. (052) 740 5735 | VOIP: 2841
+</div>
 
 <h1 class="deed-title">DEED OF DONATION</h1>
 
@@ -376,11 +402,6 @@
         </td>
     </tr>
 </table>
-
-<div class="footer">
-    San Isidro Village, Virac, Catanduanes, Philippines<br>
-    eMail: penrocatanduanes@denr.gov.ph | Tel. no. (052) 740 5735 | VOIP: 2841
-</div>
 
 </body>
 </html>
