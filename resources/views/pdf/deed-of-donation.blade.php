@@ -84,6 +84,31 @@
             margin: 0 0 10pt;
         }
 
+        /* ---------- Donated asset table ---------- */
+        p.asset-table-caption {
+            font-weight: bold;
+            text-align: center;
+            margin: 4pt 0 6pt;
+        }
+
+        table.asset-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0 0 14pt;
+        }
+
+        table.asset-table th,
+        table.asset-table td {
+            border: 1pt solid #000;
+            padding: 5pt 8pt;
+            text-align: center;
+        }
+
+        table.asset-table thead th {
+            background-color: #e5e5e5;
+            font-weight: bold;
+        }
+
         /* ---------- Signature blocks ----------
            Each visual "row" (office heading / BY: / signature line) is its
            own <tr>, not stacked inside one <td>. HTML tables automatically
@@ -199,6 +224,14 @@
 
     $volumeBdFt = $disposal->volume_bd_ft ?? $asset->volume_bd_ft;
     $executionDate = $disposal->processed_at ?? now();
+
+    // Dimensions rendered as L x W x H, omitting the row's own units since
+    // the Asset model doesn't carry a dimension-unit field. Falls back to
+    // an em-dash when none of the three are recorded.
+    $hasDimensions = $asset->length || $asset->width || $asset->height;
+    $dimensionsText = $hasDimensions
+        ? number_format((float) $asset->length, 2) . ' x ' . number_format((float) $asset->width, 2) . ' x ' . number_format((float) $asset->height, 2)
+        : '—';
 @endphp
 
 <table class="header-table">
@@ -252,6 +285,23 @@
     The DONOR hereby donates the said forest products to {{ $doneeOfficeName !== 'DONEE OFFICE' ? 'be used by ' . $doneeOfficeName : 'be used by the DONEE' }}.
     The DONEE hereby accepts the donation and expresses its appreciation for the liberality of the DONOR.
 </p>
+
+<table class="asset-table">
+    <thead>
+        <tr>
+            <th>AAP No.</th>
+            <th>Dimensions</th>
+            <th>Volume (bd. ft)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>{{ $asset->aap_number ?: '—' }}</td>
+            <td>{{ $dimensionsText }}</td>
+            <td>{{ $volumeBdFt ? number_format((float) $volumeBdFt, 2) : '—' }}</td>
+        </tr>
+    </tbody>
+</table>
 
 <p class="body-text">
     That the DONEE shall submit a detailed report of the use of the donated lumber on the accomplished
