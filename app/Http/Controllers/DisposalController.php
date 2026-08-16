@@ -250,7 +250,6 @@ class DisposalController extends Controller
             return response()->json(['message' => 'Could not read a valid QR code.'], 422);
         }
 
-        // Prefer per-piece lookup but fall back to legacy asset token.
         $assetPiece = \App\Models\AssetPiece::where('qr_code_token', $token)->first();
 
         if ($assetPiece) {
@@ -273,8 +272,17 @@ class DisposalController extends Controller
             return response()->json(['message' => "{$asset->asset_code} is not marked for disposal."], 422);
         }
 
-        // If the QR refers to a specific piece, only expose that single piece
-        // as available to donate; otherwise expose the asset's remaining amount.
+        // This is the actual fix: reject the specific scanned piece if it was
+        // already disposed, BEFORE falling back to the asset-level remaining
+        // count. Previously this check didn't exist, so a piece that was
+        // already donated still looked "available" as long as other pieces
+        // of the same AAP were undisposed.
+        if ($assetPiece && $assetPiece->isDisposed()) {
+            return response()->json([
+                'message' => "Piece {$pieceNumber} of {$asset->asset_code} has already been disposed.",
+            ], 422);
+        }
+
         if ($assetPiece) {
             $remaining = 1;
         } else {
@@ -293,6 +301,7 @@ class DisposalController extends Controller
             'quantity' => $asset->quantity,
             'remaining_quantity' => $remaining,
             'piece_number' => $pieceNumber,
+            'piece_id' => $assetPiece?->id,
         ]);
     }
 

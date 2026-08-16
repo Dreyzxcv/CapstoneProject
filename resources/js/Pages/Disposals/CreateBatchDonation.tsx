@@ -37,6 +37,7 @@ interface DonationLine {
     asset_id: string;
     quantity: string;
     piece_numbers?: number[];
+    piece_ids?: number[];
 }
 
 const selectClass =
@@ -99,18 +100,18 @@ export default function CreateBatchDonation({
         return (errors as Record<string, string>)[`lines.${index}.${field}`];
     }
 
-    function updateLine(
-        index: number,
-        field: keyof DonationLine,
-        value: string,
-    ) {
+   function updateLine(index: number, field: keyof DonationLine, value: string) {
         const next = [...data.lines];
         if (field === "asset_id") {
-            next[index] = { ...next[index], [field]: value, piece_numbers: undefined } as DonationLine;
+            next[index] = { ...next[index], [field]: value, piece_ids: undefined, piece_numbers: undefined } as DonationLine;
             const asset = assetsById.get(value);
             if (asset && !next[index].quantity) {
                 next[index].quantity = String(asset.remaining_quantity);
             }
+        } else if (field === "quantity") {
+            // A manual quantity edit breaks the 1:1 mapping to scanned pieces —
+            // fall back to the plain, non-piece-tracked quantity flow.
+            next[index] = { ...next[index], quantity: value, piece_ids: undefined, piece_numbers: undefined };
         } else {
             next[index] = { ...next[index], [field]: value };
         }
@@ -145,24 +146,32 @@ export default function CreateBatchDonation({
         setExtraAssets((prev) => (prev.some((a) => a.id === scanned.id) ? prev : [...prev, scanned]));
 
         setData((prevData) => {
+            const pieceId = scanned.piece_id ?? null;
             const pieceNum = scanned.piece_number ?? null;
             const existingIndex = prevData.lines.findIndex((l) => l.asset_id === String(scanned.id));
 
-            // Same AAP already in the list — bump quantity instead of adding
-            // a duplicate asset_id line (backend requires distinct asset_id).
             if (existingIndex !== -1) {
                 const nextLines = [...prevData.lines];
                 const existing = nextLines[existingIndex];
-                const currentQty = Number(existing.quantity) || 0;
-                const existingPieces = existing.piece_numbers ?? [];
-                const nextPieces = pieceNum !== null && !existingPieces.includes(pieceNum)
-                    ? [...existingPieces, pieceNum]
-                    : existingPieces;
+                const existingIds = existing.piece_ids ?? [];
+
+                if (pieceId !== null && existingIds.includes(pieceId)) {
+                    // Same physical piece scanned twice in this session — ignore.
+                    return prevData;
+                }
+
+                const nextIds = pieceId !== null ? [...existingIds, pieceId] : existingIds;
+                const nextNumbers = pieceNum !== null
+                    ? [...(existing.piece_numbers ?? []), pieceNum]
+                    : existing.piece_numbers;
 
                 nextLines[existingIndex] = {
                     ...existing,
-                    quantity: String(Math.min(currentQty + 1, scanned.quantity)),
-                    piece_numbers: nextPieces,
+                    // Quantity is locked to the number of scanned pieces so it
+                    // can never drift from what was actually verified via QR.
+                    quantity: pieceId !== null ? String(nextIds.length) : existing.quantity,
+                    piece_ids: nextIds,
+                    piece_numbers: nextNumbers,
                 };
 
                 return { ...prevData, lines: nextLines };
@@ -171,7 +180,8 @@ export default function CreateBatchDonation({
             const emptyIndex = prevData.lines.findIndex((l) => !l.asset_id);
             const newLine: DonationLine = {
                 asset_id: String(scanned.id),
-                quantity: "1",
+                quantity: '1',
+                piece_ids: pieceId !== null ? [pieceId] : undefined,
                 piece_numbers: pieceNum !== null ? [pieceNum] : undefined,
             };
 

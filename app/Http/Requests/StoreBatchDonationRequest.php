@@ -52,6 +52,10 @@ class StoreBatchDonationRequest extends FormRequest
             'purpose_statement' => ['required', 'string', 'max:2000'],
             'confiscation_order_reference' => ['nullable', 'string', 'max:255'],
 
+            // FOR DONATION unique identifiers (asset piece IDs)
+            'lines.*.piece_ids' => ['nullable', 'array'],
+            'lines.*.piece_ids.*' => ['integer', 'exists:asset_pieces,id'],
+
             // OIC / donor representative — editable per document; left
             // blank falls back to config/office.php defaults.
             'donor_representative_name' => ['nullable', 'string', 'max:255'],

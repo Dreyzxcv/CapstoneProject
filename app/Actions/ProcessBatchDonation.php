@@ -7,6 +7,7 @@ use App\Enums\AssetStatus;
 use App\Enums\AssetType;
 use App\Enums\DisposalType;
 use App\Models\Asset;
+use App\Models\AssetPiece;
 use App\Models\Disposal;
 use App\Models\Donation;
 use App\Models\User;
@@ -27,9 +28,7 @@ class ProcessBatchDonation
     ) {}
 
     /**
-     * @param array<int, array{asset_id: int, quantity: int}> $lines
-     * @param array $donationDetails Shared donee info: requester_name, organization_type, agency_name,
-     *                                municipality, barangay, street, delivery_coordinates, notes.
+     * @param array<int, array{asset_id: int, quantity: int, piece_ids?: array<int>}> $lines
      */
     public function execute(array $lines, array $donationDetails, User $user): Collection
     {
@@ -65,6 +64,32 @@ class ProcessBatchDonation
             if ($quantity < 1 || $quantity > $remaining) {
                 throw new DomainException("Quantity for {$asset->asset_code} must be between 1 and {$remaining} (the remaining, undisposed amount).");
             }
+
+            // Lines built from scanned QR pieces carry piece_ids — each piece
+            // is exactly one unit. Validate the count matches the quantity
+            // and reject any piece that's already disposed. This is what
+            // actually stops a re-scanned, already-donated piece from being
+            // donated again; without it, only the asset-level count was
+            // ever checked, which stays > 0 as long as ANY piece remains.
+            $pieceIds = array_values(array_unique($line['piece_ids'] ?? []));
+
+            if (! empty($pieceIds)) {
+                if (count($pieceIds) !== (int) $quantity) {
+                    throw new DomainException("Selected piece count for {$asset->asset_code} does not match the quantity entered.");
+                }
+
+                $pieces = AssetPiece::whereIn('id', $pieceIds)
+                    ->where('asset_id', $asset->id)
+                    ->get();
+
+                if ($pieces->count() !== count($pieceIds)) {
+                    throw new DomainException("One or more scanned pieces do not belong to {$asset->asset_code}.");
+                }
+
+                if ($pieces->contains(fn (AssetPiece $piece) => $piece->disposed_at !== null)) {
+                    throw new DomainException("One or more scanned pieces of {$asset->asset_code} have already been disposed.");
+                }
+            }
         }
 
         return DB::transaction(function () use ($lines, $assets, $donationDetails, $user) {
@@ -75,11 +100,8 @@ class ProcessBatchDonation
                 $asset = $assets->get($line['asset_id'])->fresh();
                 $remaining = $asset->remainingQuantity();
                 $quantity = $line['quantity'] ?? $remaining;
+                $pieceIds = array_values(array_unique($line['piece_ids'] ?? []));
 
-                // Partial donations no longer split off a new Asset record —
-                // the undisposed remainder stays on THIS asset, under the
-                // same AAP code, and it remains "for_disposal" until fully
-                // disposed. quantity/volume_bd_ft stay untouched here.
                 $volumeForThisDisposal = null;
                 if ($asset->volume_bd_ft !== null && $remaining > 0) {
                     $remainingVolume = (float) $asset->remainingVolumeBdFt();
@@ -96,6 +118,15 @@ class ProcessBatchDonation
                     'processed_by' => $user->id,
                     'processed_at' => now(),
                 ]);
+
+                if (! empty($pieceIds)) {
+                    AssetPiece::whereIn('id', $pieceIds)
+                        ->where('asset_id', $asset->id)
+                        ->update([
+                            'disposal_id' => $disposal->id,
+                            'disposed_at' => now(),
+                        ]);
+                }
 
                 $asset->increment('disposed_quantity', $quantity);
                 if ($volumeForThisDisposal !== null) {
@@ -125,7 +156,7 @@ class ProcessBatchDonation
                 ]);
 
                 $this->pdfDocumentService->generateDeedOfDonation($asset, $disposal, $donation);
-                
+
                 if ($asset->isFullyDisposed()) {
                     $this->lifecycleService->transition(
                         $asset,

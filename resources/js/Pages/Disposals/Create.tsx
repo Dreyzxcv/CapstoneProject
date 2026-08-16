@@ -37,6 +37,7 @@ interface DonationLine {
     asset_id: string;
     quantity: string;
     piece_number?: number | null;
+    piece_ids?: number[];
 }
 
 const selectClass = 'mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm';
@@ -93,11 +94,17 @@ export default function DisposalsCreate({
             const alreadyIndex = prevData.lines.findIndex((l) => l.asset_id === String(scanned.id));
             if (alreadyIndex !== -1) return prevData;
 
+            const isPieceScan = scanned.piece_id != null;
             const emptyIndex = prevData.lines.findIndex((l) => !l.asset_id);
             const newLine: DonationLine = {
                 asset_id: String(scanned.id),
-                quantity: String(scanned.remaining_quantity),
-                piece_number: (scanned as any).piece_number ?? null,
+                // A piece scan represents exactly ONE unit — not the asset's
+                // overall remaining count. Using remaining_quantity here was
+                // part of the same bug: it let a single scanned piece silently
+                // claim quantity that belonged to other, still-undisposed pieces.
+                quantity: isPieceScan ? '1' : String(scanned.remaining_quantity),
+                piece_number: scanned.piece_number ?? null,
+                piece_ids: isPieceScan ? [scanned.piece_id as number] : undefined,
             };
 
             const nextLines = [...prevData.lines];
@@ -160,13 +167,14 @@ export default function DisposalsCreate({
 
     function updateLine(index: number, field: keyof DonationLine, value: string) {
         const next = [...data.lines];
-        // Clear piece_number when user picks a different asset manually.
         if (field === 'asset_id') {
-            next[index] = { ...next[index], [field]: value, piece_number: undefined } as DonationLine;
+            next[index] = { ...next[index], [field]: value, piece_number: undefined, piece_ids: undefined } as DonationLine;
             const selected = assetsById.get(value);
             if (selected && !next[index].quantity) {
                 next[index].quantity = String(selected.remaining_quantity);
             }
+        } else if (field === 'quantity') {
+            next[index] = { ...next[index], quantity: value, piece_number: undefined, piece_ids: undefined };
         } else {
             next[index] = { ...next[index], [field]: value };
         }
