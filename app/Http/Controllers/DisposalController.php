@@ -214,7 +214,7 @@ class DisposalController extends Controller
             $request->user(),
         );
 
-        return redirect()->route('disposals.index')
+        return redirect()->route('reports.donations')
             ->with('success', "Donation recorded across {$disposals->count()} asset(s).");
     }
 

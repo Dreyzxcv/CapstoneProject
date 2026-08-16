@@ -52,6 +52,11 @@ interface ReportsIndexProps {
         changed_by?: { name: string };
     }>;
     incidentLocations: IncidentLocation[];
+    can: {
+        export: boolean;
+        viewAudit: boolean;
+        viewDonations: boolean;
+    };
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -131,6 +136,7 @@ export default function ReportsIndex({
     statusLabels,
     recentActivity,
     incidentLocations,
+    can,
 }: ReportsIndexProps) {
     usePoll(10000, { only: ['summary', 'byType', 'byMunicipality', 'trends', 'recentActivity'] });
 
@@ -259,9 +265,16 @@ export default function ReportsIndex({
             header={
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <h2 className="text-xl font-semibold text-gray-800">Reports & Trends</h2>
-                    <Button variant="outline" onClick={() => setShowAttributeTable(true)}>
-                        Attribute Table
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                        {can.viewDonations && (
+                            <Link href={route('reports.donations')}>
+                                <Button variant="outline">Donations</Button>
+                            </Link>
+                        )}
+                        <Button variant="outline" onClick={() => setShowAttributeTable(true)}>
+                            Attribute Table
+                        </Button>
+                    </div>
                 </div>
             }
         >
@@ -542,6 +555,11 @@ export default function ReportsIndex({
                         <Link href={route('audit-logs.index')}>
                             <Button variant="secondary">View Audit Logs</Button>
                         </Link>
+                        {can.viewDonations && (
+                            <Link href={route('reports.donations')}>
+                                <Button variant="secondary">View Donations</Button>
+                            </Link>
+                        )}
                     </CardContent>
                 </Card>
             </div>

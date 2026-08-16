@@ -114,6 +114,7 @@ class ReportController extends Controller
             'can' => [
                 'export' => $request->user()?->can('reports.export') ?? false,
                 'viewAudit' => $request->user()?->can('viewAny', AuditLog::class) ?? false,
+                'viewDonations' => $request->user()?->can('viewAny', \App\Models\Disposal::class) ?? false,
             ],
         ]);
     }
@@ -241,6 +242,52 @@ class ReportController extends Controller
 
         return Inertia::render('Reports/AuditLogs', [
             'logs' => $logs,
+        ]);
+    }
+
+    public function donations(Request $request): Response
+    {
+        $this->authorize('viewAny', \App\Models\Disposal::class);
+
+        $status = $request->input('status', 'all');
+        if (! in_array($status, ['all', 'awaiting_jev_out', 'awaiting_upload', 'awaiting_release', 'released'], true)) {
+            $status = 'all';
+        }
+
+        $search = trim((string) $request->input('search', ''));
+
+        $query = \App\Models\Donation::query()
+            ->with([
+                'disposal:id,asset_id,disposal_type,quantity,volume_bd_ft,details,processed_at,processed_by',
+                'disposal.asset:id,asset_code,species,type,description',
+                'disposal.disposalJev',
+                'disposal.processedBy:id,name',
+            ])
+            ->whereHas('disposal', fn ($q) => $q->where('disposal_type', 'donation'));
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('requester_name', 'like', "%{$search}%")
+                    ->orWhere('agency_name', 'like', "%{$search}%")
+                    ->orWhereHas('disposal.asset', fn ($a) => $a->where('asset_code', 'like', "%{$search}%"));
+            });
+        }
+
+        match ($status) {
+            'awaiting_jev_out' => $query->whereHas('disposal', fn ($d) => $d->whereDoesntHave('disposalJev')),
+            'awaiting_upload' => $query->whereHas('disposal.disposalJev', fn ($j) => $j->whereNull('uploaded_at')),
+            'awaiting_release' => $query
+                ->whereHas('disposal.disposalJev', fn ($j) => $j->whereNotNull('uploaded_at'))
+                ->whereNull('released_at'),
+            'released' => $query->whereNotNull('released_at'),
+            default => null,
+        };
+
+        $donations = $query->latest('id')->paginate(20)->withQueryString();
+
+        return Inertia::render('Reports/Donations', [
+            'donations' => $donations,
+            'filters' => ['status' => $status, 'search' => $search],
         ]);
     }
 
