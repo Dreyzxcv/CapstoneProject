@@ -233,7 +233,7 @@ export default function AttributeTable({ assets, columns, filters }: AttributeTa
                     <div>
                         <h2 className="text-xl font-semibold text-gray-800">Attribute Table</h2>
                         <p className="text-sm text-gray-500">
-                            Raw asset records — filter with Select by Attribute, like a GIS attribute table.
+                            Raw asset records
                         </p>
                     </div>
                     <Link href={route('reports.index')}>
@@ -361,14 +361,14 @@ export default function AttributeTable({ assets, columns, filters }: AttributeTa
                             Showing {assets.from ?? 0}–{assets.to ?? 0} of {assets.total} record{assets.total === 1 ? '' : 's'}
                         </span>
                     </div>
-                    <div className="overflow-x-auto">
+                    <div className="max-h-[65vh] overflow-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     {columns.map((col) => (
                                         <TableHead
                                             key={col.key}
-                                            className="cursor-pointer select-none whitespace-nowrap"
+                                            className="sticky top-0 z-10 cursor-pointer select-none whitespace-nowrap bg-gray-50 shadow-[0_1px_0_0_theme(colors.gray.200)]"
                                             onClick={() => toggleSort(col.key)}
                                         >
                                             <span className="flex items-center gap-1">
