@@ -5,7 +5,7 @@ import NotificationBell from '@/Components/shared/NotificationBell';
 import { Link, usePage, usePoll } from '@inertiajs/react';
 import { PropsWithChildren, ReactNode, useEffect, useState } from 'react';
 import { PageProps } from '@/types';
-import { LayoutDashboard, Package, QrCode, Trash2, FileBarChart2, History, Users, ChevronDown, LogOut, Menu, X, ClipboardPlus, PanelLeftClose, PanelLeftOpen, User } from 'lucide-react';
+import { LayoutDashboard, Package, QrCode, Trash2, FileBarChart2, History, ChevronDown, LogOut, Menu, X, ClipboardPlus, PanelLeftClose, PanelLeftOpen, User, Settings, Info } from 'lucide-react';
 
 function hasPermission(permissions: string[], permission: string): boolean {
     return permissions.includes(permission);
@@ -131,18 +131,14 @@ export default function Authenticated({
             label: 'Administration',
             items: [
                 {
-                    href: route('users.index'),
-                    label: 'Users',
-                    active: route().current('users.*'),
-                    show: hasPermission(permissions, 'users.manage'),
-                    icon: <Users className={iconClass} />,
-                },
-                {
-                    href: route('market-prices.index'),
-                    label: 'Market Prices',
-                    active: route().current('market-prices.*'),
-                    show: hasPermission(permissions, 'market_prices.manage'),
-                    icon: <PesoIcon className={iconClass} />,
+                    href: route('settings.index'),
+                    label: 'Settings',
+                    active:
+                        route().current('settings.*') ||
+                        route().current('users.*') ||
+                        route().current('market-prices.*'),
+                    show: hasPermission(permissions, 'users.manage') || hasPermission(permissions, 'market_prices.manage'),
+                    icon: <Settings className={iconClass} />,
                 },
             ],
         },
@@ -326,6 +322,13 @@ export default function Authenticated({
                                         <User className="h-4 w-4 text-gray-400" />
                                         Profile
                                     </Dropdown.Link>
+                                    <Dropdown.Link
+                                        href={route('about')}
+                                        className="flex items-center gap-3"
+                                    >
+                                        <Info className="h-4 w-4 text-gray-400" />
+                                        About
+                                    </Dropdown.Link>
                                 </div>
 
                                 <div className="border-t border-gray-100 py-1">
@@ -356,6 +359,13 @@ export default function Authenticated({
                             >
                                 <User className="h-4 w-4 text-gray-400" />
                                 Profile
+                            </Link>
+                            <Link
+                                href={route('about')}
+                                className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                                <Info className="h-4 w-4 text-gray-400" />
+                                About
                             </Link>
                         </div>
 
