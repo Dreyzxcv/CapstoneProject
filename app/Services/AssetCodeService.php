@@ -11,7 +11,11 @@ class AssetCodeService
     public function generate(Asset $asset, Municipality $municipality, bool $hasOngoingCase): string
     {
         $year = $asset->incident?->date_report_submitted?->format('Y') ?? now()->format('Y');
-        $sequence = str_pad((string) $asset->id, 5, '0', STR_PAD_LEFT);
+
+        // Every asset under the same incident gets the SAME AAP No. now.
+        $sequence = $asset->incident_id
+            ? str_pad((string) $asset->incident_id, 5, '0', STR_PAD_LEFT)
+            : str_pad((string) $asset->id, 5, '0', STR_PAD_LEFT);
 
         $prefix = match ($asset->mode) {
             AssetMode::Apprehended => 'AP',

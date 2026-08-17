@@ -27,8 +27,7 @@ class AssetController extends Controller
     {
         $this->authorize('viewAny', Asset::class);
 
-        $assets = Asset::query()
-            ->with(['creator', 'acknowledgementReceipt'])
+        $allAssets = Asset::query()
             ->when($request->status, fn ($q, $status) => $q->where('current_status', $status))
             ->when($request->type, fn ($q, $type) => $q->where('type', $type))
             ->when($request->search, function ($q, $search) {
@@ -39,20 +38,39 @@ class AssetController extends Controller
                 });
             })
             ->latest()
-            ->paginate(15)
-            ->withQueryString();
+            ->get(['id', 'asset_code', 'type', 'municipality_of_origin', 'current_status', 'created_at']);
+
+        $grouped = $allAssets->groupBy('asset_code')->map(function ($group) {
+            $first = $group->first();
+
+            return [
+                'asset_code' => $first->asset_code,
+                'item_count' => $group->count(),
+                'types' => $group->pluck('type')->map(fn ($t) => $t->value)->unique()->values(),
+                'municipality_of_origin' => $first->municipality_of_origin,
+                'status_summary' => $group->groupBy(fn ($a) => $a->current_status->value)
+                    ->map(fn ($g, $status) => ['status' => $status, 'count' => $g->count()])
+                    ->values(),
+                'created_at' => $first->created_at,
+            ];
+        })->sortByDesc('created_at')->values();
+
+        $page = max(1, (int) $request->integer('page', 1));
+        $perPage = 15;
+
+        $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
+            $grouped->forPage($page, $perPage)->values(),
+            $grouped->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
 
         return Inertia::render('Assets/Index', [
-            'assets' => $assets,
+            'assets' => $paginated,
             'filters' => $request->only(['status', 'type', 'search']),
-            'statuses' => collect(AssetStatus::cases())->map(fn ($s) => [
-                'value' => $s->value,
-                'label' => $s->label(),
-            ]),
-            'types' => collect(AssetType::cases())->map(fn ($t) => [
-                'value' => $t->value,
-                'label' => $t->label(),
-            ]),
+            'statuses' => collect(AssetStatus::cases())->map(fn ($s) => ['value' => $s->value, 'label' => $s->label()]),
+            'types' => collect(AssetType::cases())->map(fn ($t) => ['value' => $t->value, 'label' => $t->label()]),
         ]);
     }
 
@@ -111,6 +129,11 @@ class AssetController extends Controller
             'documents.verifiedBy',
         ]);
 
+        $relatedAssets = Asset::where('asset_code', $asset->asset_code)
+            ->where('id', '!=', $asset->id)
+            ->with(['acknowledgementReceipt', 'statusHistory'])
+            ->get();
+
         $qrPayload = null;
         $qrSvg = null;
 
@@ -143,6 +166,21 @@ class AssetController extends Controller
                 'uploadJevOut' => $request->user()?->can('jev.upload') ?? false,
             ],
         ]);
+    }
+
+    public function byCode(Request $request, string $assetCode)
+    {
+        $items = Asset::where('asset_code', $assetCode)
+            ->with(['acknowledgementReceipt', 'creator', 'jev', 'disposals.donation'])
+            ->get();
+
+        abort_if($items->isEmpty(), 404);
+
+        foreach ($items as $item) {
+            $this->authorize('view', $item);
+        }
+
+        return response()->json(['items' => $items]);
     }
 
     public function updateAapNumber(UpdateAapNumberRequest $request, Asset $asset, \App\Services\AuditLogService $auditLog): RedirectResponse

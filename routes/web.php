@@ -37,6 +37,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::get('/assets/{asset}/disposals/create', [DisposalController::class, 'create'])->name('disposals.create');
     Route::post('/assets/{asset}/disposals', [DisposalController::class, 'store'])->name('disposals.store');
     Route::post('/assets/{asset}/aap-number', [AssetController::class, 'updateAapNumber'])->name('assets.aap-number.update');
+    Route::get('/assets/by-code/{assetCode}', [AssetController::class, 'byCode'])->name('assets.by-code');
     Route::get('/assets/{asset}/stickers.pdf', [AssetController::class, 'printStickers'])->name('assets.stickers.pdf');
     Route::post('/assets/{asset}/resolve-trial', [AssetController::class, 'resolveTrial'])->name('assets.resolve-trial');
     Route::post('/assets/{asset}/case-details', [AssetController::class, 'updateCaseDetails'])->name('assets.case-details.update');

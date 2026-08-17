@@ -7,15 +7,28 @@ import { Asset, PageProps } from '@/types';
 import { Head, Link, router, usePage, usePoll } from '@inertiajs/react';
 import { useEffect, useRef, useState, FormEvent } from 'react';
 import { Filter, Package, Plus, Search, Columns3, Check } from 'lucide-react';
+import axios from 'axios';
+import Modal from '@/Components/Modal';
+
+interface StatusSummaryEntry { status: string; count: number }
 
 interface AssetsIndexProps {
     assets: {
-        data: Asset[];
+        data: GroupedAssetRow[];
         links: Array<{ url: string | null; label: string; active: boolean }>;
     };
     filters: { status?: string; type?: string; search?: string };
     statuses: Array<{ value: string; label: string }>;
     types: Array<{ value: string; label: string }>;
+}
+
+interface GroupedAssetRow {
+    asset_code: string;
+    item_count: number;
+    types: string[];
+    municipality_of_origin: string;
+    status_summary: StatusSummaryEntry[];
+    created_at: string;
 }
 
 const selectClass =
@@ -54,6 +67,9 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
     const { auth } = usePage<PageProps>().props;
     const canCreate = auth.user?.permissions.includes('assets.create');
 
+    const [viewingCode, setViewingCode] = useState<string | null>(null);
+    const [modalItems, setModalItems] = useState<Asset[] | null>(null);
+    const [loadingModal, setLoadingModal] = useState(false);
     const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>(loadVisibleColumns);
     const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
     const columnsMenuRef = useRef<HTMLDivElement | null>(null);
@@ -94,6 +110,23 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
     }
 
     const hasActiveFilters = Boolean(filters.search || filters.type || filters.status);
+
+    async function openViewModal(assetCode: string) {
+        setViewingCode(assetCode);
+        setLoadingModal(true);
+        setModalItems(null);
+        try {
+            const { data } = await axios.get(route('assets.by-code', assetCode));
+            setModalItems(data.items);
+        } finally {
+            setLoadingModal(false);
+        }
+    }
+
+    function closeViewModal() {
+        setViewingCode(null);
+        setModalItems(null);
+    }
 
     return (
         <AuthenticatedLayout
@@ -219,45 +252,53 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                         <>
                             {/* Mobile: stacked cards */}
                             <div className="divide-y divide-gray-100 sm:hidden">
-                                {assets.data.map((asset) => {
+                                {assets.data.map((row) => {
                                     const subline = [
-                                        visibleColumns.type ? asset.type : null,
-                                        visibleColumns.municipality ? asset.municipality_of_origin : null,
-                                    ].filter(Boolean).join(' \u00b7 ');
+                                        visibleColumns.type ? row.types.join(', ') : null,
+                                        visibleColumns.municipality
+                                            ? row.municipality_of_origin
+                                            : null,
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' · ');
 
                                     return (
-                                        <Link
-                                            key={asset.id}
-                                            href={route('assets.show', asset.id)}
-                                            className={
-                                                'flex items-center justify-between gap-3 px-4 py-4 active:bg-gray-50 ' +
-                                                (unreadAssetIds.has(asset.id) ? 'bg-amber-50 ring-2 ring-inset ring-amber-400' : '')
-                                            }
+                                        <button
+                                            key={row.asset_code}
+                                            type="button"
+                                            onClick={() => openViewModal(row.asset_code)}
+                                            className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left active:bg-gray-50"
                                         >
                                             <div className="min-w-0">
                                                 {visibleColumns.asset_code && (
-                                                    <p className="flex items-center gap-2 truncate font-medium text-gray-900">
-                                                        {asset.asset_code}
-                                                        {unreadAssetIds.has(asset.id) && (
-                                                            <span className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
-                                                                New
-                                                            </span>
-                                                        )}
+                                                    <p className="truncate font-medium text-gray-900">
+                                                        {row.asset_code}
                                                     </p>
                                                 )}
+
                                                 {subline && (
-                                                    <p className="mt-0.5 text-sm capitalize text-gray-500">{subline}</p>
+                                                    <p className="mt-0.5 text-sm capitalize text-gray-500">
+                                                        {subline}
+                                                    </p>
                                                 )}
+
+                                                <p className="mt-1 text-xs text-gray-400">
+                                                    {row.item_count} item(s)
+                                                </p>
                                             </div>
+
                                             {visibleColumns.status && (
-                                                <AssetStatusBadge
-                                                    status={asset.current_status}
-                                                    label={asset.current_status.replace(/_/g, ' ')}
-                                                    disposedQuantity={asset.disposed_quantity}
-                                                    quantity={asset.quantity}
-                                                />
+                                                <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                                                    {row.status_summary.map((s) => (
+                                                        <AssetStatusBadge
+                                                            key={s.status}
+                                                            status={s.status}
+                                                            label={`${s.status.replace(/_/g, ' ')} (${s.count})`}
+                                                        />
+                                                    ))}
+                                                </div>
                                             )}
-                                        </Link>
+                                        </button>
                                     );
                                 })}
                             </div>
@@ -268,61 +309,61 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                     <thead className="bg-gray-50">
                                         <tr>
                                             {visibleColumns.asset_code && (
-                                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">AAP No.</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                                                    AAP No.
+                                                </th>
                                             )}
+
                                             {visibleColumns.type && (
-                                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Type</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                                                    Type
+                                                </th>
                                             )}
+
                                             {visibleColumns.municipality && (
-                                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Municipality</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                                                    Municipality
+                                                </th>
                                             )}
+
                                             {visibleColumns.status && (
-                                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                                                    Status
+                                                </th>
                                             )}
-                                            <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+
+                                            <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
+                                                Actions
+                                            </th>
                                         </tr>
                                     </thead>
+
                                     <tbody className="divide-y divide-gray-200">
-                                        {assets.data.map((asset) => (
-                                            <tr
-                                                key={asset.id}
-                                                className={
-                                                    'hover:bg-gray-50 ' +
-                                                    (unreadAssetIds.has(asset.id) ? 'bg-amber-50/70' : '')
-                                                }
-                                            >
-                                                {visibleColumns.asset_code && (
-                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                                                        <span className="flex items-center gap-2">
-                                                            {asset.asset_code}
-                                                            {unreadAssetIds.has(asset.id) && (
-                                                                <span className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
-                                                                    New
-                                                                </span>
-                                                            )}
-                                                        </span>
-                                                    </td>
-                                                )}
-                                                {visibleColumns.type && (
-                                                    <td className="px-4 py-3 text-sm capitalize text-gray-600">{asset.type}</td>
-                                                )}
-                                                {visibleColumns.municipality && (
-                                                    <td className="px-4 py-3 text-sm text-gray-600">{asset.municipality_of_origin}</td>
-                                                )}
-                                                {visibleColumns.status && (
-                                                    <td className="px-4 py-3 text-sm">
-                                                        <AssetStatusBadge
-                                                            status={asset.current_status}
-                                                            label={asset.current_status.replace(/_/g, ' ')}
-                                                            disposedQuantity={asset.disposed_quantity}
-                                                            quantity={asset.quantity}
-                                                        />
-                                                    </td>
-                                                )}
+                                        {assets.data.map((row) => (
+                                            <tr key={row.asset_code} className="hover:bg-gray-50">
+                                                <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.asset_code}</td>
+                                                <td className="px-4 py-3 text-sm capitalize text-gray-600">{row.types.join(', ')}</td>
+                                                <td className="px-4 py-3 text-sm text-gray-600">{row.municipality_of_origin}</td>
+                                                <td className="px-4 py-3 text-sm">
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {row.status_summary.map((s) => (
+                                                            <AssetStatusBadge
+                                                                key={s.status}
+                                                                status={s.status}
+                                                                label={`${s.status.replace(/_/g, ' ')} (${s.count})`}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                    <p className="mt-1 text-xs text-gray-400">{row.item_count} item{row.item_count === 1 ? '' : 's'}</p>
+                                                </td>
                                                 <td className="px-4 py-3 text-right">
-                                                    <Link href={route('assets.show', asset.id)} className="text-sm font-medium text-emerald-700 hover:underline">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openViewModal(row.asset_code)}
+                                                        className="text-sm font-medium text-emerald-700 hover:underline"
+                                                    >
                                                         View
-                                                    </Link>
+                                                    </button>
                                                 </td>
                                             </tr>
                                         ))}
@@ -354,6 +395,49 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                     )}
                 </Card>
             </div>
+            <Modal show={viewingCode !== null} onClose={closeViewModal} maxWidth="4xl">
+                <div className="max-h-[85vh] overflow-y-auto p-6">
+                    <h2 className="text-lg font-medium text-gray-900">{viewingCode}</h2>
+                    <p className="mt-1 text-sm text-gray-600">All items recorded under this AAP No.</p>
+
+                    {loadingModal ? (
+                        <p className="mt-6 text-sm text-gray-500">Loading…</p>
+                    ) : (
+                        <div className="mt-6 space-y-4">
+                            {modalItems?.map((item) => (
+                                <div key={item.id} className="rounded-lg border border-gray-200 p-4">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-sm font-semibold capitalize text-gray-800">
+                                            {item.type}{item.species ? ` — ${item.species}` : ''}
+                                        </p>
+                                        <AssetStatusBadge
+                                            status={item.current_status}
+                                            label={item.current_status.replace(/_/g, ' ')}
+                                            disposedQuantity={item.disposed_quantity}
+                                            quantity={item.quantity}
+                                        />
+                                    </div>
+                                    <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+                                        <div><dt className="text-gray-500">Quantity</dt><dd>{item.quantity} {item.quantity_unit}</dd></div>
+                                        <div><dt className="text-gray-500">Municipality</dt><dd>{item.municipality_of_origin}</dd></div>
+                                        <div className="sm:col-span-2"><dt className="text-gray-500">Description</dt><dd>{item.description ?? '—'}</dd></div>
+                                    </dl>
+                                    <Link
+                                        href={route('assets.show', item.id)}
+                                        className="mt-3 inline-block text-xs font-medium text-emerald-700 hover:underline"
+                                    >
+                                        Open full record →
+                                    </Link>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="mt-6 flex justify-end border-t border-gray-100 pt-4">
+                        <Button type="button" variant="outline" onClick={closeViewModal}>Close</Button>
+                    </div>
+                </div>
+            </Modal>
         </AuthenticatedLayout>
     );
 }
