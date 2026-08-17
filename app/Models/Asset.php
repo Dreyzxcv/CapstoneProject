@@ -19,6 +19,7 @@ class Asset extends Model
     protected $fillable = [
         'incident_id',
         'asset_code',
+        'item_number',
         'aap_number',
         'type',
         'species',
@@ -54,6 +55,7 @@ class Asset extends Model
             'appeal_deadline' => 'datetime',
             'metadata' => 'array',
             'quantity' => 'integer',
+            'item_number' => 'integer',
             'length' => 'decimal:2', 
             'width' => 'decimal:2',
             'height' => 'decimal:2',

@@ -27,9 +27,14 @@ class CreateAsset
         protected AssetCodeService $assetCodeService,
     ) {}
 
-    public function execute(array $data, User $user, bool $issueReceipt = true): Asset
-    {
-        return DB::transaction(function () use ($data, $user, $issueReceipt) {
+    public function execute(
+        array $data,
+        User $user,
+        bool $issueReceipt = true,
+        ?string $presetAssetCode = null,
+        int $itemNumber = 1,
+    ): Asset {
+        return DB::transaction(function () use ($data, $user, $issueReceipt, $presetAssetCode, $itemNumber) {
             $mode = AssetMode::from($data['mode']);
             $hasClaimant = $data['has_claimant'] ?? true;
             $hasConfiscationOrder = ($mode === AssetMode::Apprehended && ! $hasClaimant)
@@ -55,7 +60,11 @@ class CreateAsset
 
             $asset = Asset::create([
                 'incident_id' => $data['incident_id'] ?? null,
-                'asset_code' => 'PENDING', // placeholder; replaced below once we have the DB id
+                // Items sharing an incident get their asset_code passed in up
+                // front (all items = same code). Standalone creation (no
+                // incident) still uses the placeholder-then-generate flow below.
+                'asset_code' => $presetAssetCode ?? 'PENDING',
+                'item_number' => $itemNumber,
                 'type' => AssetType::from($data['type']),
                 'species' => $data['species'] ?? null,
                 'description' => $data['description'] ?? null,
@@ -80,9 +89,11 @@ class CreateAsset
                 'created_by' => $user->id,
             ]);
 
-            $asset->update([
-                'asset_code' => $this->assetCodeService->generate($asset, $municipality, $hasOngoingCase),
-            ]);
+            if ($presetAssetCode === null) {
+                $asset->update([
+                    'asset_code' => $this->assetCodeService->generate($asset, $municipality, $hasOngoingCase),
+                ]);
+            }
 
             $this->lifecycleService->transition(
                 $asset->fresh(),

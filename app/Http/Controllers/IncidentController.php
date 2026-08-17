@@ -33,7 +33,7 @@ class IncidentController extends Controller
                 'label' => $m->value,
             ]),
             'barangaysByMunicipality' => config('barangays'),
-            'nextAssetSequence' => (int) \App\Models\Asset::max('id') + 1,
+            'nextAssetSequence' => (int) \App\Models\Incident::count() + 1,
             'marketPrices' => \App\Models\MarketPrice::all(['species', 'year', 'price_per_bd_ft']),
         ]);
     }

@@ -193,7 +193,10 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 className="text-xl font-semibold text-gray-800">Asset Detail</h2>
-                        <p className="text-sm text-gray-500">{asset.asset_code}</p>
+                        <p className="text-sm text-gray-500">
+                            {asset.asset_code}
+                            {asset.incident && <span className="ml-1 text-gray-400">— Item {asset.item_number}</span>}
+                        </p>
                     </div>
                     <AssetStatusBadge
                         status={asset.current_status}

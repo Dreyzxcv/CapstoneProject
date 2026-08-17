@@ -48,10 +48,19 @@ class CreateIncidentWithAssets
                 'created_by' => $user->id,
             ]);
 
-            foreach ($assetsData as $assetData) {
+            foreach ($assetsData as $index => $assetData) {
                 $assetData['incident_id'] = $incident->id;
                 $assetData['has_claimant'] = $incident->has_claimant;
-                $this->createAsset->execute($assetData, $user, issueReceipt: false);
+                // All items recorded under this one incident share the same
+                // asset_code (= the incident_code); item_number distinguishes
+                // the individual rows.
+                $this->createAsset->execute(
+                    $assetData,
+                    $user,
+                    issueReceipt: false,
+                    presetAssetCode: $incident->incident_code,
+                    itemNumber: $index + 1,
+                );
             }
 
             $incident->load('assets');
