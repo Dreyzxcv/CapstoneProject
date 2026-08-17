@@ -268,7 +268,7 @@ export default function AttributeTableModal({ show, onClose }: AttributeTableMod
                         <div>
                             <h2 className="text-lg font-semibold text-gray-900">Attribute Table</h2>
                             <p className="text-sm text-gray-500">
-                                Raw asset records — filter with Select by Attribute, like a GIS attribute table.
+                                Raw asset records
                             </p>
                         </div>
                         <button
@@ -406,15 +406,14 @@ export default function AttributeTableModal({ show, onClose }: AttributeTableMod
                                 </span>
                                 {loading && <Loader2 className="h-4 w-4 animate-spin text-emerald-700" />}
                             </div>
-                            <div className="max-h-[62vh] overflow-auto">
-                                <div className="min-w-max">
-                                    <Table>
+                            <div className="[&_[data-slot=table-container]]:max-h-[62vh] [&_[data-slot=table-container]]:overflow-y-auto">
+                                <Table>
                                         <TableHeader>
                                             <TableRow>
                                                 {columns.map((col) => (
                                                     <TableHead
                                                         key={col.key}
-                                                        className="cursor-pointer select-none whitespace-nowrap"
+                                                        className="sticky top-0 z-10 cursor-pointer select-none whitespace-nowrap bg-gray-50 shadow-[0_1px_0_0_theme(colors.gray.200)]"
                                                         onClick={() => toggleSort(col.key)}
                                                     >
                                                         <span className="flex items-center gap-1">
@@ -487,7 +486,6 @@ export default function AttributeTableModal({ show, onClose }: AttributeTableMod
                             )}
                         </div>
                     </div>
-                </div>
             </Transition>
         </>
     );
