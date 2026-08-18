@@ -22,15 +22,19 @@ class PdfDocumentService
         $this->ensurePdfEnvironment();
     }
 
-    public function generateAcknowledgementReceipt(Asset $asset, AcknowledgementReceipt $receipt): string
+   public function generateAcknowledgementReceipt(Asset $asset, AcknowledgementReceipt $receipt): string
     {
+        $asset->loadMissing('pieces');
+
+        $items = $asset->pieces->isNotEmpty() ? $asset->pieces : collect([$asset]);
+
         $pdf = Pdf::loadView('pdf.acknowledgement-receipt', [
-            'asset' => $asset,
+            'asset'   => $asset,
             'receipt' => $receipt,
+            'items'   => $items,
         ]);
 
         $path = $this->storePdf($pdf->output(), 'receipts', $receipt->receipt_number);
-
         $receipt->update(['pdf_path' => $path]);
 
         return $path;
