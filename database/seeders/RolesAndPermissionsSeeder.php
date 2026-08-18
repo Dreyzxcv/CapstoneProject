@@ -15,6 +15,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
         $permissions = [
             'assets.view',
+            'assets.update',
             'assets.create',
             'assets.sign_receipt',
             'assets.mark_stored',
@@ -43,7 +44,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $rolePermissions = [
             'System Admin' => $permissions,
             'MES Officer' => [
-                'assets.view', 'assets.create', 'assets.update_case', 'assets.scan', 'incidents.create',
+                'assets.view', 'assets.create', 'assets.update', 'assets.update_case', 'assets.scan', 'incidents.create',
                 'jev.upload', 'disposals.view', 'reports.view', 'documents.upload',
             ],
             'Property Custodian' => [
