@@ -32,16 +32,17 @@ class StoreIncidentRequest extends FormRequest
             'initial_custodian_name'  => ['nullable', 'string', 'max:255'],
             'date_report_submitted'   => ['nullable', 'date'],
 
+            // Incident-level legal flags — apply to every item in this incident
+            'has_ongoing_case'        => ['boolean'],
+            'has_confiscation_order'  => ['boolean'],
+
             // Asset-level (container) fields
             'assets'                              => ['required', 'array', 'min:1'],
             'assets.*.type'                       => ['required', Rule::enum(AssetType::class)],
-            'assets.*.description'                => ['nullable', 'string', 'max:2000'],
             'assets.*.apprehending_agency'        => ['required', 'string', 'max:255'],
             'assets.*.municipality_of_origin'     => ['required', Rule::enum(\App\Enums\Municipality::class)],
             'assets.*.location_apprehended'       => ['required', 'string', 'max:255'],
             'assets.*.mode'                       => ['required', Rule::enum(AssetMode::class)],
-            'assets.*.has_ongoing_case'           => ['boolean'],
-            'assets.*.has_confiscation_order'     => ['boolean'],
 
             // Per-piece fields — each item is now encoded piece-by-piece
             'assets.*.pieces'                     => ['required', 'array', 'min:1'],

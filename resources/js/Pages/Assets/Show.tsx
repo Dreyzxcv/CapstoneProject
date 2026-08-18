@@ -44,6 +44,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
     const { auth } = usePage<PageProps>().props;
     const [confirmAction, setConfirmAction] = useState<string | null>(null);
     const [showJevModal, setShowJevModal] = useState(false);
+    const [selectedPiece, setSelectedPiece] = useState<import('@/types').AssetPiece | null>(null);
     const [showRequiredDocsModal, setShowRequiredDocsModal] = useState(false);
     const [viewingDisposal, setViewingDisposal] = useState<Disposal | null>(null);
 
@@ -254,11 +255,70 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                             )}
                             <InputError message={aapForm.errors.aap_number} className="mt-1" />
                         </div>
-                            <p><span className="font-medium">No. of Units:</span> {asset.quantity ?? '—'}</p>
-                            <p><span className="font-medium">Unit:</span> {asset.quantity_unit ?? 'pcs'}</p>
-                            <p><span className="font-medium">Species:</span> {asset.species ?? '—'}</p>
-                            <p><span className="font-medium">Municipality:</span> {asset.municipality_of_origin}</p>
-                            <p className="md:col-span-2"><span className="font-medium">Description:</span> {asset.description ?? '—'}</p>
+                            {/* Pieces breakdown table */}
+                            {asset.pieces && asset.pieces.length > 0 && (
+                                <div className="md:col-span-2 mt-2 border-t border-b border-gray-100 pt-4 pb-4">
+                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                        Pieces ({asset.pieces.length})
+                                    </p>
+                                    <div className="overflow-x-auto rounded-md border border-gray-200">
+                                        <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">#</th>
+                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Species</th>
+                                                    {asset.type === 'log' && (
+                                                        <>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">Dimensions (L×W×H)</th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">Vol. (bd.ft)</th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">Vol. (cu.m)</th>
+                                                        </>
+                                                    )}
+                                                    {asset.type === 'vehicle' && (
+                                                        <th className="px-3 py-2 text-left font-medium text-gray-500">Plate No.</th>
+                                                    )}
+                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Est. Value (₱)</th>
+                                                    <th className="px-3 py-2 text-left font-medium text-gray-500"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100 bg-white">
+                                                {asset.pieces.map((piece) => (
+                                                    <tr key={piece.id} className="hover:bg-gray-50">
+                                                        <td className="px-3 py-2 text-gray-600">{piece.piece_number}</td>
+                                                        <td className="px-3 py-2 text-gray-900">{piece.species ?? '—'}</td>
+                                                        {asset.type === 'log' && (
+                                                            <>
+                                                                <td className="px-3 py-2 text-gray-900">
+                                                                    {piece.length ?? '—'} × {piece.width ?? '—'} × {piece.height ?? '—'}
+                                                                </td>
+                                                                <td className="px-3 py-2 text-gray-900">{piece.volume_bd_ft ?? '—'}</td>
+                                                                <td className="px-3 py-2 text-gray-900">{piece.volume_cu_m ?? '—'}</td>
+                                                            </>
+                                                        )}
+                                                        {asset.type === 'vehicle' && (
+                                                            <td className="px-3 py-2 text-gray-900">{piece.plate_number ?? '—'}</td>
+                                                        )}
+                                                        <td className="px-3 py-2 text-gray-900">
+                                                            {piece.estimated_value != null
+                                                                ? Number(piece.estimated_value).toLocaleString()
+                                                                : '—'}
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSelectedPiece(piece)}
+                                                                className="text-xs font-medium text-emerald-700 hover:underline"
+                                                            >
+                                                                View
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
                             <p><span className="font-medium">Location:</span> {asset.location_apprehended}</p>
                             <p><span className="font-medium">Agency:</span> {asset.apprehending_agency}</p>
                             <p><span className="font-medium">Estimated Value (php):</span> {asset.estimated_value ?? '—'}</p>
@@ -322,6 +382,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                     </p>
                                 </>
                             )}
+
                         </CardContent>
                     </Card>
 
@@ -967,6 +1028,83 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                     </CardContent>
                 </Card>
             </div>
+            {/* Piece detail modal */}
+            <Modal show={selectedPiece !== null} onClose={() => setSelectedPiece(null)} maxWidth="lg">
+                {selectedPiece && (
+                    <div className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold text-gray-900">
+                                Piece {selectedPiece.piece_number} — Detail
+                            </h2>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedPiece(null)}
+                                className="text-gray-400 hover:text-gray-600 text-sm"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                            <div>
+                                <dt className="text-gray-500">Piece #</dt>
+                                <dd className="font-medium text-gray-900">{selectedPiece.piece_number}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-gray-500">Species</dt>
+                                <dd className="font-medium text-gray-900">{selectedPiece.species ?? '—'}</dd>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <dt className="text-gray-500">Description</dt>
+                                <dd className="font-medium text-gray-900">{selectedPiece.description ?? '—'}</dd>
+                            </div>
+                            {asset.type === 'log' && (
+                                <>
+                                    <div>
+                                        <dt className="text-gray-500">Length</dt>
+                                        <dd className="font-medium text-gray-900">{selectedPiece.length ?? '—'}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-gray-500">Width</dt>
+                                        <dd className="font-medium text-gray-900">{selectedPiece.width ?? '—'}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-gray-500">Height</dt>
+                                        <dd className="font-medium text-gray-900">{selectedPiece.height ?? '—'}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-gray-500">Volume (bd.ft)</dt>
+                                        <dd className="font-medium text-gray-900">{selectedPiece.volume_bd_ft ?? '—'}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-gray-500">Volume (cu.m)</dt>
+                                        <dd className="font-medium text-gray-900">{selectedPiece.volume_cu_m ?? '—'}</dd>
+                                    </div>
+                                </>
+                            )}
+                            {asset.type === 'vehicle' && (
+                                <div>
+                                    <dt className="text-gray-500">Plate / Conveyance No.</dt>
+                                    <dd className="font-medium text-gray-900">{selectedPiece.plate_number ?? '—'}</dd>
+                                </div>
+                            )}
+                            <div>
+                                <dt className="text-gray-500">Estimated Value (₱)</dt>
+                                <dd className="font-medium text-gray-900">
+                                    {selectedPiece.estimated_value != null
+                                        ? Number(selectedPiece.estimated_value).toLocaleString()
+                                        : '—'}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-gray-500">Encoded At</dt>
+                                <dd className="font-medium text-gray-900">
+                                    {new Date(selectedPiece.created_at).toLocaleString()}
+                                </dd>
+                            </div>
+                        </dl>
+                    </div>
+                )}
+            </Modal>
         </AuthenticatedLayout>
     );
 }

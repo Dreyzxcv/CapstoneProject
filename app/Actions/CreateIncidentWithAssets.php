@@ -51,6 +51,10 @@ class CreateIncidentWithAssets
                 'created_by'             => $user->id,
             ]);
 
+            // Incident-level legal flags — shared across every asset in this incident
+            $hasOngoingCase       = (bool) ($incidentData['has_ongoing_case'] ?? false);
+            $hasConfiscationOrder = (bool) ($incidentData['has_confiscation_order'] ?? false);
+
             foreach ($assetsData as $index => $assetData) {
                 $pieces = $assetData['pieces'] ?? [];
 
@@ -65,15 +69,38 @@ class CreateIncidentWithAssets
                 $totalCuM   = collect($pieces)->sum(fn($p) => (float) ($p['volume_cu_m'] ?? 0));
                 $totalValue = collect($pieces)->sum(fn($p) => (float) ($p['estimated_value'] ?? 0));
 
-                if ($totalBdFt > 0)  $assetData['volume_bd_ft']    = $totalBdFt;
-                if ($totalCuM > 0)   $assetData['volume_cu_m']     = $totalCuM;
-                if ($totalValue > 0) $assetData['estimated_value']  = $totalValue;
+                if ($totalBdFt > 0)  $assetData['volume_bd_ft']   = $totalBdFt;
+                if ($totalCuM > 0)   $assetData['volume_cu_m']    = $totalCuM;
+                if ($totalValue > 0) $assetData['estimated_value'] = $totalValue;
 
                 // Use the first piece's species as the parent species if the asset
                 // row doesn't have one set (all pieces of the same species is common).
                 if (empty($assetData['species']) && ! empty($pieces[0]['species'])) {
                     $assetData['species'] = $pieces[0]['species'];
                 }
+
+                // Promote first piece's description/dimensions up to the parent asset.
+                // For single-piece assets this is a direct copy; for multi-piece assets
+                // the piece-level records hold the authoritative per-piece data.
+                if (empty($assetData['description']) && ! empty($pieces[0]['description'])) {
+                    $assetData['description'] = $pieces[0]['description'];
+                }
+                if (empty($assetData['length']) && ! empty($pieces[0]['length'])) {
+                    $assetData['length'] = $pieces[0]['length'];
+                }
+                if (empty($assetData['width']) && ! empty($pieces[0]['width'])) {
+                    $assetData['width'] = $pieces[0]['width'];
+                }
+                if (empty($assetData['height']) && ! empty($pieces[0]['height'])) {
+                    $assetData['height'] = $pieces[0]['height'];
+                }
+                if (empty($assetData['plate_number']) && ! empty($pieces[0]['plate_number'])) {
+                    $assetData['plate_number'] = $pieces[0]['plate_number'];
+                }
+
+                // Apply incident-level legal flags to every asset
+                $assetData['has_ongoing_case']       = $hasOngoingCase;
+                $assetData['has_confiscation_order'] = $hasConfiscationOrder;
 
                 $assetData['incident_id'] = $incident->id;
                 $assetData['has_claimant'] = $incident->has_claimant;

@@ -51,8 +51,6 @@ interface AssetRow {
     municipality_of_origin: string;
     location_apprehended: string;
     mode: string;
-    has_ongoing_case: boolean;
-    has_confiscation_order: boolean;
     // Each item is broken into individually-measured pieces
     pieces: PieceRow[];
 }
@@ -108,8 +106,6 @@ function emptyAssetRow(defaults: { municipality: string; agency: string; mode: s
         municipality_of_origin: defaults.municipality,
         location_apprehended: defaults.municipality,
         mode: defaults.mode,
-        has_ongoing_case: false,
-        has_confiscation_order: false,
         pieces: [emptyPieceRow()],
     };
 }
@@ -163,6 +159,8 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         claimant_contact_number: '',
         claimant_id_type: '',
         claimant_id_number: '',
+        has_ongoing_case: false as boolean,
+        has_confiscation_order: false as boolean,
         apprehending_parties: ['PENRO Catanduanes MES'] as string[],
         initial_custodian_name: '',
         date_report_submitted: '',
@@ -955,6 +953,40 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* Legal — incident-level, applies to every item */}
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                                        <Label className="mb-1 block">Legal</Label>
+                                        <p className="mb-3 text-xs text-gray-500">
+                                            Applies to all items in this incident (apprehended or turned over).
+                                        </p>
+                                        <div className="grid gap-3 md:grid-cols-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setData('has_ongoing_case', !data.has_ongoing_case)}
+                                                className={
+                                                    'rounded-md border px-4 py-2 text-sm font-medium transition ' +
+                                                    (data.has_ongoing_case
+                                                        ? 'border-amber-600 bg-amber-100 text-amber-900'
+                                                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
+                                                }
+                                            >
+                                                {data.has_ongoing_case ? 'Ongoing case' : 'No ongoing case'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setData('has_confiscation_order', !data.has_confiscation_order)}
+                                                className={
+                                                    'rounded-md border px-4 py-2 text-sm font-medium transition ' +
+                                                    (data.has_confiscation_order
+                                                        ? 'border-red-600 bg-red-100 text-red-900'
+                                                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
+                                                }
+                                            >
+                                                {data.has_confiscation_order ? 'Confiscation / Forfeiture Order' : 'No order yet'}
+                                            </button>
+                                        </div>
+                                    </div>
                                 </CardContent>
                             </Card>
 
@@ -1008,37 +1040,6 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                         required
                                                     />
                                                     <InputError message={assetError(assetIndex, 'apprehending_agency')} />
-                                                </div>
-                                            </div>
-
-                                            {/* Legal flags */}
-                                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                                                <Label className="mb-2 block">Legal</Label>
-                                                <div className="grid gap-3 md:grid-cols-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => updateAsset(assetIndex, 'has_ongoing_case', !asset.has_ongoing_case)}
-                                                        className={
-                                                            'rounded-md border px-4 py-2 text-sm font-medium transition ' +
-                                                            (asset.has_ongoing_case
-                                                                ? 'border-amber-600 bg-amber-100 text-amber-900'
-                                                                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
-                                                        }
-                                                    >
-                                                        {asset.has_ongoing_case ? 'Ongoing case' : 'No ongoing case'}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => updateAsset(assetIndex, 'has_confiscation_order', !asset.has_confiscation_order)}
-                                                        className={
-                                                            'rounded-md border px-4 py-2 text-sm font-medium transition ' +
-                                                            (asset.has_confiscation_order
-                                                                ? 'border-red-600 bg-red-100 text-red-900'
-                                                                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
-                                                        }
-                                                    >
-                                                        {asset.has_confiscation_order ? 'Confiscation / Forfeiture Order' : 'No order yet'}
-                                                    </button>
                                                 </div>
                                             </div>
 
@@ -1145,6 +1146,14 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             : 'Without Claimant (unclaimed)'}
                                     </dd>
                                 </div>
+                                <div>
+                                    <dt className="text-gray-500">Ongoing Case</dt>
+                                    <dd className="font-medium text-gray-900">{data.has_ongoing_case ? 'Yes' : 'No'}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-gray-500">Confiscation / Forfeiture Order</dt>
+                                    <dd className="font-medium text-gray-900">{data.has_confiscation_order ? 'Yes' : 'No'}</dd>
+                                </div>
                             </dl>
                         </div>
 
@@ -1158,17 +1167,6 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     <p className="text-sm font-semibold text-gray-800">
                                         Item {assetIndex + 1} — {labelFor(types, asset.type)} ({asset.pieces.length} {asset.pieces.length === 1 ? 'piece' : 'pieces'})
                                     </p>
-                                    <dl className="mt-2 grid gap-x-4 gap-y-1 text-sm md:grid-cols-2">
-                                        <div>
-                                            <dt className="text-gray-500">Ongoing Case</dt>
-                                            <dd className="text-gray-900">{asset.has_ongoing_case ? 'Yes' : 'No'}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-gray-500">Confiscation / Forfeiture Order</dt>
-                                            <dd className="text-gray-900">{asset.has_confiscation_order ? 'Yes' : 'No'}</dd>
-                                        </div>
-                                    </dl>
-
                                     {/* Piece breakdown */}
                                     <div className="mt-3 space-y-2">
                                         {asset.pieces.map((piece, pieceIndex) => (

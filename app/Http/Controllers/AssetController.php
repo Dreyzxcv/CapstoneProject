@@ -114,6 +114,7 @@ class AssetController extends Controller
 
         $asset->load([
             'incident',
+            'pieces',
             'creator',
             'acknowledgementReceipt.signedByCustodian',
             'statusHistory.changedBy',

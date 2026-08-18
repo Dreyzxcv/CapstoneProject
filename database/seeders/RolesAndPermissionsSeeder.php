@@ -31,6 +31,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'audit.view',
             'users.manage',
             'documents.upload',
+            'market_prices.manage',
         ];
 
         foreach ($permissions as $permission) {

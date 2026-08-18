@@ -123,6 +123,11 @@ class Asset extends Model
         return $this->remainingQuantity() <= 0;
     }
 
+    public function pieces(): HasMany
+    {
+        return $this->hasMany(AssetPiece::class)->orderBy('piece_number');
+    }
+
     public function qrScans(): HasMany
     {
         return $this->hasMany(QrScan::class);
