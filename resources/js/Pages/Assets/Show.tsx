@@ -10,7 +10,7 @@ import { Asset, Disposal, PageProps } from '@/types';
 import { documentUrl } from '@/lib/utils';
 import { Head, Link, router, useForm, usePage, usePoll } from '@inertiajs/react';
 import { FormEvent, useState} from 'react';
-import { FileText, MapPin, Upload } from 'lucide-react';
+import { FileText, MapPin, Pencil, Upload } from 'lucide-react';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
 import { PdfBadge } from '@/Components/shared/PdfBadge';
 import RequiredDocumentsModal from '@/Components/shared/RequiredDocumentsModal';
@@ -20,11 +20,13 @@ interface ShowProps {
     qrPayload: string | null;
     qrSvg: string | null;
     requiredDocumentTypes: Array<{ value: string; label: string }>;
+    modes: Array<{ value: string; label: string }>;
     can: {
         signReceipt: boolean;
         markStored: boolean;
         updateAap: boolean
         generateQr: boolean;
+        edit: boolean;
         createJev: boolean;
         uploadJev: boolean;
         releaseDonation: boolean;
@@ -38,7 +40,7 @@ interface ShowProps {
     };
 }
 
-export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTypes, can }: ShowProps) {
+export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTypes, modes, can }: ShowProps) {
     usePoll(6000, { only: ['asset'] });
 
     const { auth } = usePage<PageProps>().props;
@@ -47,6 +49,34 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
     const [selectedPiece, setSelectedPiece] = useState<import('@/types').AssetPiece | null>(null);
     const [showRequiredDocsModal, setShowRequiredDocsModal] = useState(false);
     const [viewingDisposal, setViewingDisposal] = useState<Disposal | null>(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+
+    const editForm = useForm({
+        species: asset.species ?? '',
+        description: asset.description ?? '',
+        quantity: asset.quantity != null ? String(asset.quantity) : '',
+        quantity_unit: asset.quantity_unit ?? '',
+        length: asset.length != null ? String(asset.length) : '',
+        width: asset.width != null ? String(asset.width) : '',
+        height: asset.height != null ? String(asset.height) : '',
+        volume_bd_ft: asset.volume_bd_ft != null ? String(asset.volume_bd_ft) : '',
+        volume_cu_m: asset.volume_cu_m != null ? String(asset.volume_cu_m) : '',
+        estimated_value: asset.estimated_value != null ? String(asset.estimated_value) : '',
+        plate_number: asset.plate_number ?? '',
+        location_apprehended: asset.location_apprehended ?? '',
+        apprehending_agency: asset.apprehending_agency ?? '',
+        mode: asset.mode ?? '',
+        has_ongoing_case: asset.has_ongoing_case ?? false,
+        has_confiscation_order: asset.has_confiscation_order ?? false,
+    });
+
+    function submitEdit(e: FormEvent) {
+        e.preventDefault();
+        editForm.put(route('assets.update', asset.id), {
+            preserveScroll: true,
+            onSuccess: () => setShowEditModal(false),
+        });
+    }
 
 
     const jevForm = useForm({
@@ -216,11 +246,25 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                     <Card className="lg:col-span-2">
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle className="text-base">Overview</CardTitle>
-                            {asset.incident && (
-                                <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-                                    {asset.asset_code}
-                                </span>
-                            )}
+                            <div className="flex items-center gap-2">
+                                {asset.incident && (
+                                    <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                                        {asset.asset_code}
+                                    </span>
+                                )}
+                                {can.edit && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setShowEditModal(true)}
+                                        className="gap-1.5"
+                                    >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                        Edit
+                                    </Button>
+                                )}
+                            </div>
                         </CardHeader>
                         <CardContent className="grid gap-3 text-sm md:grid-cols-2 break-words">
                             <p><span className="font-medium">Types:</span> {asset.type}</p>
@@ -1179,6 +1223,200 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                         </dl>
                     </div>
                 )}
+            </Modal>
+
+            <Modal show={showEditModal} onClose={() => setShowEditModal(false)} maxWidth="2xl">
+                <form onSubmit={submitEdit} className="p-6 space-y-5">
+                    <h2 className="text-lg font-semibold text-gray-800">Edit Asset</h2>
+
+                    {/* Species / Description */}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1">
+                            <Label htmlFor="edit-species">Species / Name</Label>
+                            <Input
+                                id="edit-species"
+                                value={editForm.data.species}
+                                onChange={(e) => editForm.setData('species', e.target.value)}
+                            />
+                            <InputError message={editForm.errors.species} />
+                        </div>
+                        <div className="space-y-1">
+                            <Label htmlFor="edit-mode">Mode</Label>
+                            <select
+                                id="edit-mode"
+                                value={editForm.data.mode}
+                                onChange={(e) => editForm.setData('mode', e.target.value)}
+                                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            >
+                                {modes.map((m) => (
+                                    <option key={m.value} value={m.value}>{m.label}</option>
+                                ))}
+                            </select>
+                            <InputError message={editForm.errors.mode} />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <Label htmlFor="edit-description">Description</Label>
+                        <textarea
+                            id="edit-description"
+                            rows={3}
+                            value={editForm.data.description}
+                            onChange={(e) => editForm.setData('description', e.target.value)}
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                        <InputError message={editForm.errors.description} />
+                    </div>
+
+                    {/* Quantity */}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1">
+                            <Label htmlFor="edit-quantity">Quantity</Label>
+                            <Input
+                                id="edit-quantity"
+                                type="number"
+                                min={1}
+                                value={editForm.data.quantity}
+                                onChange={(e) => editForm.setData('quantity', e.target.value)}
+                            />
+                            <InputError message={editForm.errors.quantity} />
+                        </div>
+                        <div className="space-y-1">
+                            <Label htmlFor="edit-quantity-unit">Unit</Label>
+                            <Input
+                                id="edit-quantity-unit"
+                                placeholder="e.g. pcs, bd.ft"
+                                value={editForm.data.quantity_unit}
+                                onChange={(e) => editForm.setData('quantity_unit', e.target.value)}
+                            />
+                            <InputError message={editForm.errors.quantity_unit} />
+                        </div>
+                    </div>
+
+                    {/* Dimensions — only for logs */}
+                    {asset.type === 'log' && (
+                        <div className="space-y-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Dimensions</p>
+                            <div className="grid gap-4 sm:grid-cols-3">
+                                {(['length', 'width', 'height'] as const).map((dim) => (
+                                    <div key={dim} className="space-y-1">
+                                        <Label htmlFor={`edit-${dim}`}>{dim.charAt(0).toUpperCase() + dim.slice(1)}</Label>
+                                        <Input
+                                            id={`edit-${dim}`}
+                                            type="number"
+                                            min={0}
+                                            step="0.01"
+                                            value={(editForm.data as any)[dim]}
+                                            onChange={(e) => editForm.setData(dim, e.target.value)}
+                                        />
+                                        <InputError message={(editForm.errors as any)[dim]} />
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-1">
+                                    <Label htmlFor="edit-volume-bd">Volume (bd.ft)</Label>
+                                    <Input
+                                        id="edit-volume-bd"
+                                        type="number" min={0} step="0.01"
+                                        value={editForm.data.volume_bd_ft}
+                                        onChange={(e) => editForm.setData('volume_bd_ft', e.target.value)}
+                                    />
+                                    <InputError message={editForm.errors.volume_bd_ft} />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="edit-volume-cu">Volume (cu.m)</Label>
+                                    <Input
+                                        id="edit-volume-cu"
+                                        type="number" min={0} step="0.0001"
+                                        value={editForm.data.volume_cu_m}
+                                        onChange={(e) => editForm.setData('volume_cu_m', e.target.value)}
+                                    />
+                                    <InputError message={editForm.errors.volume_cu_m} />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Vehicle plate */}
+                    {asset.type === 'vehicle' && (
+                        <div className="space-y-1">
+                            <Label htmlFor="edit-plate">Plate / Conveyance No.</Label>
+                            <Input
+                                id="edit-plate"
+                                value={editForm.data.plate_number}
+                                onChange={(e) => editForm.setData('plate_number', e.target.value)}
+                            />
+                            <InputError message={editForm.errors.plate_number} />
+                        </div>
+                    )}
+
+                    {/* Estimated Value */}
+                    <div className="space-y-1">
+                        <Label htmlFor="edit-value">Estimated Value (₱)</Label>
+                        <Input
+                            id="edit-value"
+                            type="number" min={0} step="0.01"
+                            value={editForm.data.estimated_value}
+                            onChange={(e) => editForm.setData('estimated_value', e.target.value)}
+                        />
+                        <InputError message={editForm.errors.estimated_value} />
+                    </div>
+
+                    {/* Location / Agency */}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1">
+                            <Label htmlFor="edit-location">Location Apprehended</Label>
+                            <Input
+                                id="edit-location"
+                                value={editForm.data.location_apprehended}
+                                onChange={(e) => editForm.setData('location_apprehended', e.target.value)}
+                            />
+                            <InputError message={editForm.errors.location_apprehended} />
+                        </div>
+                        <div className="space-y-1">
+                            <Label htmlFor="edit-agency">Apprehending Agency</Label>
+                            <Input
+                                id="edit-agency"
+                                value={editForm.data.apprehending_agency}
+                                onChange={(e) => editForm.setData('apprehending_agency', e.target.value)}
+                            />
+                            <InputError message={editForm.errors.apprehending_agency} />
+                        </div>
+                    </div>
+
+                    {/* Case Flags */}
+                    <div className="flex flex-wrap gap-6">
+                        <label className="flex cursor-pointer items-center gap-2 text-sm">
+                            <input
+                                type="checkbox"
+                                checked={editForm.data.has_ongoing_case}
+                                onChange={(e) => editForm.setData('has_ongoing_case', e.target.checked)}
+                                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            Ongoing Case
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-2 text-sm">
+                            <input
+                                type="checkbox"
+                                checked={editForm.data.has_confiscation_order}
+                                onChange={(e) => editForm.setData('has_confiscation_order', e.target.checked)}
+                                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            Has Confiscation Order
+                        </label>
+                    </div>
+
+                    {/* Footer buttons */}
+                    <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
+                        <Button type="button" variant="outline" onClick={() => setShowEditModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={editForm.processing}>
+                            {editForm.processing ? 'Saving…' : 'Save Changes'}
+                        </Button>
+                    </div>
+                </form>
             </Modal>
         </AuthenticatedLayout>
     );
