@@ -20,6 +20,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'assets.mark_stored',
             'assets.generate_qr',
             'assets.update_case',
+            'assets.update_aap',
             'assets.scan',
             'incidents.create',
             'jev.create',
@@ -31,6 +32,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'audit.view',
             'users.manage',
             'documents.upload',
+            'documents.verify',
             'market_prices.manage',
         ];
 
@@ -46,7 +48,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ],
             'Property Custodian' => [
                 'assets.view', 'assets.sign_receipt', 'assets.mark_stored',
-                'assets.generate_qr', 'assets.scan', 'reports.view', 'documents.upload',
+                'assets.generate_qr', 'assets.scan', 'reports.view', 'documents.upload', 'documents.verify',
             ],
             'Accounting Officer' => [
                 'assets.view', 'jev.create', 'disposals.view', 'disposals.process',
