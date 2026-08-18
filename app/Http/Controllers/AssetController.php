@@ -8,6 +8,7 @@ use App\Actions\SignAcknowledgementReceipt;
 use App\Actions\UpdateCaseDetails;
 use App\Http\Requests\UpdateCaseDetailsRequest;
 use App\Http\Requests\UpdateAapNumberRequest;
+use App\Http\Requests\UpdateAssetRequest;
 use Illuminate\Support\Facades\Storage;
 use App\Services\PdfDocumentService;
 use App\Enums\AssetMode;
@@ -151,6 +152,10 @@ class AssetController extends Controller
                 'value' => $t->value,
                 'label' => $t->label(),
             ]),
+            'modes' => collect(AssetMode::cases())->map(fn ($m) => [   // ← new: needed by edit modal
+                'value' => $m->value,
+                'label' => $m->label(),
+            ]),
             'can' => [
                 'markStored' => $request->user()?->can('markStored', $asset) ?? false,
                 'generateQr' => $request->user()?->can('generateQr', $asset) ?? false,
@@ -165,6 +170,7 @@ class AssetController extends Controller
                 'verifyDocuments' => $request->user()?->can('documents.verify') ?? false,
                 'issueJevOut' => $request->user()?->can('jev.create') ?? false,
                 'uploadJevOut' => $request->user()?->can('jev.upload') ?? false,
+                'edit' => $request->user()?->can('assets.update') ?? false,   // ← new
             ],
         ]);
     }
@@ -233,5 +239,30 @@ class AssetController extends Controller
         $action->execute($asset, $request->validated(), $request->user());
 
         return back()->with('success', 'Case details updated.');
+    }
+
+    public function update(UpdateAssetRequest $request, Asset $asset, \App\Services\AuditLogService $auditLog): RedirectResponse
+    {
+
+        $fields = [
+            'species', 'description', 'quantity', 'quantity_unit',
+            'length', 'width', 'height', 'volume_bd_ft', 'volume_cu_m',
+            'estimated_value', 'plate_number', 'location_apprehended',
+            'apprehending_agency', 'mode', 'has_ongoing_case', 'has_confiscation_order',
+        ];
+
+        $before = $asset->only($fields);
+
+        $asset->update($request->validated());
+
+        $auditLog->log(
+            'asset.updated',
+            $asset,
+            $before,
+            $asset->fresh()->only($fields),
+            $request->user()->id,
+        );
+
+        return back()->with('success', 'Asset updated successfully.');
     }
 }
