@@ -22,6 +22,11 @@ class AssetPolicy
         return $user->can('assets.create');
     }
 
+    public function update(User $user, Asset $asset): bool
+    {
+        return $user->can('assets.update');
+    }
+
     public function markStored(User $user, Asset $asset): bool
     {
         return $user->can('assets.mark_stored')
