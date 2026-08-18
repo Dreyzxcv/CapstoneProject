@@ -224,7 +224,7 @@
         <td class="item-cell">
             @foreach($items as $item)
                 <p class="item-entry">
-                    {{ $item->quantity ?? 1 }}
+                    {{ $item instanceof \App\Models\AssetPiece ? 1 : ($item->quantity ?? 1) }}
                 </p>
             @endforeach
         </td>
@@ -232,9 +232,10 @@
         <td class="item-cell">
             @foreach($items as $item)
                 <p class="item-entry">
-                    {{ $item->type->label() }}
-
-                    @if($item->species)
+                    {{ $asset->type->label() }}
+                    @if(($item->species ?? null))
+                        — {{ $item->species }}
+                    @elseif(!($item instanceof \App\Models\AssetPiece) && $item->species)
                         — {{ $item->species }}
                     @endif
                 </p>
@@ -244,16 +245,16 @@
         <td class="item-cell">
             @foreach($items as $item)
                 <p class="item-entry">
-                    {{ $item->description ?? '—' }}
+                    {{ $item->description ?? $asset->description ?? '—' }}
 
-                    @if($item->plate_number)
-                        <br>
-                        Plate/Conveyance No.: {{ $item->plate_number }}
+                    @if($item->plate_number ?? $asset->plate_number ?? null)
+                        <br>Plate/Conveyance No.: {{ $item->plate_number ?? $asset->plate_number }}
                     @endif
 
-                    @if($item->volume_bd_ft)
-                        <br>
-                        Volume: {{ $item->volume_bd_ft }} bd.ft
+                    @if($item->volume_bd_ft ?? null)
+                        <br>Volume: {{ $item->volume_bd_ft }} bd.ft
+                    @elseif(!($item instanceof \App\Models\AssetPiece) && $item->volume_bd_ft)
+                        <br>Volume: {{ $item->volume_bd_ft }} bd.ft
                     @endif
                 </p>
             @endforeach
