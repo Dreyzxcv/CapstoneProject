@@ -321,10 +321,9 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                             )}
                             <p><span className="font-medium">Location:</span> {asset.location_apprehended}</p>
                             <p><span className="font-medium">Agency:</span> {asset.apprehending_agency}</p>
-                            <p><span className="font-medium">Estimated Value (php):</span> {asset.estimated_value ?? '—'}</p>
+                            <p><span className="font-medium">Estimated Value (php):</span> {asset.estimated_value != null ? Number(asset.estimated_value).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</p>
                             {asset.type === 'log' && (
                                 <>
-                                    <p><span className="font-medium">Dimensions (L × W × H):</span> {asset.length ?? '—'} × {asset.width ?? '—'} × {asset.height ?? '—'}</p>
                                     <p><span className="font-medium">Volume (bd.ft):</span> {asset.volume_bd_ft ?? '—'}</p>
                                     <p><span className="font-medium">Volume (cu.m):</span> {asset.volume_cu_m ?? '—'}</p>
                                 </>
