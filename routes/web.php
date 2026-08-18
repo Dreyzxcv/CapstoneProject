@@ -23,6 +23,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     Route::resource('assets', AssetController::class)->only(['index', 'create', 'store', 'show']);
+    Route::put('/assets/{asset}', [AssetController::class, 'update'])->name('assets.update');
     Route::post('/assets/{asset}/mark-stored', [AssetController::class, 'markStored'])->name('assets.mark-stored');
 
     Route::post('/assets/{asset}/jev', [JevController::class, 'store'])->name('assets.jev.store');
