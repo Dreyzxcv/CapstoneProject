@@ -32,6 +32,26 @@ export interface Incident {
     date_report_submitted: string | null;
 }
 
+export interface AssetPiece {
+    id: number;
+    asset_id: number;
+    piece_number: number;
+    qr_code_token: string;
+    species: string | null;
+    description: string | null;
+    length: number | null;
+    width: number | null;
+    height: number | null;
+    volume_bd_ft: number | null;
+    volume_cu_m: number | null;
+    estimated_value: number | null;
+    plate_number: string | null;
+    disposal_id: number | null;
+    disposed_at: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
 export interface Asset {
     id: number;
     asset_code: string;
@@ -72,6 +92,7 @@ export interface Asset {
     jev?: Jev;
     disposals?: Disposal[];
     qr_scans?: QrScan[];
+    pieces?: AssetPiece[];
 }
 
 export interface AcknowledgementReceipt {

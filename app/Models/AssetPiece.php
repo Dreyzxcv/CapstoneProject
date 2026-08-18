@@ -11,6 +11,17 @@ class AssetPiece extends Model
         'asset_id',
         'piece_number',
         'qr_code_token',
+        // Per-piece measurement fields (encoded 1-by-1 by MES)
+        'species',
+        'description',
+        'length',
+        'width',
+        'height',
+        'volume_bd_ft',
+        'volume_cu_m',
+        'estimated_value',
+        'plate_number',
+        // Disposal tracking (existing)
         'disposal_id',
         'disposed_at',
     ];
@@ -18,7 +29,13 @@ class AssetPiece extends Model
     protected function casts(): array
     {
         return [
-            'disposed_at' => 'datetime',
+            'length'          => 'float',
+            'width'           => 'float',
+            'height'          => 'float',
+            'volume_bd_ft'    => 'float',
+            'volume_cu_m'     => 'float',
+            'estimated_value' => 'float',
+            'disposed_at'     => 'datetime',
         ];
     }
 

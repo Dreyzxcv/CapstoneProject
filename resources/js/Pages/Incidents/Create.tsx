@@ -30,13 +30,11 @@ interface CreateProps {
     marketPrices: MarketPriceEntry[];
 }
 
-interface AssetRow {
-    type: string;
+// One physical piece encoded individually by MES
+interface PieceRow {
     species: string;
     speciesIsOther: boolean;
     description: string;
-    quantity: string;
-    quantity_unit: string;
     length: string;
     width: string;
     height: string;
@@ -45,12 +43,18 @@ interface AssetRow {
     estimated_value: string;
     estimated_value_auto: boolean;
     plate_number: string;
+}
+
+interface AssetRow {
+    type: string;
+    apprehending_agency: string;
     municipality_of_origin: string;
     location_apprehended: string;
-    apprehending_agency: string;
     mode: string;
     has_ongoing_case: boolean;
     has_confiscation_order: boolean;
+    // Each item is broken into individually-measured pieces
+    pieces: PieceRow[];
 }
 
 const SPECIES_OPTIONS = [
@@ -70,13 +74,6 @@ const SPECIES_OPTIONS = [
     'Others',
 ];
 
-// Quantity units that may be used as the intake measurement for an asset
-// rather than forcing the UI to always call it "pcs".
-const QUANTITY_UNIT_OPTIONS = ['pcs', 'sack', 'bundle', 'piece', 'box', 'container', 'roll', 'lot'];
-
-// Dropdown selection for Equipment / Tools, per NewFlow.pdf Data Encoding
-// Module ("Equipment / Tools / Implements — Dropdown Selection"). Kept
-// separate from SPECIES_OPTIONS since equipment isn't a species.
 const EQUIPMENT_OPTIONS = [
     'Chainsaw',
     'Power Saw',
@@ -86,17 +83,13 @@ const EQUIPMENT_OPTIONS = [
     'Others',
 ];
 
-// 1 board foot = 0.002359737 cubic meters.
 const BD_FT_TO_CU_M = 0.002359737;
 
-function emptyAssetRow(defaults: { municipality: string; agency: string; mode: string }): AssetRow {
+function emptyPieceRow(species = ''): PieceRow {
     return {
-        type: 'log',
-        species: '',
+        species,
         speciesIsOther: false,
         description: '',
-        quantity: '1',
-        quantity_unit: 'pcs',
         length: '',
         width: '',
         height: '',
@@ -105,12 +98,19 @@ function emptyAssetRow(defaults: { municipality: string; agency: string; mode: s
         estimated_value: '',
         estimated_value_auto: false,
         plate_number: '',
+    };
+}
+
+function emptyAssetRow(defaults: { municipality: string; agency: string; mode: string }): AssetRow {
+    return {
+        type: 'log',
+        apprehending_agency: defaults.agency,
         municipality_of_origin: defaults.municipality,
         location_apprehended: defaults.municipality,
-        apprehending_agency: defaults.agency,
         mode: defaults.mode,
         has_ongoing_case: false,
         has_confiscation_order: false,
+        pieces: [emptyPieceRow()],
     };
 }
 
@@ -124,40 +124,26 @@ function convertBdFtToCuM(bdFt: string): string {
 }
 
 function calculateBdFtFromDimensions(length: string, width: string, height: string): string {
-    const lengthValue = parseFloat(length);
-    const widthValue = parseFloat(width);
-    const heightValue = parseFloat(height);
-
-    if ([lengthValue, widthValue, heightValue].some((value) => Number.isNaN(value) || value <= 0)) {
-        return '';
-    }
-
-    return ((lengthValue * widthValue * heightValue) / 12).toFixed(2);
+    const l = parseFloat(length);
+    const w = parseFloat(width);
+    const h = parseFloat(height);
+    if ([l, w, h].some((v) => Number.isNaN(v) || v <= 0)) return '';
+    return ((l * w * h) / 12).toFixed(2);
 }
 
-// Field label/placeholder for the "species" text depends on asset type —
-// Log keeps the species dropdown, Equipment now also uses a dropdown
-// (EQUIPMENT_OPTIONS), Vehicle keeps a free-text field with a relabeled
-// prompt, since "species" doesn't apply to it.
 function speciesFieldLabel(type: string): string {
     switch (type) {
-        case 'vehicle':
-            return 'Conveyance / Vehicle Type';
-        case 'equipment':
-            return 'Equipment Type';
-        default:
-            return 'Species';
+        case 'vehicle':   return 'Conveyance / Vehicle Type';
+        case 'equipment': return 'Equipment Type';
+        default:          return 'Species';
     }
 }
 
 function speciesFieldPlaceholder(type: string): string {
     switch (type) {
-        case 'vehicle':
-            return 'e.g. Motorcycle, Tricycle, Habal-habal';
-        case 'equipment':
-            return 'e.g. Chainsaw, Power Saw';
-        default:
-            return 'Enter species';
+        case 'vehicle':   return 'e.g. Motorcycle, Tricycle, Habal-habal';
+        case 'equipment': return 'e.g. Chainsaw, Power Saw';
+        default:          return 'Enter species';
     }
 }
 
@@ -178,13 +164,8 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         claimant_id_type: '',
         claimant_id_number: '',
         apprehending_parties: ['PENRO Catanduanes MES'] as string[],
-        // Initial handler/custodian before the asset reaches PENRO custody
-        // (NewFlow.pdf Data Encoding Module). Distinct from apprehending
-        // party and from the Property Custodian who takes over in Stage 2.
         initial_custodian_name: '',
         date_report_submitted: '',
-        // No item rows until an intake mode is chosen — mode starts blank
-        // and gets backfilled by handleIntakeModeChange once picked.
         assets: [emptyAssetRow({ municipality: defaultMunicipality, agency: defaultAgency, mode: '' })] as AssetRow[],
     });
 
@@ -196,30 +177,13 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         return map;
     }, [marketPrices]);
 
-    function withAutoEstimate(asset: AssetRow, year: number | null): AssetRow {
-        if (asset.type !== 'log' || asset.speciesIsOther || !asset.species || !year) {
-            return { ...asset, estimated_value_auto: false };
-        }
-
-        const price = marketPriceMap[`${asset.species}|${year}`];
-        const volume = parseFloat(asset.volume_bd_ft);
-
-        if (price === undefined || Number.isNaN(volume) || volume <= 0) {
-            return { ...asset, estimated_value_auto: false };
-        }
-
-        return {
-            ...asset,
-            estimated_value: (volume * price).toFixed(2),
-            estimated_value_auto: true,
-        };
-    }
-
     const apprehensionYear = data.date_of_apprehension
         ? new Date(data.date_of_apprehension).getFullYear()
         : null;
+
     const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+
     const previewYear = data.date_report_submitted
         ? new Date(data.date_report_submitted).getFullYear()
         : null;
@@ -228,108 +192,115 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         ? `${previewPrefix}-${previewYear}-${String(nextAssetSequence).padStart(5, '0')}`
         : null;
 
-    function updateAsset(index: number, field: keyof AssetRow, value: string | boolean) {
-        const next = [...data.assets];
-        let updated = { ...next[index], [field]: value } as AssetRow;
-        if (field === 'type') {
-            updated = { ...updated, species: '', speciesIsOther: false, estimated_value_auto: false };
-            updated = withAutoEstimate(updated, apprehensionYear);
+    // ── Piece helpers ────────────────────────────────────────────────────────
+
+    function withPieceAutoEstimate(piece: PieceRow, species: string, year: number | null): PieceRow {
+        if (piece.speciesIsOther || !species || !year) {
+            return { ...piece, estimated_value_auto: false };
         }
-        next[index] = updated;
-        setData('assets', next);
+        const price = marketPriceMap[`${species}|${year}`];
+        const volume = parseFloat(piece.volume_bd_ft);
+        if (price === undefined || Number.isNaN(volume) || volume <= 0) {
+            return { ...piece, estimated_value_auto: false };
+        }
+        return {
+            ...piece,
+            estimated_value: (volume * price).toFixed(2),
+            estimated_value_auto: true,
+        };
     }
 
-    function handleSpeciesSelect(index: number, value: string) {
-        if (value === 'Others') {
-            updateAssetMultiple(index, { species: '', speciesIsOther: true, estimated_value_auto: false });
-        } else {
-            updateAssetMultiple(index, { species: value, speciesIsOther: false }, true);
-        }
-    }
-
-    // Equipment dropdown uses the same speciesIsOther/species fields as Log,
-    // just sourced from EQUIPMENT_OPTIONS instead of SPECIES_OPTIONS, so no
-    // schema or backend change is needed.
-    function handleEquipmentSelect(index: number, value: string) {
-        if (value === 'Others') {
-            updateAssetMultiple(index, { species: '', speciesIsOther: true });
-        } else {
-            updateAssetMultiple(index, { species: value, speciesIsOther: false });
-        }
-    }
-
-    function updateAssetMultiple(index: number, fields: Partial<AssetRow>, recompute = false) {
-        const next = [...data.assets];
-        let updated = { ...next[index], ...fields } as AssetRow;
+    function updatePiece(assetIndex: number, pieceIndex: number, fields: Partial<PieceRow>, recompute = false) {
+        const nextAssets = [...data.assets];
+        const nextPieces = [...nextAssets[assetIndex].pieces];
+        let updated = { ...nextPieces[pieceIndex], ...fields };
         if (recompute) {
-            updated = withAutoEstimate(updated, apprehensionYear);
+            updated = withPieceAutoEstimate(updated, updated.species, apprehensionYear);
         }
-        next[index] = updated;
-        setData('assets', next);
+        nextPieces[pieceIndex] = updated;
+        nextAssets[assetIndex] = { ...nextAssets[assetIndex], pieces: nextPieces };
+        setData('assets', nextAssets);
     }
 
-    function handleVolumeBdFtChange(index: number, value: string) {
-        updateAssetMultiple(index, {
+    function handlePieceDimensionChange(
+        assetIndex: number,
+        pieceIndex: number,
+        field: 'length' | 'width' | 'height',
+        value: string,
+    ) {
+        const asset = data.assets[assetIndex];
+        const piece = asset.pieces[pieceIndex];
+        const updated = { ...piece, [field]: value };
+
+        if (asset.type === 'log') {
+            const bdFt = calculateBdFtFromDimensions(updated.length, updated.width, updated.height);
+            updated.volume_bd_ft = bdFt;
+            updated.volume_cu_m  = convertBdFtToCuM(bdFt);
+            const withEstimate = withPieceAutoEstimate(updated, updated.species, apprehensionYear);
+            const nextAssets = [...data.assets];
+            const nextPieces = [...nextAssets[assetIndex].pieces];
+            nextPieces[pieceIndex] = withEstimate;
+            nextAssets[assetIndex] = { ...nextAssets[assetIndex], pieces: nextPieces };
+            setData('assets', nextAssets);
+            return;
+        }
+
+        updatePiece(assetIndex, pieceIndex, { [field]: value });
+    }
+
+    function handlePieceVolumeBdFtChange(assetIndex: number, pieceIndex: number, value: string) {
+        updatePiece(assetIndex, pieceIndex, {
             volume_bd_ft: value,
             volume_cu_m: convertBdFtToCuM(value),
         }, true);
     }
 
-    function handleDimensionChange(index: number, field: 'length' | 'width' | 'height', value: string) {
-        const next = [...data.assets];
-        const asset = next[index];
-        const updated = {
-            ...asset,
-            [field]: value,
-        } as AssetRow;
-
-        if (asset.type === 'log') {
-            const bdFt = calculateBdFtFromDimensions(updated.length, updated.width, updated.height);
-            updated.volume_bd_ft = bdFt;
-            updated.volume_cu_m = convertBdFtToCuM(bdFt);
-            const estimated = withAutoEstimate(updated, apprehensionYear);
-            next[index] = estimated;
-            setData('assets', next);
-            return;
+    function handlePieceSpeciesSelect(assetIndex: number, pieceIndex: number, value: string) {
+        if (value === 'Others') {
+            updatePiece(assetIndex, pieceIndex, { species: '', speciesIsOther: true, estimated_value_auto: false });
+        } else {
+            updatePiece(assetIndex, pieceIndex, { species: value, speciesIsOther: false }, true);
         }
+    }
 
-        next[index] = updated;
+    function handlePieceEquipmentSelect(assetIndex: number, pieceIndex: number, value: string) {
+        if (value === 'Others') {
+            updatePiece(assetIndex, pieceIndex, { species: '', speciesIsOther: true });
+        } else {
+            updatePiece(assetIndex, pieceIndex, { species: value, speciesIsOther: false });
+        }
+    }
+
+    function addPiece(assetIndex: number) {
+        const asset = data.assets[assetIndex];
+        // Inherit species from last piece for convenience
+        const lastPiece = asset.pieces[asset.pieces.length - 1];
+        const inheritedSpecies = lastPiece?.speciesIsOther ? '' : (lastPiece?.species ?? '');
+        const nextAssets = [...data.assets];
+        nextAssets[assetIndex] = {
+            ...nextAssets[assetIndex],
+            pieces: [...asset.pieces, emptyPieceRow(inheritedSpecies)],
+        };
+        setData('assets', nextAssets);
+    }
+
+    function removePiece(assetIndex: number, pieceIndex: number) {
+        const asset = data.assets[assetIndex];
+        if (asset.pieces.length === 1) return;
+        const nextAssets = [...data.assets];
+        nextAssets[assetIndex] = {
+            ...nextAssets[assetIndex],
+            pieces: asset.pieces.filter((_, i) => i !== pieceIndex),
+        };
+        setData('assets', nextAssets);
+    }
+
+    // ── Asset-row helpers ────────────────────────────────────────────────────
+
+    function updateAsset(index: number, field: keyof AssetRow, value: string | boolean) {
+        const next = [...data.assets];
+        next[index] = { ...next[index], [field]: value } as AssetRow;
         setData('assets', next);
-    }
-
-    function handleMunicipalityChange(value: string) {
-        setData('place_of_apprehension', value);
-        setData(
-            'assets',
-            data.assets.map((asset) => ({
-                ...asset,
-                municipality_of_origin: value,
-                location_apprehended: value,
-            })),
-        );
-    }
-
-    // Stage 1 entry point (NewFlow.pdf): Apprehended vs. Turned-Over is
-    // decided once, for the whole incident, before anything else is
-    // encoded — not per line item. Every asset row inherits this value.
-    // This is also the gate that reveals the rest of the form.
-    function handleIntakeModeChange(value: string) {
-        setData((prevData) => ({
-            ...prevData,
-            intake_mode: value,
-            assets: prevData.assets.map((asset) => ({ ...asset, mode: value })),
-        }));
-    }
-
-    function handleDateOfApprehensionChange(value: string) {
-        setData((prevData) => {
-            const year = value ? new Date(value).getFullYear() : null;
-            return {
-                ...prevData,
-                date_of_apprehension: value,
-                assets: prevData.assets.map((asset) => withAutoEstimate(asset, year)),
-            };
-        });
     }
 
     function addAssetRow() {
@@ -346,6 +317,44 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
     function removeAssetRow(index: number) {
         if (data.assets.length === 1) return;
         setData('assets', data.assets.filter((_, i) => i !== index));
+    }
+
+    // ── Incident-level helpers ───────────────────────────────────────────────
+
+    function handleMunicipalityChange(value: string) {
+        setData('place_of_apprehension', value);
+        setData(
+            'assets',
+            data.assets.map((asset) => ({
+                ...asset,
+                municipality_of_origin: value,
+                location_apprehended: value,
+            })),
+        );
+    }
+
+    function handleIntakeModeChange(value: string) {
+        setData((prevData) => ({
+            ...prevData,
+            intake_mode: value,
+            assets: prevData.assets.map((asset) => ({ ...asset, mode: value })),
+        }));
+    }
+
+    function handleDateOfApprehensionChange(value: string) {
+        setData((prevData) => {
+            const year = value ? new Date(value).getFullYear() : null;
+            return {
+                ...prevData,
+                date_of_apprehension: value,
+                assets: prevData.assets.map((asset) => ({
+                    ...asset,
+                    pieces: asset.pieces.map((piece) =>
+                        withPieceAutoEstimate(piece, piece.species, year),
+                    ),
+                })),
+            };
+        });
     }
 
     function addApprehendingParty() {
@@ -375,24 +384,16 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         }));
     }
 
-    // Instead of submitting immediately, open the confirmation modal.
-    // Native "required" validation still runs first, so this only fires
-    // once the visible required fields are actually filled in.
     const handleReviewClick: FormEventHandler = (e) => {
         e.preventDefault();
         setShowConfirmModal(true);
     };
 
     function confirmAndSubmit() {
-        // The backend column is a single `apprehending_party` string, so
-        // multiple entries are joined here rather than requiring a schema
-        // change; the asset-level `species` custom-text case is already
-        // stored directly in `species` by handleSpeciesSelect.
         transform((formData) => ({
             ...formData,
             apprehending_party: formData.apprehending_parties.filter((p) => p.trim() !== '').join('; '),
         }));
-
         post(route('incidents.store'), {
             onSuccess: () => setShowConfirmModal(false),
         });
@@ -402,9 +403,258 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         return (errors as Record<string, string>)[`assets.${index}.${field}`];
     }
 
+    function pieceError(assetIndex: number, pieceIndex: number, field: string): string | undefined {
+        return (errors as Record<string, string>)[`assets.${assetIndex}.pieces.${pieceIndex}.${field}`];
+    }
+
     function labelFor(options: Option[], value: string): string {
         return options.find((o) => o.value === value)?.label ?? value;
     }
+
+    // ── Piece form — rendered inside each asset card ──────────────────────────
+
+    function renderPieceForm(asset: AssetRow, assetIndex: number, pieceIndex: number) {
+        const piece = asset.pieces[pieceIndex];
+        const isLog = asset.type === 'log';
+        const isVehicle = asset.type === 'vehicle';
+
+        return (
+            <div
+                key={pieceIndex}
+                className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4"
+            >
+                <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-700">
+                        Piece {pieceIndex + 1}
+                    </span>
+                    {asset.pieces.length > 1 && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removePiece(assetIndex, pieceIndex)}
+                        >
+                            <X className="h-3.5 w-3.5 mr-1" />
+                            Remove
+                        </Button>
+                    )}
+                </div>
+
+                {/* Species / Equipment / Vehicle type per piece */}
+                <div className="space-y-2">
+                    <Label htmlFor={`piece-species-${assetIndex}-${pieceIndex}`}>
+                        {speciesFieldLabel(asset.type)}<span className="text-red-500">*</span>
+                    </Label>
+
+                    {isLog ? (
+                        piece.speciesIsOther ? (
+                            <div className="flex gap-2">
+                                <Input
+                                    id={`piece-species-${assetIndex}-${pieceIndex}`}
+                                    placeholder="Enter species"
+                                    value={piece.species}
+                                    onChange={(e) => updatePiece(assetIndex, pieceIndex, { species: e.target.value })}
+                                    autoFocus
+                                    required
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => updatePiece(assetIndex, pieceIndex, { speciesIsOther: false, species: '' })}
+                                >
+                                    Choose from list
+                                </Button>
+                            </div>
+                        ) : (
+                            <select
+                                id={`piece-species-${assetIndex}-${pieceIndex}`}
+                                value={piece.species}
+                                onChange={(e) => handlePieceSpeciesSelect(assetIndex, pieceIndex, e.target.value)}
+                                className={selectClass}
+                            >
+                                <option value="" disabled>Select species…</option>
+                                {SPECIES_OPTIONS.map((s) => (
+                                    <option key={s} value={s}>{s}</option>
+                                ))}
+                            </select>
+                        )
+                    ) : asset.type === 'equipment' ? (
+                        piece.speciesIsOther ? (
+                            <div className="flex gap-2">
+                                <Input
+                                    id={`piece-species-${assetIndex}-${pieceIndex}`}
+                                    placeholder={speciesFieldPlaceholder(asset.type)}
+                                    value={piece.species}
+                                    onChange={(e) => updatePiece(assetIndex, pieceIndex, { species: e.target.value })}
+                                    autoFocus
+                                    required
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => updatePiece(assetIndex, pieceIndex, { speciesIsOther: false, species: '' })}
+                                >
+                                    Choose from list
+                                </Button>
+                            </div>
+                        ) : (
+                            <select
+                                id={`piece-species-${assetIndex}-${pieceIndex}`}
+                                value={piece.species}
+                                onChange={(e) => handlePieceEquipmentSelect(assetIndex, pieceIndex, e.target.value)}
+                                className={selectClass}
+                            >
+                                <option value="" disabled>Select equipment type…</option>
+                                {EQUIPMENT_OPTIONS.map((s) => (
+                                    <option key={s} value={s}>{s}</option>
+                                ))}
+                            </select>
+                        )
+                    ) : (
+                        <Input
+                            id={`piece-species-${assetIndex}-${pieceIndex}`}
+                            placeholder={speciesFieldPlaceholder(asset.type)}
+                            value={piece.species}
+                            onChange={(e) => updatePiece(assetIndex, pieceIndex, { species: e.target.value })}
+                            required
+                        />
+                    )}
+                    <InputError message={pieceError(assetIndex, pieceIndex, 'species')} />
+                </div>
+
+                {/* Description per piece */}
+                <div className="space-y-2">
+                    <Label htmlFor={`piece-desc-${assetIndex}-${pieceIndex}`}>Description</Label>
+                    <Input
+                        id={`piece-desc-${assetIndex}-${pieceIndex}`}
+                        value={piece.description}
+                        onChange={(e) => updatePiece(assetIndex, pieceIndex, { description: e.target.value })}
+                        placeholder="e.g. squared, rough-cut, with bark"
+                    />
+                    <InputError message={pieceError(assetIndex, pieceIndex, 'description')} />
+                </div>
+
+                {/* Log: dimensions → auto-computed volume + estimated value */}
+                {isLog && (
+                    <div className="grid gap-4 md:grid-cols-3">
+                        <div className="space-y-2">
+                            <Label>Dimensions (L × W × H) <span className="text-red-500">*</span></Label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {(['length', 'width', 'height'] as const).map((dim) => (
+                                    <Input
+                                        key={dim}
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        placeholder={dim.charAt(0).toUpperCase() + dim.slice(1)}
+                                        value={piece[dim]}
+                                        onChange={(e) => handlePieceDimensionChange(assetIndex, pieceIndex, dim, e.target.value)}
+                                        required
+                                    />
+                                ))}
+                            </div>
+                            <InputError message={pieceError(assetIndex, pieceIndex, 'length')} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Volume (bd.ft)<span className="text-red-500">*</span></Label>
+                            <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={piece.volume_bd_ft}
+                                onChange={(e) => handlePieceVolumeBdFtChange(assetIndex, pieceIndex, e.target.value)}
+                                disabled
+                                className="bg-gray-100"
+                            />
+                            <p className="text-xs text-gray-500">Auto-converted from dimensions</p>
+                            <InputError message={pieceError(assetIndex, pieceIndex, 'volume_bd_ft')} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Volume (cu.m)</Label>
+                            <Input
+                                type="number"
+                                step="0.0001"
+                                min="0"
+                                value={piece.volume_cu_m}
+                                readOnly
+                                disabled
+                                className="bg-gray-100"
+                            />
+                            <p className="text-xs text-gray-500">Auto-converted from bd.ft</p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Estimated Value (php)<span className="text-red-500">*</span></Label>
+                            <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={piece.estimated_value}
+                                onChange={(e) =>
+                                    updatePiece(assetIndex, pieceIndex, {
+                                        estimated_value: e.target.value,
+                                        estimated_value_auto: false,
+                                    })
+                                }
+                                readOnly={piece.estimated_value_auto}
+                                className={piece.estimated_value_auto ? 'bg-gray-100' : undefined}
+                                required
+                            />
+                            {piece.estimated_value_auto ? (
+                                <p className="text-xs text-emerald-700">
+                                    Auto-computed: {piece.volume_bd_ft} bd.ft × ₱
+                                    {marketPriceMap[`${piece.species}|${apprehensionYear}`]?.toFixed(2)} (market price {apprehensionYear})
+                                </p>
+                            ) : piece.species && !piece.speciesIsOther && apprehensionYear ? (
+                                <p className="text-xs text-amber-700">
+                                    No market price set for {piece.species} ({apprehensionYear}) — enter manually.
+                                </p>
+                            ) : null}
+                            <InputError message={pieceError(assetIndex, pieceIndex, 'estimated_value')} />
+                        </div>
+                    </div>
+                )}
+
+                {/* Vehicle: plate number per piece */}
+                {isVehicle && (
+                    <div className="max-w-xs space-y-2">
+                        <Label htmlFor={`piece-plate-${assetIndex}-${pieceIndex}`}>
+                            Conveyance / Plate No.<span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                            id={`piece-plate-${assetIndex}-${pieceIndex}`}
+                            value={piece.plate_number}
+                            onChange={(e) => updatePiece(assetIndex, pieceIndex, { plate_number: e.target.value })}
+                            required
+                        />
+                        <InputError message={pieceError(assetIndex, pieceIndex, 'plate_number')} />
+                    </div>
+                )}
+
+                {/* Non-log estimated value */}
+                {!isLog && (
+                    <div className="max-w-xs space-y-2">
+                        <Label htmlFor={`piece-value-${assetIndex}-${pieceIndex}`}>
+                            Estimated Value (php)<span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                            id={`piece-value-${assetIndex}-${pieceIndex}`}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={piece.estimated_value}
+                            onChange={(e) => updatePiece(assetIndex, pieceIndex, { estimated_value: e.target.value })}
+                            required
+                        />
+                        <InputError message={pieceError(assetIndex, pieceIndex, 'estimated_value')} />
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // ── Render ───────────────────────────────────────────────────────────────
 
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">MES Apprehension Intake</h2>}>
@@ -412,7 +662,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
 
             <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
                 <form onSubmit={handleReviewClick} className="space-y-6">
-                    {/* Stage 1 entry point — Intake Mode (Apprehended vs. Turned-Over) */}
+                    {/* Intake Mode */}
                     <Card className="border-0 shadow-sm">
                         <CardHeader className="border-b border-gray-100">
                             <CardTitle className="text-xl">Intake Mode</CardTitle>
@@ -460,10 +710,9 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     </span>
                                 </button>
                             </div>
-
                             {!data.intake_mode && (
                                 <p className="mt-3 text-xs text-gray-500">
-                                    Select Apprehended or Turned Over above to continue with the rest of the intake form.
+                                    Select Apprehended or Turned Over above to continue.
                                 </p>
                             )}
                         </CardContent>
@@ -478,7 +727,6 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     <p className="text-sm text-gray-600">
                                         Details shared across every item apprehended in this incident.
                                     </p>
-
                                     <div className="mt-2">
                                         {previewCode ? (
                                             <span className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-mono font-semibold text-emerald-800">
@@ -572,7 +820,6 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             <InputError message={errors.coordinates} />
                                         </div>
 
-                                        {/* Apprehending Party — supports multiple entries */}
                                         <div className="space-y-2">
                                             <Label>Apprehending Party<span className="text-red-500">*</span></Label>
                                             <div className="space-y-2">
@@ -590,7 +837,6 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                                 variant="ghost"
                                                                 size="sm"
                                                                 onClick={() => removeApprehendingParty(index)}
-                                                                aria-label="Remove apprehending party"
                                                             >
                                                                 <X className="h-4 w-4" />
                                                             </Button>
@@ -615,8 +861,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             onChange={(e) => setData('initial_custodian_name', e.target.value)}
                                         />
                                         <p className="text-xs text-gray-500">
-                                            The person or office that held the asset before it reached PENRO custody. Leave blank if
-                                            PENRO received it directly.
+                                            Leave blank if PENRO received it directly.
                                         </p>
                                         <InputError message={errors.initial_custodian_name} />
                                     </div>
@@ -715,30 +960,36 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
 
                             {/* Repeatable asset rows */}
                             <div className="space-y-4">
-                                {data.assets.map((asset, index) => (
-                                    <Card key={index} className="border-0 shadow-sm">
+                                {data.assets.map((asset, assetIndex) => (
+                                    <Card key={assetIndex} className="border-0 shadow-sm">
                                         <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100">
-                                            <CardTitle className="text-base">Item {index + 1}</CardTitle>
+                                            <CardTitle className="text-base">
+                                                Item {assetIndex + 1}
+                                                <span className="ml-2 text-xs font-normal text-gray-500">
+                                                    ({asset.pieces.length} {asset.pieces.length === 1 ? 'piece' : 'pieces'})
+                                                </span>
+                                            </CardTitle>
                                             {data.assets.length > 1 && (
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => removeAssetRow(index)}
+                                                    onClick={() => removeAssetRow(assetIndex)}
                                                 >
                                                     <Trash2 className="mr-1.5 h-4 w-4" />
-                                                    Remove
+                                                    Remove Item
                                                 </Button>
                                             )}
                                         </CardHeader>
                                         <CardContent className="space-y-6 pt-6">
+                                            {/* Asset-level fields (container) */}
                                             <div className="grid gap-4 md:grid-cols-2">
                                                 <div className="space-y-2">
-                                                    <Label htmlFor={`type-${index}`}>Asset Type<span className="text-red-500">*</span></Label>
+                                                    <Label htmlFor={`type-${assetIndex}`}>Asset Type<span className="text-red-500">*</span></Label>
                                                     <select
-                                                        id={`type-${index}`}
+                                                        id={`type-${assetIndex}`}
                                                         value={asset.type}
-                                                        onChange={(e) => updateAsset(index, 'type', e.target.value)}
+                                                        onChange={(e) => updateAsset(assetIndex, 'type', e.target.value)}
                                                         className={selectClass}
                                                         required
                                                     >
@@ -746,277 +997,27 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                             <option key={t.value} value={t.value}>{t.label}</option>
                                                         ))}
                                                     </select>
-                                                    <InputError message={assetError(index, 'type')} />
-                                                </div>
-                                                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_160px]">
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor={`quantity-${index}`}>No. of Units</Label>
-                                                        <Input
-                                                            id={`quantity-${index}`}
-                                                            type="number"
-                                                            min="1"
-                                                            value={asset.quantity}
-                                                            onChange={(e) => updateAsset(index, 'quantity', e.target.value)}
-                                                        />
-                                                        <InputError message={assetError(index, 'quantity')} />
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor={`quantity_unit-${index}`}>Unit</Label>
-                                                        <select
-                                                            id={`quantity_unit-${index}`}
-                                                            value={asset.quantity_unit}
-                                                            onChange={(e) => updateAsset(index, 'quantity_unit', e.target.value)}
-                                                            className={selectClass}
-                                                        >
-                                                            {QUANTITY_UNIT_OPTIONS.map((unit) => (
-                                                                <option key={unit} value={unit}>{unit}</option>
-                                                            ))}
-                                                        </select>
-                                                        <InputError message={assetError(index, 'quantity_unit')} />
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid gap-4 md:grid-cols-2">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor={`species-${index}`}>
-                                                        {speciesFieldLabel(asset.type)}<span className="text-red-500">*</span>
-                                                    </Label>
-
-                                                    {asset.type === 'log' ? (
-                                                        asset.speciesIsOther ? (
-                                                            <div className="flex gap-2">
-                                                                <Input
-                                                                    id={`species-${index}`}
-                                                                    placeholder="Enter species"
-                                                                    value={asset.species}
-                                                                    onChange={(e) => updateAsset(index, 'species', e.target.value)}
-                                                                    autoFocus
-                                                                    required
-                                                                />
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => updateAssetMultiple(index, { speciesIsOther: false, species: '' })}
-                                                                >
-                                                                    Choose from list
-                                                                </Button>
-                                                            </div>
-                                                        ) : (
-                                                            <select
-                                                                id={`species-${index}`}
-                                                                value={asset.species}
-                                                                onChange={(e) => handleSpeciesSelect(index, e.target.value)}
-                                                                className={selectClass}
-                                                            >
-                                                                <option value="" disabled>Select species…</option>
-                                                                {SPECIES_OPTIONS.map((s) => (
-                                                                    <option key={s} value={s}>{s}</option>
-                                                                ))}
-                                                            </select>
-                                                        )
-                                                    ) : asset.type === 'equipment' ? (
-                                                        asset.speciesIsOther ? (
-                                                            <div className="flex gap-2">
-                                                                <Input
-                                                                    id={`species-${index}`}
-                                                                    placeholder={speciesFieldPlaceholder(asset.type)}
-                                                                    value={asset.species}
-                                                                    onChange={(e) => updateAsset(index, 'species', e.target.value)}
-                                                                    autoFocus
-                                                                    required
-                                                                />
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => updateAssetMultiple(index, { speciesIsOther: false, species: '' })}
-                                                                >
-                                                                    Choose from list
-                                                                </Button>
-                                                            </div>
-                                                        ) : (
-                                                            <select
-                                                                id={`species-${index}`}
-                                                                value={asset.species}
-                                                                onChange={(e) => handleEquipmentSelect(index, e.target.value)}
-                                                                className={selectClass}
-                                                            >
-                                                                <option value="" disabled>Select equipment type…</option>
-                                                                {EQUIPMENT_OPTIONS.map((s) => (
-                                                                    <option key={s} value={s}>{s}</option>
-                                                                ))}
-                                                            </select>
-                                                        )
-                                                    ) : (
-                                                        <Input
-                                                            id={`species-${index}`}
-                                                            placeholder={speciesFieldPlaceholder(asset.type)}
-                                                            value={asset.species}
-                                                            onChange={(e) => updateAsset(index, 'species', e.target.value)}
-                                                            required
-                                                        />
-                                                    )}
-
-                                                    <InputError message={assetError(index, 'species')} />
+                                                    <InputError message={assetError(assetIndex, 'type')} />
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <Label htmlFor={`apprehending_agency-${index}`}>Apprehending Agency<span className="text-red-500">*</span></Label>
+                                                    <Label htmlFor={`apprehending_agency-${assetIndex}`}>Apprehending Agency<span className="text-red-500">*</span></Label>
                                                     <Input
-                                                        id={`apprehending_agency-${index}`}
+                                                        id={`apprehending_agency-${assetIndex}`}
                                                         value={asset.apprehending_agency}
-                                                        onChange={(e) => updateAsset(index, 'apprehending_agency', e.target.value)}
+                                                        onChange={(e) => updateAsset(assetIndex, 'apprehending_agency', e.target.value)}
                                                         required
                                                     />
-                                                    <InputError message={assetError(index, 'apprehending_agency')} />
+                                                    <InputError message={assetError(assetIndex, 'apprehending_agency')} />
                                                 </div>
                                             </div>
 
-                                            {asset.type === 'log' && (
-                                                <div className="grid gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4 md:grid-cols-3">
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor={`dimensions-${index}`}>Dimensions (L × W × H) <span className="text-red-500">*</span></Label>
-                                                        <div className="grid grid-cols-3 gap-2">
-                                                            <Input
-                                                                id={`length-${index}`}
-                                                                type="number"
-                                                                min="0"
-                                                                step="0.01"
-                                                                placeholder="Length"
-                                                                value={asset.length}
-                                                                onChange={(e) => handleDimensionChange(index, 'length', e.target.value)}
-                                                                required
-                                                            />
-                                                            <Input
-                                                                id={`width-${index}`}
-                                                                type="number"
-                                                                min="0"
-                                                                step="0.01"
-                                                                placeholder="Width"
-                                                                value={asset.width}
-                                                                onChange={(e) => handleDimensionChange(index, 'width', e.target.value)}
-                                                                required
-                                                            />
-                                                            <Input
-                                                                id={`height-${index}`}
-                                                                type="number"
-                                                                min="0"
-                                                                step="0.01"
-                                                                placeholder="Height"
-                                                                value={asset.height}
-                                                                onChange={(e) => handleDimensionChange(index, 'height', e.target.value)}
-                                                                required
-                                                            />
-                                                        </div>
-                                                        <InputError message={assetError(index, 'length')} />
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor={`volume_bd_ft-${index}`}>Volume (bd.ft)<span className="text-red-500">*</span></Label>
-                                                        <Input
-                                                            id={`volume_bd_ft-${index}`}
-                                                            type="number"
-                                                            step="0.01"
-                                                            min="0"
-                                                            value={asset.volume_bd_ft}
-                                                            onChange={(e) => handleVolumeBdFtChange(index, e.target.value)}
-                                                            readOnly={Boolean(asset.length || asset.width || asset.height)}
-                                                            disabled
-                                                            className="bg-gray-100"
-                                                        />
-                                                        <p className="text-xs text-gray-500">Auto-converted from dimensions</p>
-                                                        <InputError message={assetError(index, 'volume_bd_ft')} />
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor={`volume_cu_m-${index}`}>Volume (cu.m)</Label>
-                                                        <Input
-                                                            id={`volume_cu_m-${index}`}
-                                                            type="number"
-                                                            step="0.0001"
-                                                            min="0"
-                                                            value={asset.volume_cu_m}
-                                                            readOnly
-                                                            disabled
-                                                            className="bg-gray-100"
-                                                        />
-                                                        <p className="text-xs text-gray-500">Auto-converted from bd.ft</p>
-                                                        <InputError message={assetError(index, 'volume_cu_m')} />
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor={`estimated_value-${index}`}>Estimated Value (php)<span className="text-red-500">*</span></Label>
-                                                        <Input
-                                                            id={`estimated_value-${index}`}
-                                                            type="number"
-                                                            step="0.01"
-                                                            min="0"
-                                                            value={asset.estimated_value}
-                                                            onChange={(e) => updateAssetMultiple(index, { estimated_value: e.target.value, estimated_value_auto: false })}
-                                                            readOnly={asset.estimated_value_auto}
-                                                            className={asset.estimated_value_auto ? 'bg-gray-100' : undefined}
-                                                            required
-                                                        />
-                                                        {asset.estimated_value_auto ? (
-                                                            <p className="text-xs text-emerald-700">
-                                                                Auto-computed: {asset.volume_bd_ft} bd.ft × ₱{marketPriceMap[`${asset.species}|${apprehensionYear}`]?.toFixed(2)} (market price {apprehensionYear})
-                                                            </p>
-                                                        ) : asset.type === 'log' && asset.species && !asset.speciesIsOther && apprehensionYear ? (
-                                                            <p className="text-xs text-amber-700">
-                                                                No market price set for {asset.species} ({apprehensionYear}) — enter manually.
-                                                            </p>
-                                                        ) : null}
-                                                        <InputError message={assetError(index, 'estimated_value')} />
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {asset.type === 'vehicle' && (
-                                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                                    <div className="max-w-xs space-y-2">
-                                                        <Label htmlFor={`plate_number-${index}`}>Conveyance / Plate No.<span className="text-red-500">*</span></Label>
-                                                        <Input
-                                                            id={`plate_number-${index}`}
-                                                            value={asset.plate_number}
-                                                            onChange={(e) => updateAsset(index, 'plate_number', e.target.value)}
-                                                            required
-                                                        />
-                                                        <InputError message={assetError(index, 'plate_number')} />
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {asset.type !== 'log' && (
-                                                <div className="space-y-2 md:max-w-xs">
-                                                    <Label htmlFor={`estimated_value_other-${index}`}>Estimated Value (php)<span className="text-red-500">*</span></Label>
-                                                    <Input
-                                                        id={`estimated_value_other-${index}`}
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        value={asset.estimated_value}
-                                                        onChange={(e) => updateAsset(index, 'estimated_value', e.target.value)}
-                                                        required
-                                                    />
-                                                    <InputError message={assetError(index, 'estimated_value')} />
-                                                </div>
-                                            )}
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor={`description-${index}`}>Description<span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    id={`description-${index}`}
-                                                    value={asset.description}
-                                                    onChange={(e) => updateAsset(index, 'description', e.target.value)}
-                                                    required
-                                                />
-                                                <InputError message={assetError(index, 'description')} />
-                                            </div>
-
+                                            {/* Legal flags */}
                                             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
                                                 <Label className="mb-2 block">Legal</Label>
                                                 <div className="grid gap-3 md:grid-cols-2">
                                                     <button
                                                         type="button"
-                                                        onClick={() => updateAsset(index, 'has_ongoing_case', !asset.has_ongoing_case)}
+                                                        onClick={() => updateAsset(assetIndex, 'has_ongoing_case', !asset.has_ongoing_case)}
                                                         className={
                                                             'rounded-md border px-4 py-2 text-sm font-medium transition ' +
                                                             (asset.has_ongoing_case
@@ -1028,7 +1029,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        onClick={() => updateAsset(index, 'has_confiscation_order', !asset.has_confiscation_order)}
+                                                        onClick={() => updateAsset(assetIndex, 'has_confiscation_order', !asset.has_confiscation_order)}
                                                         className={
                                                             'rounded-md border px-4 py-2 text-sm font-medium transition ' +
                                                             (asset.has_confiscation_order
@@ -1039,11 +1040,32 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                         {asset.has_confiscation_order ? 'Confiscation / Forfeiture Order' : 'No order yet'}
                                                     </button>
                                                 </div>
-                                                <p className="mt-2 text-xs text-gray-500">
-                                                    {asset.has_ongoing_case
-                                                        ? 'This case is still under trial / legal review.'
-                                                        : 'No active court branch is linked at this intake step.'}
-                                                </p>
+                                            </div>
+
+                                            {/* Per-piece forms */}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <h4 className="text-sm font-semibold text-gray-700">
+                                                        Pieces — encode each one individually
+                                                    </h4>
+                                                    <span className="text-xs text-gray-500">
+                                                        {asset.pieces.length} {asset.pieces.length === 1 ? 'piece' : 'pieces'} total
+                                                    </span>
+                                                </div>
+
+                                                {asset.pieces.map((_, pieceIndex) =>
+                                                    renderPieceForm(asset, assetIndex, pieceIndex),
+                                                )}
+
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => addPiece(assetIndex)}
+                                                >
+                                                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                                    Add Piece
+                                                </Button>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -1078,12 +1100,11 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                 <div className="max-h-[85vh] overflow-y-auto p-6">
                     <h2 className="text-lg font-medium text-gray-900">Confirm Apprehension Intake</h2>
                     <p className="mt-1 text-sm text-gray-600">
-                        Please review the details below before recording this incident. Once submitted,
-                        an acknowledgement receipt will be generated for each item.
+                        Please review the details below before recording this incident.
                     </p>
 
                     <div className="mt-6 space-y-6">
-                        {/* Incident-level summary */}
+                        {/* Incident summary */}
                         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                             <h3 className="text-sm font-semibold text-gray-700">Apprehension Details</h3>
                             {previewCode && (
@@ -1101,14 +1122,6 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     <dd className="font-medium text-gray-900">{data.date_of_apprehension || '—'}</dd>
                                 </div>
                                 <div>
-                                    <dt className="text-gray-500">Date Submitted</dt>
-                                    <dd className="font-medium text-gray-900">{data.date_report_submitted || '—'}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-gray-500">Province</dt>
-                                    <dd className="font-medium text-gray-900">Catanduanes</dd>
-                                </div>
-                                <div>
                                     <dt className="text-gray-500">Municipality</dt>
                                     <dd className="font-medium text-gray-900">
                                         {labelFor(municipalities, data.place_of_apprehension) || '—'}
@@ -1118,20 +1131,10 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     <dt className="text-gray-500">Area</dt>
                                     <dd className="font-medium text-gray-900">{data.area || '—'}</dd>
                                 </div>
-                                <div>
-                                    <dt className="text-gray-500">Coordinates</dt>
-                                    <dd className="font-medium text-gray-900">{data.coordinates || '—'}</dd>
-                                </div>
                                 <div className="md:col-span-2">
                                     <dt className="text-gray-500">Apprehending Party</dt>
                                     <dd className="font-medium text-gray-900">
                                         {data.apprehending_parties.filter((p) => p.trim() !== '').join('; ') || '—'}
-                                    </dd>
-                                </div>
-                                <div className="md:col-span-2">
-                                    <dt className="text-gray-500">Initial Custodian (before PENRO)</dt>
-                                    <dd className="font-medium text-gray-900">
-                                        {data.initial_custodian_name || '—'}
                                     </dd>
                                 </div>
                                 <div>
@@ -1142,58 +1145,20 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             : 'Without Claimant (unclaimed)'}
                                     </dd>
                                 </div>
-                                {data.has_claimant && (
-                                    <>
-                                        <div>
-                                            <dt className="text-gray-500">Claimant Address</dt>
-                                            <dd className="font-medium text-gray-900">{data.claimant_address || '—'}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-gray-500">Claimant Contact Number</dt>
-                                            <dd className="font-medium text-gray-900">{data.claimant_contact_number || '—'}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-gray-500">Valid ID</dt>
-                                            <dd className="font-medium text-gray-900">
-                                                {data.claimant_id_type || data.claimant_id_number
-                                                    ? `${data.claimant_id_type || '—'} ${data.claimant_id_number ? `(${data.claimant_id_number})` : ''}`
-                                                    : '—'}
-                                            </dd>
-                                        </div>
-                                    </>
-                                )}
                             </dl>
                         </div>
 
-                        {/* Per-item summary */}
+                        {/* Per-item + per-piece summary */}
                         <div className="space-y-3">
                             <h3 className="text-sm font-semibold text-gray-700">
-                                Items ({data.assets.length})
+                                Items ({data.assets.length}) — {data.assets.reduce((sum, a) => sum + a.pieces.length, 0)} pieces total
                             </h3>
-                            {data.assets.map((asset, index) => (
-                                <div key={index} className="rounded-lg border border-gray-200 p-4">
+                            {data.assets.map((asset, assetIndex) => (
+                                <div key={assetIndex} className="rounded-lg border border-gray-200 p-4">
                                     <p className="text-sm font-semibold text-gray-800">
-                                        Item {index + 1} — {labelFor(types, asset.type)}
+                                        Item {assetIndex + 1} — {labelFor(types, asset.type)} ({asset.pieces.length} {asset.pieces.length === 1 ? 'piece' : 'pieces'})
                                     </p>
-                                    <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-sm md:grid-cols-2">
-                                        <div>
-                                            <dt className="text-gray-500">No. of Units</dt>
-                                            <dd className="text-gray-900">
-                                                {asset.quantity || '—'} {asset.quantity_unit || 'pcs'}
-                                            </dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-gray-500">{speciesFieldLabel(asset.type)}</dt>
-                                            <dd className="text-gray-900">{asset.species || '—'}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-gray-500">Apprehending Agency</dt>
-                                            <dd className="text-gray-900">{asset.apprehending_agency || '—'}</dd>
-                                        </div>
-                                        <div className="md:col-span-2">
-                                            <dt className="text-gray-500">Description</dt>
-                                            <dd className="text-gray-900">{asset.description || '—'}</dd>
-                                        </div>
+                                    <dl className="mt-2 grid gap-x-4 gap-y-1 text-sm md:grid-cols-2">
                                         <div>
                                             <dt className="text-gray-500">Ongoing Case</dt>
                                             <dd className="text-gray-900">{asset.has_ongoing_case ? 'Yes' : 'No'}</dd>
@@ -1202,38 +1167,48 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             <dt className="text-gray-500">Confiscation / Forfeiture Order</dt>
                                             <dd className="text-gray-900">{asset.has_confiscation_order ? 'Yes' : 'No'}</dd>
                                         </div>
-
-                                        {asset.type === 'log' && (
-                                            <>
-                                                <div>
-                                                    <dt className="text-gray-500">Dimensions (L × W × H)</dt>
-                                                    <dd className="text-gray-900">
-                                                        {asset.length || '—'} × {asset.width || '—'} × {asset.height || '—'}
-                                                    </dd>
-                                                </div>
-                                                <div>
-                                                    <dt className="text-gray-500">Volume (bd.ft)</dt>
-                                                    <dd className="text-gray-900">{asset.volume_bd_ft || '—'}</dd>
-                                                </div>
-                                                <div>
-                                                    <dt className="text-gray-500">Volume (cu.m)</dt>
-                                                    <dd className="text-gray-900">{asset.volume_cu_m || '—'}</dd>
-                                                </div>
-                                            </>
-                                        )}
-
-                                        {asset.type === 'vehicle' && (
-                                            <div>
-                                                <dt className="text-gray-500">Conveyance / Plate No.</dt>
-                                                <dd className="text-gray-900">{asset.plate_number || '—'}</dd>
-                                            </div>
-                                        )}
-
-                                        <div>
-                                            <dt className="text-gray-500">Estimated Value (php)</dt>
-                                            <dd className="text-gray-900">{asset.estimated_value || '—'}</dd>
-                                        </div>
                                     </dl>
+
+                                    {/* Piece breakdown */}
+                                    <div className="mt-3 space-y-2">
+                                        {asset.pieces.map((piece, pieceIndex) => (
+                                            <div key={pieceIndex} className="rounded border border-gray-100 bg-gray-50 p-3 text-sm">
+                                                <p className="font-medium text-gray-700 mb-1">Piece {pieceIndex + 1}</p>
+                                                <dl className="grid gap-x-4 gap-y-1 md:grid-cols-3">
+                                                    <div>
+                                                        <dt className="text-gray-500">{speciesFieldLabel(asset.type)}</dt>
+                                                        <dd className="text-gray-900">{piece.species || '—'}</dd>
+                                                    </div>
+                                                    {asset.type === 'log' && (
+                                                        <>
+                                                            <div>
+                                                                <dt className="text-gray-500">Dimensions (L×W×H)</dt>
+                                                                <dd className="text-gray-900">
+                                                                    {piece.length || '—'} × {piece.width || '—'} × {piece.height || '—'}
+                                                                </dd>
+                                                            </div>
+                                                            <div>
+                                                                <dt className="text-gray-500">Volume (bd.ft)</dt>
+                                                                <dd className="text-gray-900">{piece.volume_bd_ft || '—'}</dd>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {asset.type === 'vehicle' && (
+                                                        <div>
+                                                            <dt className="text-gray-500">Plate No.</dt>
+                                                            <dd className="text-gray-900">{piece.plate_number || '—'}</dd>
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <dt className="text-gray-500">Est. Value</dt>
+                                                        <dd className="text-gray-900">
+                                                            {piece.estimated_value ? `₱${Number(piece.estimated_value).toLocaleString()}` : '—'}
+                                                        </dd>
+                                                    </div>
+                                                </dl>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             ))}
                         </div>
