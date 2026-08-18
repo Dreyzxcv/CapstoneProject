@@ -130,6 +130,7 @@ class PdfDocumentService
 
         $pdf = Pdf::loadView('pdf.asset-tag-stickers', [
             'asset' => $asset->loadMissing('incident'),
+            'pieces' => $existing,
             'qrPngDataUris' => $qrPngDataUris,
             'totalPieces' => $totalPieces,
         ]);
