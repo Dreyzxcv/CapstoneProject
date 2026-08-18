@@ -255,13 +255,89 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                             )}
                             <InputError message={aapForm.errors.aap_number} className="mt-1" />
                         </div>
-                            {/* Pieces breakdown table */}
+                            {/* Pieces breakdown */}
                             {asset.pieces && asset.pieces.length > 0 && (
                                 <div className="md:col-span-2 mt-2 border-t border-b border-gray-100 pt-4 pb-4">
                                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
                                         Pieces ({asset.pieces.length})
                                     </p>
-                                    <div className="overflow-x-auto rounded-md border border-gray-200">
+
+                                    {/* Mobile: stacked cards */}
+                                    <div className="space-y-2 sm:hidden">
+                                        {asset.pieces.map((piece) => (
+                                            <button
+                                                key={piece.id}
+                                                type="button"
+                                                onClick={() => setSelectedPiece(piece)}
+                                                className="w-full rounded-md border border-gray-200 p-3 text-left active:bg-gray-50"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm font-medium text-gray-900">
+                                                        Piece {piece.piece_number} — {piece.species ?? '—'}
+                                                    </span>
+                                                    <span className="text-xs font-medium text-emerald-700">View</span>
+                                                </div>
+
+                                                {asset.type === 'log' && (
+                                                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
+                                                        <div>
+                                                            <dt className="text-gray-400">Dimensions</dt>
+                                                            <dd>{piece.length ?? '—'} × {piece.width ?? '—'} × {piece.height ?? '—'}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt className="text-gray-400">Vol. (bd.ft)</dt>
+                                                            <dd>{piece.volume_bd_ft ?? '—'}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt className="text-gray-400">Vol. (cu.m)</dt>
+                                                            <dd>{piece.volume_cu_m ?? '—'}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt className="text-gray-400">Est. Value (₱)</dt>
+                                                            <dd>
+                                                                {piece.estimated_value != null
+                                                                    ? Number(piece.estimated_value).toLocaleString()
+                                                                    : '—'}
+                                                            </dd>
+                                                        </div>
+                                                    </dl>
+                                                )}
+
+                                                {asset.type === 'vehicle' && (
+                                                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
+                                                        <div>
+                                                            <dt className="text-gray-400">Plate No.</dt>
+                                                            <dd>{piece.plate_number ?? '—'}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt className="text-gray-400">Est. Value (₱)</dt>
+                                                            <dd>
+                                                                {piece.estimated_value != null
+                                                                    ? Number(piece.estimated_value).toLocaleString()
+                                                                    : '—'}
+                                                            </dd>
+                                                        </div>
+                                                    </dl>
+                                                )}
+
+                                                {asset.type === 'equipment' && (
+                                                    <dl className="mt-2 grid grid-cols-1 gap-y-1 text-xs text-gray-600">
+                                                        <div>
+                                                            <dt className="text-gray-400">Est. Value (₱)</dt>
+                                                            <dd>
+                                                                {piece.estimated_value != null
+                                                                    ? Number(piece.estimated_value).toLocaleString()
+                                                                    : '—'}
+                                                            </dd>
+                                                        </div>
+                                                    </dl>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Desktop: table */}
+                                    <div className="hidden overflow-x-auto rounded-md border border-gray-200 sm:block">
                                         <table className="min-w-full divide-y divide-gray-200 text-sm">
                                             <thead className="bg-gray-50">
                                                 <tr>
