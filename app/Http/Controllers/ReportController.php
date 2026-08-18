@@ -6,10 +6,12 @@ use App\Enums\AssetStatus;
 use App\Enums\AssetType;
 use App\Models\Asset;
 use App\Models\AssetCaseStatusHistory;
+use App\Models\AssetPiece;
 use App\Models\AuditLog;
 use App\Services\PdfDocumentService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -32,7 +34,7 @@ class ReportController extends Controller
         }
 
         $chartMonth = $request->input('month', 'all');
-        $chartYear = $request->input('year', 'all');
+        $chartYear  = $request->input('year', 'all');
 
         $chartQuery = Asset::query();
         if ($chartYear !== 'all' && $chartYear !== null && $chartYear !== '') {
@@ -63,15 +65,15 @@ class ReportController extends Controller
             ->limit(300)
             ->get(['id', 'incident_code', 'coordinates', 'place_of_apprehension', 'date_of_apprehension', 'is_abandoned'])
             ->map(fn (Incident $incident) => [
-                'id' => $incident->id,
-                'incident_code' => $incident->incident_code,
-                'coordinates' => $incident->coordinates,
+                'id'                    => $incident->id,
+                'incident_code'         => $incident->incident_code,
+                'coordinates'           => $incident->coordinates,
                 'place_of_apprehension' => $incident->place_of_apprehension,
-                'date_of_apprehension' => $incident->date_of_apprehension?->toDateString(),
-                'is_abandoned' => $incident->is_abandoned,
-                'asset_count' => $incident->assets_count,
-                'asset_ids' => $incident->assets->pluck('id'),
-                'asset_types' => $incident->assets->pluck('type')->map(fn ($t) => $t->value)->unique()->values(),
+                'date_of_apprehension'  => $incident->date_of_apprehension?->toDateString(),
+                'is_abandoned'          => $incident->is_abandoned,
+                'asset_count'           => $incident->assets_count,
+                'asset_ids'             => $incident->assets->pluck('id'),
+                'asset_types'           => $incident->assets->pluck('type')->map(fn ($t) => $t->value)->unique()->values(),
             ]);
 
         $availableChartYears = Asset::query()
@@ -83,17 +85,17 @@ class ReportController extends Controller
 
         return Inertia::render('Reports/Index', [
             'summary' => [
-                'total' => Asset::count(),
-                'inStorage' => Asset::where('current_status', AssetStatus::Stored)->count(),
+                'total'       => Asset::count(),
+                'inStorage'   => Asset::where('current_status', AssetStatus::Stored)->count(),
                 'forDisposal' => Asset::where('current_status', AssetStatus::ForDisposal)->count(),
-                'underTrial' => Asset::where('current_status', AssetStatus::UnderTrial)->count(),
+                'underTrial'  => Asset::where('current_status', AssetStatus::UnderTrial)->count(),
             ],
             'byType' => (clone $chartQuery)
                 ->selectRaw('type, count(*) as count')
                 ->groupBy('type')
                 ->get()
                 ->map(fn ($row) => [
-                    'type' => $row->type instanceof AssetType ? $row->type->value : $row->type,
+                    'type'  => $row->type instanceof AssetType ? $row->type->value : $row->type,
                     'label' => $typeLabels[$row->type instanceof AssetType ? $row->type->value : $row->type] ?? $row->type,
                     'count' => $row->count,
                 ]),
@@ -103,17 +105,17 @@ class ReportController extends Controller
                 ->orderByDesc('count')
                 ->limit(10)
                 ->get(),
-            'trends' => $this->buildMonthlyTrends($baseQuery, $trendMonths),
-            'trendMonths' => $trendMonths,
-            'chartFilters' => ['month' => $chartMonth, 'year' => $chartYear],
+            'trends'              => $this->buildMonthlyTrends($baseQuery, $trendMonths),
+            'trendMonths'         => $trendMonths,
+            'chartFilters'        => ['month' => $chartMonth, 'year' => $chartYear],
             'availableChartYears' => $availableChartYears,
-            'typeLabels' => $typeLabels,
-            'statusLabels' => $statusLabels,
-            'recentActivity' => $recentActivity,
-            'incidentLocations' => $incidentLocations,
+            'typeLabels'          => $typeLabels,
+            'statusLabels'        => $statusLabels,
+            'recentActivity'      => $recentActivity,
+            'incidentLocations'   => $incidentLocations,
             'can' => [
-                'export' => $request->user()?->can('reports.export') ?? false,
-                'viewAudit' => $request->user()?->can('viewAny', AuditLog::class) ?? false,
+                'export'        => $request->user()?->can('reports.export') ?? false,
+                'viewAudit'     => $request->user()?->can('viewAny', AuditLog::class) ?? false,
                 'viewDonations' => $request->user()?->can('viewAny', \App\Models\Disposal::class) ?? false,
             ],
         ]);
@@ -129,15 +131,15 @@ class ReportController extends Controller
 
         $buckets = [];
         for ($i = 0; $i < $months; $i++) {
-            $period = $start->copy()->addMonths($i);
-            $key = $period->format('Y-m');
+            $period       = $start->copy()->addMonths($i);
+            $key          = $period->format('Y-m');
             $buckets[$key] = [
-                'key' => $key,
-                'month' => $period->format('M Y'),
-                'log' => 0,
+                'key'       => $key,
+                'month'     => $period->format('M Y'),
+                'log'       => 0,
                 'equipment' => 0,
-                'vehicle' => 0,
-                'total' => 0,
+                'vehicle'   => 0,
+                'total'     => 0,
             ];
         }
 
@@ -167,7 +169,7 @@ class ReportController extends Controller
         $assets = Asset::with(['creator', 'acknowledgementReceipt'])->get();
 
         $headers = [
-            'Content-Type' => 'text/csv',
+            'Content-Type'        => 'text/csv',
             'Content-Disposition' => 'attachment; filename="inventory-'.now()->format('Y-m-d').'.csv"',
         ];
 
@@ -198,7 +200,7 @@ class ReportController extends Controller
         abort_unless($request->user()?->can('reports.export'), 403);
 
         $data = [
-            'generatedAt' => now(),
+            'generatedAt'    => now(),
             'byMunicipality' => Asset::query()
                 ->selectRaw('municipality_of_origin, count(*) as count')
                 ->groupBy('municipality_of_origin')
@@ -209,7 +211,7 @@ class ReportController extends Controller
                 ->groupBy('type')
                 ->get()
                 ->map(fn ($row) => [
-                    'type' => $row->type->label(),
+                    'type'  => $row->type->label(),
                     'count' => $row->count,
                 ]),
             'byStatus' => Asset::query()
@@ -218,15 +220,15 @@ class ReportController extends Controller
                 ->get()
                 ->map(fn ($row) => [
                     'status' => $row->current_status->label(),
-                    'count' => $row->count,
+                    'count'  => $row->count,
                 ]),
         ];
 
-        $path = $pdfService->generateComplianceReport($data);
+        $path    = $pdfService->generateComplianceReport($data);
         $content = \Illuminate\Support\Facades\Storage::disk('local')->get($path);
 
         return response($content, 200, [
-            'Content-Type' => 'application/pdf',
+            'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="compliance-report-'.now()->format('Y-m-d').'.pdf"',
         ]);
     }
@@ -275,19 +277,19 @@ class ReportController extends Controller
 
         match ($status) {
             'awaiting_jev_out' => $query->whereHas('disposal', fn ($d) => $d->whereDoesntHave('disposalJev')),
-            'awaiting_upload' => $query->whereHas('disposal.disposalJev', fn ($j) => $j->whereNull('uploaded_at')),
+            'awaiting_upload'  => $query->whereHas('disposal.disposalJev', fn ($j) => $j->whereNull('uploaded_at')),
             'awaiting_release' => $query
                 ->whereHas('disposal.disposalJev', fn ($j) => $j->whereNotNull('uploaded_at'))
                 ->whereNull('released_at'),
             'released' => $query->whereNotNull('released_at'),
-            default => null,
+            default    => null,
         };
 
         $donations = $query->latest('id')->paginate(20)->withQueryString();
 
         return Inertia::render('Reports/Donations', [
             'donations' => $donations,
-            'filters' => ['status' => $status, 'search' => $search],
+            'filters'   => ['status' => $status, 'search' => $search],
         ]);
     }
 
@@ -307,13 +309,13 @@ class ReportController extends Controller
 
     protected function resolveAttributeTableData(Request $request): array
     {
-        $columns = $this->attributeColumns();
-        $clauses = $this->parseClauses($request->input('clauses', []), $columns);
-        $combinator = $request->input('combinator') === 'or' ? 'or' : 'and';
+        $columns      = $this->attributeColumns();
+        $clauses      = $this->parseClauses($request->input('clauses', []), $columns);
+        $combinator   = $request->input('combinator') === 'or' ? 'or' : 'and';
 
-        $sortColumn = $request->input('sort', 'id');
+        $sortColumn = $request->input('sort', 'asset_id');
         if (! array_key_exists($sortColumn, $columns)) {
-            $sortColumn = 'id';
+            $sortColumn = 'asset_id';
         }
         $sortDirection = $request->input('direction') === 'asc' ? 'asc' : 'desc';
 
@@ -323,12 +325,12 @@ class ReportController extends Controller
             ->withQueryString();
 
         return [
-            'assets' => $assets,
-            'columns' => array_values($columns),
-            'filters' => [
-                'clauses' => $clauses,
+            'assets'      => $assets,
+            'columns'     => array_values($columns),
+            'filters'     => [
+                'clauses'   => $clauses,
                 'combinator' => $combinator,
-                'sort' => $sortColumn,
+                'sort'      => $sortColumn,
                 'direction' => $sortDirection,
             ],
             'resultCount' => $assets->total(),
@@ -339,27 +341,27 @@ class ReportController extends Controller
     {
         $this->authorize('viewAny', Asset::class);
 
-        $columns = $this->attributeColumns();
-        $clauses = $this->parseClauses($request->input('clauses', []), $columns);
+        $columns    = $this->attributeColumns();
+        $clauses    = $this->parseClauses($request->input('clauses', []), $columns);
         $combinator = $request->input('combinator') === 'or' ? 'or' : 'and';
 
-        $assets = $this->buildAttributeQuery($clauses, $combinator)->orderBy('id')->get();
+        $rows = $this->buildAttributeQuery($clauses, $combinator)->orderBy('asset_id')->get();
 
         $headers = [
-            'Content-Type' => 'text/csv',
+            'Content-Type'        => 'text/csv',
             'Content-Disposition' => 'attachment; filename="attribute-table-'.now()->format('Y-m-d').'.csv"',
         ];
 
-        return HttpResponse::stream(function () use ($assets, $columns) {
+        return HttpResponse::stream(function () use ($rows, $columns) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, array_map(fn ($c) => $c['label'], $columns));
 
-            foreach ($assets as $asset) {
-                fputcsv($handle, array_map(function ($key) use ($asset) {
-                    $value = $asset->{$key};
+            foreach ($rows as $row) {
+                fputcsv($handle, array_map(function ($key) use ($row) {
+                    $value = $row->{$key};
                     if (is_bool($value)) return $value ? 'Yes' : 'No';
                     if ($value instanceof \Illuminate\Support\Carbon) return $value->toDateTimeString();
-                    if (is_object($value) && method_exists($value, 'value')) return $value->value; // enum casts
+                    if (is_object($value) && method_exists($value, 'value')) return $value->value;
                     return $value;
                 }, array_keys($columns)));
             }
@@ -369,61 +371,85 @@ class ReportController extends Controller
     }
 
     /**
-     * Whitelisted, typed column metadata — this is the ONLY set of fields
-     * the query builder is allowed to touch. Never accept a raw column
-     * name from the client.
+     * Whitelisted column definitions.
+     *
+     * Piece-level fields (species, description, dimensions, volume, value,
+     * plate_number) come from asset_pieces when the asset has pieces;
+     * asset-level fields (asset_code, type, mode, status, etc.) are always
+     * sourced from the assets table.
+     *
+     * Column keys must match the aliased SELECT columns produced by
+     * buildAttributeQuery() so sorting and filtering work correctly.
      */
     protected function attributeColumns(): array
     {
         return [
-            'id' => ['key' => 'id', 'label' => 'ID', 'type' => 'number'],
+            // ── Asset-level identity ──────────────────────────────────────
+            'asset_id' => ['key' => 'asset_id', 'label' => 'ID', 'type' => 'number'],
             'asset_code' => ['key' => 'asset_code', 'label' => 'Asset Code', 'type' => 'text'],
+            'piece_number' => ['key' => 'piece_number', 'label' => 'Piece #', 'type' => 'number'],
             'aap_number' => ['key' => 'aap_number', 'label' => 'AAP No.', 'type' => 'text'],
-            'type' => ['key' => 'type', 'label' => 'Type', 'type' => 'select',
-                'options' => collect(AssetType::cases())->map(fn ($t) => ['value' => $t->value, 'label' => $t->label()])],
+            'type' => [
+                'key'  => 'type',
+                'label' => 'Type',
+                'type' => 'select',
+                'options' => collect(AssetType::cases())->map(fn ($t) => ['value' => $t->value, 'label' => $t->label()]),
+            ],
+            // ── Piece-level measurement fields ────────────────────────────
             'species' => ['key' => 'species', 'label' => 'Species', 'type' => 'text'],
             'description' => ['key' => 'description', 'label' => 'Description', 'type' => 'text'],
             'quantity' => ['key' => 'quantity', 'label' => 'Quantity', 'type' => 'number'],
             'quantity_unit' => ['key' => 'quantity_unit', 'label' => 'Unit', 'type' => 'text'],
             'disposed_quantity' => ['key' => 'disposed_quantity', 'label' => 'Disposed Qty', 'type' => 'number'],
+            'length' => ['key' => 'length', 'label' => 'Length', 'type' => 'number'],
+            'width'  => ['key' => 'width',  'label' => 'Width',  'type' => 'number'],
+            'height' => ['key' => 'height', 'label' => 'Height', 'type' => 'number'],
             'volume_bd_ft' => ['key' => 'volume_bd_ft', 'label' => 'Volume (bd.ft)', 'type' => 'number'],
-            'volume_cu_m' => ['key' => 'volume_cu_m', 'label' => 'Volume (cu.m)', 'type' => 'number'],
+            'volume_cu_m'  => ['key' => 'volume_cu_m',  'label' => 'Volume (cu.m)',  'type' => 'number'],
             'estimated_value' => ['key' => 'estimated_value', 'label' => 'Estimated Value', 'type' => 'number'],
             'plate_number' => ['key' => 'plate_number', 'label' => 'Plate Number', 'type' => 'text'],
-            'municipality_of_origin' => ['key' => 'municipality_of_origin', 'label' => 'Municipality', 'type' => 'select',
-                'options' => collect(Municipality::cases())->map(fn ($m) => ['value' => $m->value, 'label' => $m->value])],
+            // ── Asset-level context ───────────────────────────────────────
+            'municipality_of_origin' => [
+                'key'  => 'municipality_of_origin',
+                'label' => 'Municipality',
+                'type' => 'select',
+                'options' => collect(Municipality::cases())->map(fn ($m) => ['value' => $m->value, 'label' => $m->value]),
+            ],
             'location_apprehended' => ['key' => 'location_apprehended', 'label' => 'Location Apprehended', 'type' => 'text'],
-            'apprehending_agency' => ['key' => 'apprehending_agency', 'label' => 'Apprehending Agency', 'type' => 'text'],
-            'mode' => ['key' => 'mode', 'label' => 'Mode', 'type' => 'select',
-                'options' => collect(AssetMode::cases())->map(fn ($m) => ['value' => $m->value, 'label' => $m->label()])],
+            'apprehending_agency'  => ['key' => 'apprehending_agency',  'label' => 'Apprehending Agency',  'type' => 'text'],
+            'mode' => [
+                'key'  => 'mode',
+                'label' => 'Mode',
+                'type' => 'select',
+                'options' => collect(AssetMode::cases())->map(fn ($m) => ['value' => $m->value, 'label' => $m->label()]),
+            ],
             'has_ongoing_case' => ['key' => 'has_ongoing_case', 'label' => 'Ongoing Case', 'type' => 'boolean'],
             'has_confiscation_order' => ['key' => 'has_confiscation_order', 'label' => 'Confiscation Order', 'type' => 'boolean'],
-            'current_status' => ['key' => 'current_status', 'label' => 'Status', 'type' => 'select',
-                'options' => collect(AssetStatus::cases())->map(fn ($s) => ['value' => $s->value, 'label' => $s->label()])],
-            'case_number' => ['key' => 'case_number', 'label' => 'Case Number', 'type' => 'text'],
-            'court_branch' => ['key' => 'court_branch', 'label' => 'Court / Branch', 'type' => 'text'],
-            'next_hearing_date' => ['key' => 'next_hearing_date', 'label' => 'Next Hearing Date', 'type' => 'date'],
-            'appeal_deadline' => ['key' => 'appeal_deadline', 'label' => 'Appeal Deadline', 'type' => 'date'],
-            'created_at' => ['key' => 'created_at', 'label' => 'Date Created', 'type' => 'date'],
+            'current_status' => [
+                'key'  => 'current_status',
+                'label' => 'Status',
+                'type' => 'select',
+                'options' => collect(AssetStatus::cases())->map(fn ($s) => ['value' => $s->value, 'label' => $s->label()]),
+            ],
+            'case_number'       => ['key' => 'case_number',       'label' => 'Case Number',       'type' => 'text'],
+            'court_branch'      => ['key' => 'court_branch',      'label' => 'Court / Branch',     'type' => 'text'],
+            'next_hearing_date' => ['key' => 'next_hearing_date', 'label' => 'Next Hearing Date',  'type' => 'date'],
+            'appeal_deadline'   => ['key' => 'appeal_deadline',   'label' => 'Appeal Deadline',    'type' => 'date'],
+            'created_at'        => ['key' => 'created_at',        'label' => 'Date Created',       'type' => 'date'],
         ];
     }
 
     protected function operatorsFor(string $type): array
     {
         return match ($type) {
-            'number' => ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'null', 'not_null'],
-            'date' => ['eq', 'gt', 'lt', 'gte', 'lte', 'null', 'not_null'],
+            'number'  => ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'null', 'not_null'],
+            'date'    => ['eq', 'gt', 'lt', 'gte', 'lte', 'null', 'not_null'],
             'boolean' => ['eq'],
-            'select' => ['eq', 'neq', 'null', 'not_null'],
-            default => ['eq', 'neq', 'contains', 'starts_with', 'null', 'not_null'],
+            'select'  => ['eq', 'neq', 'null', 'not_null'],
+            default   => ['eq', 'neq', 'contains', 'starts_with', 'null', 'not_null'],
         };
     }
 
-    /**
-     * Validates raw clause input against the column/operator whitelist and
-     * drops anything that doesn't pass — the query builder never sees
-     * unvalidated field names or operators.
-     */
     protected function parseClauses(mixed $rawClauses, array $columns): array
     {
         if (! is_array($rawClauses)) {
@@ -435,9 +461,9 @@ class ReportController extends Controller
         foreach ($rawClauses as $raw) {
             if (! is_array($raw)) continue;
 
-            $field = $raw['field'] ?? null;
+            $field    = $raw['field']    ?? null;
             $operator = $raw['operator'] ?? null;
-            $value = $raw['value'] ?? null;
+            $value    = $raw['value']    ?? null;
 
             if (! isset($columns[$field])) continue;
             if (! in_array($operator, $this->operatorsFor($columns[$field]['type']), true)) continue;
@@ -449,44 +475,134 @@ class ReportController extends Controller
         return $clauses;
     }
 
-    protected function buildAttributeQuery(array $clauses, string $combinator): Builder
+    /**
+     * Build a unified flat query that returns one row per piece for assets
+     * that have pieces, and one row per asset for assets without pieces.
+     *
+     * Both branches SELECT the same aliased columns so they can be paginated
+     * and sorted uniformly. Piece-level fields (species, description,
+     * dimensions, volume, estimated_value, plate_number) come from
+     * asset_pieces in the first branch and from assets in the second.
+     *
+     * Filtering clauses are applied to the merged result via a wrapping
+     * subquery so WHERE conditions work across both branches.
+     */
+    protected function buildAttributeQuery(array $clauses, string $combinator): \Illuminate\Database\Query\Builder
     {
-        $query = Asset::query();
+        $assetCols = '
+            a.id            AS asset_id,
+            a.asset_code,
+            a.aap_number,
+            a.type,
+            a.quantity,
+            a.quantity_unit,
+            a.disposed_quantity,
+            a.municipality_of_origin,
+            a.location_apprehended,
+            a.apprehending_agency,
+            a.mode,
+            a.has_ongoing_case,
+            a.has_confiscation_order,
+            a.current_status,
+            a.case_number,
+            a.court_branch,
+            a.next_hearing_date,
+            a.appeal_deadline,
+            a.created_at
+        ';
 
-        if (empty($clauses)) {
-            return $query;
+        // Branch 1: assets that HAVE pieces — one row per piece
+        $withPieces = DB::table('asset_pieces AS p')
+            ->join('assets AS a', 'a.id', '=', 'p.asset_id')
+            ->whereExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('asset_pieces')
+                    ->whereColumn('asset_pieces.asset_id', 'a.id');
+            })
+            ->selectRaw("
+                p.piece_number,
+                p.species,
+                p.description,
+                p.length,
+                p.width,
+                p.height,
+                p.volume_bd_ft,
+                p.volume_cu_m,
+                p.estimated_value,
+                p.plate_number,
+                {$assetCols}
+            ");
+
+        // Branch 2: assets that have NO pieces — one row per asset
+        $withoutPieces = DB::table('assets AS a')
+            ->whereNotExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('asset_pieces')
+                    ->whereColumn('asset_pieces.asset_id', 'a.id');
+            })
+            ->selectRaw("
+                NULL        AS piece_number,
+                a.species,
+                a.description,
+                a.length,
+                a.width,
+                a.height,
+                a.volume_bd_ft,
+                a.volume_cu_m,
+                a.estimated_value,
+                a.plate_number,
+                {$assetCols}
+            ");
+
+        // UNION both branches into a single flat result set
+        $union = $withPieces->unionAll($withoutPieces);
+
+        // Wrap in a subquery so we can apply WHERE clauses and ORDER BY
+        $query = DB::table(DB::raw("({$union->toSql()}) AS rows"))
+            ->mergeBindings($union);
+
+        // Apply filter clauses
+        if (! empty($clauses)) {
+            $query->where(function ($q) use ($clauses, $combinator) {
+                foreach ($clauses as $i => $clause) {
+                    $boolean = $i === 0 ? 'and' : $combinator;
+                    $q->where(function ($inner) use ($clause) {
+                        $this->applyClauseRaw($inner, $clause);
+                    }, null, null, $boolean);
+                }
+            });
         }
-
-        $query->where(function (Builder $q) use ($clauses, $combinator) {
-            foreach ($clauses as $i => $clause) {
-                $boolean = $i === 0 ? 'and' : $combinator;
-                $q->where(function (Builder $inner) use ($clause) {
-                    $this->applyClause($inner, $clause);
-                }, null, null, $boolean);
-            }
-        });
 
         return $query;
     }
 
-    protected function applyClause(Builder $query, array $clause): void
+    /**
+     * Apply a single filter clause to the raw DB query builder (not Eloquent).
+     * Column names here reference the aliased columns from buildAttributeQuery().
+     */
+    protected function applyClauseRaw(\Illuminate\Database\Query\Builder $query, array $clause): void
     {
-        $field = $clause['field'];
+        $field    = $clause['field'];
         $operator = $clause['operator'];
-        $value = $clause['value'];
+        $value    = $clause['value'];
+
+        // Remap 'id' filter key → 'asset_id' alias used in the subquery
+        if ($field === 'id') {
+            $field = 'asset_id';
+        }
 
         match ($operator) {
-            'eq' => $query->where($field, '=', $this->castBoolIfNeeded($field, $value)),
-            'neq' => $query->where($field, '!=', $this->castBoolIfNeeded($field, $value)),
-            'gt' => $query->where($field, '>', $value),
-            'lt' => $query->where($field, '<', $value),
-            'gte' => $query->where($field, '>=', $value),
-            'lte' => $query->where($field, '<=', $value),
-            'contains' => $query->where($field, 'like', "%{$value}%"),
+            'eq'          => $query->where($field, '=', $this->castBoolIfNeeded($field, $value)),
+            'neq'         => $query->where($field, '!=', $this->castBoolIfNeeded($field, $value)),
+            'gt'          => $query->where($field, '>', $value),
+            'lt'          => $query->where($field, '<', $value),
+            'gte'         => $query->where($field, '>=', $value),
+            'lte'         => $query->where($field, '<=', $value),
+            'contains'    => $query->where($field, 'like', "%{$value}%"),
             'starts_with' => $query->where($field, 'like', "{$value}%"),
-            'null' => $query->whereNull($field),
-            'not_null' => $query->whereNotNull($field),
-            default => null,
+            'null'        => $query->whereNull($field),
+            'not_null'    => $query->whereNotNull($field),
+            default       => null,
         };
     }
 
