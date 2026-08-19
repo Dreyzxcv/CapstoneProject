@@ -28,10 +28,14 @@ class PdfDocumentService
 
         $items = $asset->pieces->isNotEmpty() ? $asset->pieces : collect([$asset]);
 
+        $qrPayload     = $this->qrCodeService->buildScanUrl($asset->qr_code_token);
+        $qrPngDataUri  = $this->qrCodeService->generatePngDataUri($qrPayload);
+
         $pdf = Pdf::loadView('pdf.acknowledgement-receipt', [
-            'asset'   => $asset,
-            'receipt' => $receipt,
-            'items'   => $items,
+            'asset'        => $asset,
+            'receipt'      => $receipt,
+            'items'        => $items,
+            'qrPngDataUri' => $qrPngDataUri,
         ]);
 
         $path = $this->storePdf($pdf->output(), 'receipts', $receipt->receipt_number);
