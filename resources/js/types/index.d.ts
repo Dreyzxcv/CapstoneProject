@@ -38,6 +38,8 @@ export interface AssetPiece {
     piece_number: number;
     qr_code_token: string;
     species: string | null;
+    equipment_type?: string | null;
+    vehicle_type?: string | null;
     description: string | null;
     length: number | null;
     width: number | null;
