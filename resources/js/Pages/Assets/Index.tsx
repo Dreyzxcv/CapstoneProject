@@ -404,32 +404,133 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                         <p className="mt-6 text-sm text-gray-500">Loading…</p>
                     ) : (
                         <div className="mt-6 space-y-4">
-                            {modalItems?.map((item) => (
-                                <div key={item.id} className="rounded-lg border border-gray-200 p-4">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <p className="text-sm font-semibold capitalize text-gray-800">
-                                            {item.type}{item.species ? ` — ${item.species}` : ''}
-                                        </p>
-                                        <AssetStatusBadge
-                                            status={item.current_status}
-                                            label={item.current_status.replace(/_/g, ' ')}
-                                            disposedQuantity={item.disposed_quantity}
-                                            quantity={item.quantity}
-                                        />
+                            {modalItems?.map((item) => {
+                                const pieces = item.pieces ?? [];
+                                const isLog = item.type === 'log';
+                                const totalVolumeBd = pieces.reduce((sum, p) => sum + (p.volume_bd_ft ?? 0), 0);
+                                const totalVolumeCu = pieces.reduce((sum, p) => sum + (p.volume_cu_m ?? 0), 0);
+                                const totalValue = pieces.reduce((sum, p) => sum + (p.estimated_value ?? 0), 0);
+                                const hasPieces = pieces.length > 0;
+
+                                return (
+                                    <div key={item.id} className="rounded-lg border border-gray-200 p-4">
+                                        {/* Header */}
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-sm font-semibold capitalize text-gray-800">
+                                                {item.type}{item.species ? ` — ${item.species}` : ''}
+                                            </p>
+                                            <AssetStatusBadge
+                                                status={item.current_status}
+                                                label={item.current_status.replace(/_/g, ' ')}
+                                                disposedQuantity={item.disposed_quantity}
+                                                quantity={item.quantity}
+                                            />
+                                        </div>
+
+                                        {/* Quick facts */}
+                                        <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+                                            <div>
+                                                <dt className="text-gray-500">Quantity</dt>
+                                                <dd>{item.quantity} {item.quantity_unit}</dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-gray-500">Municipality</dt>
+                                                <dd>{item.municipality_of_origin}</dd>
+                                            </div>
+                                        </dl>
+
+                                        {/* Rollup totals */}
+                                        {hasPieces && (
+                                            <div className="mt-3 flex flex-wrap gap-4 rounded-md bg-gray-50 px-3 py-2 text-sm">
+                                                {isLog && totalVolumeBd > 0 && (
+                                                    <div>
+                                                        <span className="text-gray-500">Volume: </span>
+                                                        <span className="font-medium">{totalVolumeBd.toFixed(2)} bd.ft</span>
+                                                        {totalVolumeCu > 0 && (
+                                                            <span className="text-gray-400"> / {totalVolumeCu.toFixed(4)} cu.m</span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {totalValue > 0 && (
+                                                    <div>
+                                                        <span className="text-gray-500">Est. Value: </span>
+                                                        <span className="font-medium text-emerald-700">
+                                                            ₱{totalValue.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Piece table — adaptive by type */}
+                                        {hasPieces ? (
+                                            <div className="mt-3 overflow-x-auto">
+                                                <table className="min-w-full text-xs">
+                                                    <thead>
+                                                        <tr className="border-b border-gray-100 text-left text-gray-400">
+                                                            <th className="pb-1 pr-3 font-medium">#</th>
+                                                            {isLog && <th className="pb-1 pr-3 font-medium">Species</th>}
+                                                            {isLog && <th className="pb-1 pr-3 font-medium">Dimensions (L×W×H)</th>}
+                                                            {isLog && <th className="pb-1 pr-3 font-medium">Volume</th>}
+                                                            {item.type === 'vehicle' && <th className="pb-1 pr-3 font-medium">Vehicle Type</th>}
+                                                            {item.type === 'vehicle' && <th className="pb-1 pr-3 font-medium">Plate / Conveyance No.</th>}
+                                                            {item.type === 'equipment' && <th className="pb-1 pr-3 font-medium">Equipment Type</th>}
+                                                            <th className="pb-1 font-medium">Est. Value</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-50">
+                                                        {pieces.map((piece, idx) => (
+                                                            <tr key={piece.id} className="text-gray-700">
+                                                                <td className="py-1 pr-3 text-gray-400">{idx + 1}</td>
+                                                                {isLog && (
+                                                                    <td className="py-1 pr-3">{piece.species ?? item.species ?? '—'}</td>
+                                                                )}
+                                                                {isLog && (
+                                                                    <td className="py-1 pr-3">
+                                                                        {[piece.length, piece.width, piece.height]
+                                                                            .map((v) => (v != null ? `${v}m` : '—'))
+                                                                            .join(' × ')}
+                                                                    </td>
+                                                                )}
+                                                                {isLog && (
+                                                                    <td className="py-1 pr-3">
+                                                                        {piece.volume_bd_ft != null
+                                                                            ? `${Number(piece.volume_bd_ft).toFixed(2)} bd.ft`
+                                                                            : '—'}
+                                                                    </td>
+                                                                )}
+                                                                {item.type === 'vehicle' && (
+                                                                    <td className="py-1 pr-3 capitalize">{piece.vehicle_type ?? '—'}</td>
+                                                                )}
+                                                                {item.type === 'vehicle' && (
+                                                                    <td className="py-1 pr-3">{piece.plate_number ?? '—'}</td>
+                                                                )}
+                                                                {item.type === 'equipment' && (
+                                                                    <td className="py-1 pr-3 capitalize">{piece.equipment_type ?? '—'}</td>
+                                                                )}
+                                                                <td className="py-1">
+                                                                    {piece.estimated_value != null
+                                                                        ? `₱${Number(piece.estimated_value).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+                                                                        : '—'}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ) : (
+                                            <p className="mt-3 text-xs italic text-gray-400">No pieces recorded yet.</p>
+                                        )}
+
+                                        <Link
+                                            href={route('assets.show', item.id)}
+                                            className="mt-3 inline-block text-xs font-medium text-emerald-700 hover:underline"
+                                        >
+                                            Open full record →
+                                        </Link>
                                     </div>
-                                    <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
-                                        <div><dt className="text-gray-500">Quantity</dt><dd>{item.quantity} {item.quantity_unit}</dd></div>
-                                        <div><dt className="text-gray-500">Municipality</dt><dd>{item.municipality_of_origin}</dd></div>
-                                        <div className="sm:col-span-2"><dt className="text-gray-500">Description</dt><dd>{item.description ?? '—'}</dd></div>
-                                    </dl>
-                                    <Link
-                                        href={route('assets.show', item.id)}
-                                        className="mt-3 inline-block text-xs font-medium text-emerald-700 hover:underline"
-                                    >
-                                        Open full record →
-                                    </Link>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
 
