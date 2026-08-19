@@ -6,7 +6,10 @@
 
     <style>
         @page {
-            margin: 0.5in;
+            margin-top: 1.6in;     /* space for fixed header */
+            margin-bottom: 1.1in;  /* space for fixed footer */
+            margin-left: 0.5in;
+            margin-right: 0.5in;
             size: 8.5in 14in;
         }
 
@@ -157,12 +160,56 @@
             margin: 0 20pt;
         }
 
-        /* ---------- Footer ---------- */
-        .footer {
-            margin-top: 30pt;
-            text-align: center;
+        /* ---------- Fixed Header ---------- */
+        .page-header {
+            position: fixed;
+            top: -1.4in;   /* pull into the top margin area */
+            left: 0;
+            right: 0;
+        }
+
+        /* ---------- Fixed Footer ---------- */
+        .page-footer {
+            position: fixed;
+            bottom: -1.1in; /* pull into the bottom margin area */
+            left: 0;
+            right: 0;
             font-size: 9pt;
             font-style: italic;
+            border-top: 1pt solid #ccc;
+            padding-top: 6pt;
+        }
+
+        .footer-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .footer-table td {
+            vertical-align: middle;
+        }
+
+        .footer-contact {
+            text-align: center;
+        }
+
+        .footer-qr {
+            text-align: right;
+            width: 80pt;
+        }
+
+        .footer-qr img {
+            width: 68pt;
+            height: 68pt;
+            display: block;
+            margin-left: auto;
+        }
+
+        .footer-qr p {
+            margin: 2pt 0 0;
+            font-size: 7pt;
+            text-align: center;
+            font-style: normal;
         }
     </style>
 </head>
@@ -171,6 +218,23 @@
 
 @php
     $items = $items ?? collect([$asset]);
+
+    // Group pieces by species so that e.g. two Narra pieces become one row
+    // with combined quantity and summed volume instead of two separate rows.
+    $groupedItems = $items
+        ->groupBy(fn ($item) => trim(strtolower($item->species ?? 'unknown')))
+        ->map(function ($group) {
+            $first = $group->first();
+            return (object) [
+                'species'      => $first->species,
+                'quantity'     => $group->sum(fn ($i) => $i instanceof \App\Models\AssetPiece ? 1 : ($i->quantity ?? 1)),
+                'volume_bd_ft' => $group->sum(fn ($i) => (float) ($i->volume_bd_ft ?? 0)) ?: null,
+                'volume_cu_m'  => $group->sum(fn ($i) => (float) ($i->volume_cu_m  ?? 0)) ?: null,
+                'description'  => $first->description ?? null,
+                'plate_number' => $first->plate_number ?? null,
+            ];
+        })
+        ->values();
 
     $denrLogo = 'data:image/jpeg;base64,' . base64_encode(
         file_get_contents(public_path('images/denr-logo.jpg'))
@@ -181,27 +245,29 @@
     );
 @endphp
 
-<table class="header-table">
-    <tr>
-        <td class="header-logo-left">
-            <img src="{{ $denrLogo }}">
-        </td>
+<div class="page-header">
+    <table class="header-table">
+        <tr>
+            <td class="header-logo-left">
+                <img src="{{ $denrLogo }}">
+            </td>
 
-        <td style="width:70%;">
-            <div class="header-title">
-                DEPARTMENT OF ENVIRONMENT AND NATURAL RESOURCES
-            </div>
+            <td style="width:70%;">
+                <div class="header-title">
+                    DEPARTMENT OF ENVIRONMENT AND NATURAL RESOURCES
+                </div>
 
-            <div class="header-subtitle">
-                KAGAWARAN NG KAPALIGIRAN AT LIKAS NA YAMAN
-            </div>
-        </td>
+                <div class="header-subtitle">
+                    KAGAWARAN NG KAPALIGIRAN AT LIKAS NA YAMAN
+                </div>
+            </td>
 
-        <td class="header-logo-right">
-            <img src="{{ $bagongPilipinasLogo }}">
-        </td>
-    </tr>
-</table>
+            <td class="header-logo-right">
+                <img src="{{ $bagongPilipinasLogo }}">
+            </td>
+        </tr>
+    </table>
+</div>
 
 <h3 class="receipt-title">
     CUSTODY RECEIPT
@@ -222,20 +288,18 @@
 
     <tr>
         <td class="item-cell">
-            @foreach($items as $item)
+            @foreach($groupedItems as $item)
                 <p class="item-entry">
-                    {{ $item instanceof \App\Models\AssetPiece ? 1 : ($item->quantity ?? 1) }}
+                    {{ $item->quantity }}
                 </p>
             @endforeach
         </td>
 
         <td class="item-cell">
-            @foreach($items as $item)
+            @foreach($groupedItems as $item)
                 <p class="item-entry">
                     {{ $asset->type->label() }}
-                    @if(($item->species ?? null))
-                        — {{ $item->species }}
-                    @elseif(!($item instanceof \App\Models\AssetPiece) && $item->species)
+                    @if($item->species ?? null)
                         — {{ $item->species }}
                     @endif
                 </p>
@@ -243,7 +307,7 @@
         </td>
 
         <td class="item-cell">
-            @foreach($items as $item)
+            @foreach($groupedItems as $item)
                 <p class="item-entry">
                     {{ $item->description ?? $asset->description ?? '—' }}
 
@@ -251,10 +315,8 @@
                         <br>Plate/Conveyance No.: {{ $item->plate_number ?? $asset->plate_number }}
                     @endif
 
-                    @if($item->volume_bd_ft ?? null)
-                        <br>Volume: {{ $item->volume_bd_ft }} bd.ft
-                    @elseif(!($item instanceof \App\Models\AssetPiece) && $item->volume_bd_ft)
-                        <br>Volume: {{ $item->volume_bd_ft }} bd.ft
+                    @if($item->volume_bd_ft)
+                        <br>Volume: {{ number_format($item->volume_bd_ft, 2) }} bd.ft
                     @endif
                 </p>
             @endforeach
@@ -332,11 +394,24 @@
     </tr>
 </table>
 
-<div class="footer">
-    San Isidro Village, Virac, Catanduanes, Philippines<br>
-    eMail: penrocatanduanes@denr.gov.ph |
-    Tel. no. (052) 740 5735 |
-    VOIP: 2841
+<div class="page-footer">
+    <table class="footer-table">
+        <tr>
+            <td class="footer-contact">
+                San Isidro Village, Virac, Catanduanes, Philippines<br>
+                eMail: penrocatanduanes@denr.gov.ph |
+                Tel. no. (052) 740 5735 |
+                VOIP: 2841
+            </td>
+
+            @if (!empty($qrPngDataUri))
+            <td class="footer-qr">
+                <img src="{{ $qrPngDataUri }}" alt="QR Code">
+                <p>Scan to verify</p>
+            </td>
+            @endif
+        </tr>
+    </table>
 </div>
 
 </body>
