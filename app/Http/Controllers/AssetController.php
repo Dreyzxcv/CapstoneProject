@@ -178,7 +178,7 @@ class AssetController extends Controller
     public function byCode(Request $request, string $assetCode)
     {
         $items = Asset::where('asset_code', $assetCode)
-            ->with(['acknowledgementReceipt', 'creator', 'jev', 'disposals.donation'])
+            ->with(['acknowledgementReceipt', 'creator', 'jev', 'disposals.donation', 'pieces'])
             ->get();
 
         abort_if($items->isEmpty(), 404);
