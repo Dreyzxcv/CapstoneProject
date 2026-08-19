@@ -11,8 +11,9 @@ class AssetPiece extends Model
         'asset_id',
         'piece_number',
         'qr_code_token',
-        // Per-piece measurement fields (encoded 1-by-1 by MES)
         'species',
+        'equipment_type',
+        'vehicle_type',
         'description',
         'length',
         'width',
@@ -21,7 +22,6 @@ class AssetPiece extends Model
         'volume_cu_m',
         'estimated_value',
         'plate_number',
-        // Disposal tracking (existing)
         'disposal_id',
         'disposed_at',
     ];

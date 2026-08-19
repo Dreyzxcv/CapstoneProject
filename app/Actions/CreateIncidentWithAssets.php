@@ -120,6 +120,8 @@ class CreateIncidentWithAssets
                         'piece_number'    => $pieceIndex + 1,
                         'qr_code_token'   => Str::random(32),
                         'species'         => $pieceData['species'] ?? null,
+                        'equipment_type'  => $pieceData['equipment_type'] ?? null,
+                        'vehicle_type'    => $pieceData['vehicle_type'] ?? null,
                         'description'     => $pieceData['description'] ?? null,
                         'length'          => $pieceData['length'] ?? null,
                         'width'           => $pieceData['width'] ?? null,

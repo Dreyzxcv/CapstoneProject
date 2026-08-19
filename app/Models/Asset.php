@@ -23,6 +23,8 @@ class Asset extends Model
         'aap_number',
         'type',
         'species',
+        'equipment_type',
+        'vehicle_type',
         'description',
         'quantity', 'quantity_unit', 'length', 'width', 'height', 'volume_bd_ft', 'volume_cu_m',
         'disposed_quantity', 'disposed_volume_bd_ft', 'disposed_volume_cu_m',
@@ -67,6 +69,15 @@ class Asset extends Model
             'disposed_volume_bd_ft' => 'decimal:2',
             'disposed_volume_cu_m' => 'decimal:4',
         ];
+    }
+
+    public function itemLabel(): ?string
+    {
+        return match ($this->type) {
+            \App\Enums\AssetType::Equipment => $this->equipment_type,
+            \App\Enums\AssetType::Vehicle => $this->vehicle_type,
+            default => $this->species,
+        };
     }
 
     public function incident(): BelongsTo

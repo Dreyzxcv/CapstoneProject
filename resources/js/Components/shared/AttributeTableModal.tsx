@@ -94,7 +94,7 @@ export default function AttributeTableModal({ show, onClose }: AttributeTableMod
     const [assets, setAssets] = useState<AssetsPayload | null>(null);
     const [clauses, setClauses] = useState<Clause[]>([]);
     const [combinator, setCombinator] = useState<'and' | 'or'>('and');
-    const [sort, setSort] = useState('id');
+    const [sort, setSort] = useState('asset_id');
     const [direction, setDirection] = useState<'asc' | 'desc'>('desc');
     const [loading, setLoading] = useState(false);
     const [panelOpen, setPanelOpen] = useState(false);

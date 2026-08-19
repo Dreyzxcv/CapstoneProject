@@ -396,7 +396,9 @@ class ReportController extends Controller
                 'options' => collect(AssetType::cases())->map(fn ($t) => ['value' => $t->value, 'label' => $t->label()]),
             ],
             // ── Piece-level measurement fields ────────────────────────────
-            'species' => ['key' => 'species', 'label' => 'Species', 'type' => 'text'],
+            'species' => ['key' => 'species', 'label' => 'Species (Log)', 'type' => 'text'],
+            'equipment_type' => ['key' => 'equipment_type', 'label' => 'Equipment Type', 'type' => 'text'],
+            'vehicle_type' => ['key' => 'vehicle_type', 'label' => 'Vehicle Type', 'type' => 'text'],
             'description' => ['key' => 'description', 'label' => 'Description', 'type' => 'text'],
             'quantity' => ['key' => 'quantity', 'label' => 'Quantity', 'type' => 'number'],
             'quantity_unit' => ['key' => 'quantity_unit', 'label' => 'Unit', 'type' => 'text'],
@@ -522,6 +524,8 @@ class ReportController extends Controller
             ->selectRaw("
                 p.piece_number,
                 p.species,
+                p.equipment_type,
+                p.vehicle_type,
                 p.description,
                 p.length,
                 p.width,
@@ -543,6 +547,8 @@ class ReportController extends Controller
             ->selectRaw("
                 NULL        AS piece_number,
                 a.species,
+                NULL        AS equipment_type,
+                NULL        AS vehicle_type,
                 a.description,
                 a.length,
                 a.width,

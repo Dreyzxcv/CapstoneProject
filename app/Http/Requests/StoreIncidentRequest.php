@@ -47,6 +47,8 @@ class StoreIncidentRequest extends FormRequest
             // Per-piece fields — each item is now encoded piece-by-piece
             'assets.*.pieces'                     => ['required', 'array', 'min:1'],
             'assets.*.pieces.*.species'           => ['nullable', 'string', 'max:255'],
+            'assets.*.pieces.*.equipment_type' => ['nullable', 'string', 'max:255'],
+            'assets.*.pieces.*.vehicle_type'   => ['nullable', 'string', 'max:255'],
             'assets.*.pieces.*.description'       => ['nullable', 'string', 'max:2000'],
             'assets.*.pieces.*.length'            => ['nullable', 'numeric', 'min:0'],
             'assets.*.pieces.*.width'             => ['nullable', 'numeric', 'min:0'],

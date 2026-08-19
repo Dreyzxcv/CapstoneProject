@@ -33,6 +33,8 @@ interface CreateProps {
 // One physical piece encoded individually by MES
 interface PieceRow {
     species: string;
+    equipment_type: string;
+    vehicle_type: string;
     speciesIsOther: boolean;
     description: string;
     length: string;
@@ -86,6 +88,8 @@ const BD_FT_TO_CU_M = 0.002359737;
 function emptyPieceRow(species = ''): PieceRow {
     return {
         species,
+        equipment_type: '',
+        vehicle_type: '',
         speciesIsOther: false,
         description: '',
         length: '',
@@ -263,9 +267,9 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
 
     function handlePieceEquipmentSelect(assetIndex: number, pieceIndex: number, value: string) {
         if (value === 'Others') {
-            updatePiece(assetIndex, pieceIndex, { species: '', speciesIsOther: true });
+            updatePiece(assetIndex, pieceIndex, { equipment_type: '', speciesIsOther: true });
         } else {
-            updatePiece(assetIndex, pieceIndex, { species: value, speciesIsOther: false });
+            updatePiece(assetIndex, pieceIndex, { equipment_type: value, speciesIsOther: false });
         }
     }
 
@@ -483,8 +487,8 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                 <Input
                                     id={`piece-species-${assetIndex}-${pieceIndex}`}
                                     placeholder={speciesFieldPlaceholder(asset.type)}
-                                    value={piece.species}
-                                    onChange={(e) => updatePiece(assetIndex, pieceIndex, { species: e.target.value })}
+                                    value={piece.equipment_type}
+                                    onChange={(e) => updatePiece(assetIndex, pieceIndex, { equipment_type: e.target.value })}
                                     autoFocus
                                     required
                                 />
@@ -492,7 +496,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => updatePiece(assetIndex, pieceIndex, { speciesIsOther: false, species: '' })}
+                                    onClick={() => updatePiece(assetIndex, pieceIndex, { speciesIsOther: false, equipment_type: '' })}
                                 >
                                     Choose from list
                                 </Button>
@@ -500,7 +504,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                         ) : (
                             <select
                                 id={`piece-species-${assetIndex}-${pieceIndex}`}
-                                value={piece.species}
+                                value={piece.equipment_type}
                                 onChange={(e) => handlePieceEquipmentSelect(assetIndex, pieceIndex, e.target.value)}
                                 className={selectClass}
                             >
@@ -514,8 +518,8 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                         <Input
                             id={`piece-species-${assetIndex}-${pieceIndex}`}
                             placeholder={speciesFieldPlaceholder(asset.type)}
-                            value={piece.species}
-                            onChange={(e) => updatePiece(assetIndex, pieceIndex, { species: e.target.value })}
+                            value={piece.vehicle_type}
+                            onChange={(e) => updatePiece(assetIndex, pieceIndex, { vehicle_type: e.target.value })}
                             required
                         />
                     )}
@@ -1175,7 +1179,13 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                 <dl className="grid gap-x-4 gap-y-1 md:grid-cols-3">
                                                     <div>
                                                         <dt className="text-gray-500">{speciesFieldLabel(asset.type)}</dt>
-                                                        <dd className="text-gray-900">{piece.species || '—'}</dd>
+                                                        <dd className="text-gray-900">
+                                                            {asset.type === 'equipment'
+                                                                ? piece.equipment_type || '—'
+                                                                : asset.type === 'vehicle'
+                                                                    ? piece.vehicle_type || '—'
+                                                                    : piece.species || '—'}
+                                                        </dd>
                                                     </div>
                                                     {asset.type === 'log' && (
                                                         <>
