@@ -170,7 +170,10 @@ class AssetController extends Controller
                 'verifyDocuments' => $request->user()?->can('documents.verify') ?? false,
                 'issueJevOut' => $request->user()?->can('jev.create') ?? false,
                 'uploadJevOut' => $request->user()?->can('jev.upload') ?? false,
-                'edit' => $request->user()?->can('assets.update') ?? false,   // ← new
+                'edit' => $request->user()?->can('assets.update') ?? false,
+                'submitForCustodyReview' => $request->user()?->can('assets.submit_for_custody_review')
+                    && $asset->current_status === \App\Enums\AssetStatus::DocumentsUploaded
+                    && $asset->hasAllRequiredDocuments() ?? false,
             ],
         ]);
     }
@@ -188,6 +191,21 @@ class AssetController extends Controller
         }
 
         return response()->json(['items' => $items]);
+    }
+
+    public function submitForCustodyReview(Asset $asset, \App\Services\AssetLifecycleService $lifecycleService): RedirectResponse
+    {
+        $this->authorize('view', $asset);
+
+        $lifecycleService->transition(
+            $asset,
+            \App\Enums\AssetStatus::PendingCustodyReview,
+            request()->user(),
+            'Submitted for custody review by MES.',
+            'asset.submitted_for_custody_review',
+        );
+
+        return back()->with('success', 'Submitted for custody review.');
     }
 
     public function updateAapNumber(UpdateAapNumberRequest $request, Asset $asset, \App\Services\AuditLogService $auditLog): RedirectResponse

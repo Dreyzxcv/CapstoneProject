@@ -97,9 +97,9 @@ class CreateAsset
 
             $this->lifecycleService->transition(
                 $asset->fresh(),
-                AssetStatus::PendingCustodyReview,
+                AssetStatus::Stored,
                 $user,
-                'Intake encoded by MES.',
+                'Intake encoded by MES; asset placed in storage.',
                 'asset.created',
             );
 

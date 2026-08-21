@@ -20,6 +20,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Enums\AssetStatus;
+use App\Services\AssetLifecycleService;
 
 class DocumentController extends Controller
 {
@@ -126,8 +128,11 @@ class DocumentController extends Controller
         return back()->with('success', 'Evidence photo(s) uploaded.');
     }
 
-    public function storeRequired(UploadRequiredDocumentRequest $request, Asset $asset): RedirectResponse
-    {
+    public function storeRequired(
+        UploadRequiredDocumentRequest $request,
+        Asset $asset,
+        AssetLifecycleService $lifecycleService,
+    ): RedirectResponse {
         $this->authorize('view', $asset);
 
         $file = $request->file('file');
@@ -147,7 +152,37 @@ class DocumentController extends Controller
             'uploaded_at' => now(),
         ]);
 
+        // Auto-transition to DocumentsUploaded when all required docs are present
+        $asset->refresh();
+        if (
+            $asset->current_status === AssetStatus::Stored &&
+            $asset->hasAllRequiredDocuments()
+        ) {
+            $lifecycleService->transition(
+                $asset,
+                AssetStatus::DocumentsUploaded,
+                $request->user(),
+                'All required documents uploaded by MES.',
+                'asset.documents_uploaded',
+            );
+        }
+
         return back()->with('success', "{$type->label()} uploaded for review.");
+    }
+
+    public function submitForCustodyReview(Asset $asset, AssetLifecycleService $lifecycleService): RedirectResponse
+    {
+        $this->authorize('view', $asset);
+
+        $lifecycleService->transition(
+            $asset,
+            AssetStatus::PendingCustodyReview,
+            request()->user(),
+            'Submitted for custody review by MES.',
+            'asset.submitted_for_custody_review',
+        );
+
+        return back()->with('success', 'Submitted for custody review.');
     }
 
     public function verify(VerifyDocumentRequest $request, Document $document, AuditLogService $auditLog): RedirectResponse

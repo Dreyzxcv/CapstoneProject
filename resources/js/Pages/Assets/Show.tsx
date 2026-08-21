@@ -37,6 +37,7 @@ interface ShowProps {
         issueJevOut: boolean;
         verifyDocuments: boolean;
         uploadJevOut: boolean;
+        submitForCustodyReview: boolean;
     };
 }
 
@@ -124,8 +125,14 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
     }
 
     function handleMarkStored() {
-        if (confirm('Confirm asset is tagged and placed in storage?')) {
+        if (confirm('Confirm documents are verified and asset has been physically tagged with its QR sticker?')) {
             router.post(route('assets.mark-stored', asset.id));
+        }
+    }
+
+    function handleSubmitForCustodyReview() {
+        if (confirm('Submit documents for custody review? The Property Custodian will be notified.')) {
+            router.post(route('assets.submit-for-custody-review', asset.id));
         }
     }
 
@@ -592,14 +599,19 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                     <Card>
                         <CardHeader><CardTitle className="text-base">Actions</CardTitle></CardHeader>
                         <CardContent className="space-y-3">
-                            {can.markStored && (
-                                <Button className="w-full" variant="secondary" onClick={handleMarkStored}>
-                                    Mark as Stored
+                            {can.submitForCustodyReview && (
+                                <Button className="w-full" variant="secondary" onClick={handleSubmitForCustodyReview}>
+                                    Submit for Custody Review
                                 </Button>
                             )}
-                            {asset.current_status === 'receipt_signed' && !can.markStored && requiredDocumentTypes.length > 0 && (
+                            {can.markStored && (
+                                <Button className="w-full" variant="secondary" onClick={handleMarkStored}>
+                                    Mark as Tagged
+                                </Button>
+                            )}
+                            {asset.current_status === 'pending_custody_review' && !can.markStored && requiredDocumentTypes.length > 0 && (
                                 <p className="text-xs text-amber-700">
-                                    Waiting on required document verification before this asset can be marked as stored.
+                                    Waiting on required document verification before this asset can be tagged.
                                 </p>
                             )}
                             {can.resolveCase && (
@@ -612,7 +624,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                     <Button className="w-full" variant="outline">Process Disposal</Button>
                                 </Link>
                             )}
-                            {!can.signReceipt && !can.markStored && !can.resolveCase && !(can.processDisposal && asset.current_status === 'for_disposal') && !receiptUrl && (
+                            {!can.signReceipt && !can.markStored && !can.submitForCustodyReview && !can.resolveCase && !(can.processDisposal && asset.current_status === 'for_disposal') && !receiptUrl && (  
                                 <p className="text-sm text-gray-500">No actions available for your role at this stage.</p>
                             )}
                             {receiptUrl && (

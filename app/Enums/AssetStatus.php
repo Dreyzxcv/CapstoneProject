@@ -5,6 +5,7 @@ namespace App\Enums;
 enum AssetStatus: string
 {
     case IntakeRecorded = 'intake_recorded';
+    case DocumentsUploaded = 'documents_uploaded';
     case PendingCustodyReview = 'pending_custody_review';
     case ReceiptSigned = 'receipt_signed';
     case Stored = 'stored';
@@ -24,6 +25,7 @@ enum AssetStatus: string
     {
         return match ($this) {
             self::IntakeRecorded => 'Intake Recorded',
+            self::DocumentsUploaded => 'Documents Uploaded',
             self::PendingCustodyReview => 'Pending Custody Review',
             self::ReceiptSigned => 'Receipt Signed',
             self::Stored => 'In Storage',
@@ -45,7 +47,8 @@ enum AssetStatus: string
     {
         return match ($this) {
             self::UnderTrial => 'blue',
-            self::PendingCustodyReview, self::ForDisposal, self::ClearedForAccounting, self::PendingRelease, self::DonationPendingJevOut => 'amber',
+            self::PendingCustodyReview, self::ForDisposal, self::ClearedForAccounting,
+            self::PendingRelease, self::DonationPendingJevOut, self::DocumentsUploaded => 'amber',
             self::Stored, self::Donated, self::Released, self::Fabricated => 'green',
             self::Forfeited, self::Decayed, self::Damaged => 'gray',
             default => 'default',

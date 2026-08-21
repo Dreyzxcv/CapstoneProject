@@ -24,6 +24,8 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
 
     Route::resource('assets', AssetController::class)->only(['index', 'create', 'store', 'show']);
     Route::put('/assets/{asset}', [AssetController::class, 'update'])->name('assets.update');
+    Route::post('/assets/{asset}/submit-for-custody-review', [AssetController::class, 'submitForCustodyReview'])
+        ->name('assets.submit-for-custody-review');
     Route::post('/assets/{asset}/mark-stored', [AssetController::class, 'markStored'])->name('assets.mark-stored');
 
     Route::post('/assets/{asset}/jev', [JevController::class, 'store'])->name('assets.jev.store');

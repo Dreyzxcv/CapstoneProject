@@ -199,6 +199,32 @@ class Asset extends Model
         };
     }
 
+    public function hasAllRequiredDocuments(): bool
+    {
+        $required = $this->blockingDocumentTypes();
+
+        if (empty($required)) {
+            return true;
+        }
+
+        $uploadedTypes = $this->documents()
+            ->whereIn('status', [
+                \App\Enums\DocumentStatus::Pending->value,
+                \App\Enums\DocumentStatus::Verified->value,
+            ])
+            ->pluck('document_type')
+            ->map(fn ($t) => $t instanceof \App\Enums\DocumentType ? $t->value : $t)
+            ->unique();
+
+        foreach ($required as $type) {
+            if (! $uploadedTypes->contains($type->value)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function hasAllRequiredDocumentsVerified(): bool
     {
         $required = $this->blockingDocumentTypes();

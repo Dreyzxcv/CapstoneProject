@@ -15,12 +15,17 @@ class AssetLifecycleService
     /** @var array<string, list<AssetStatus>> */
     protected array $transitions = [
         AssetStatus::IntakeRecorded->value => [
-            AssetStatus::PendingCustodyReview,
-        ],
-        AssetStatus::PendingCustodyReview->value => [
             AssetStatus::Stored,
         ],
         AssetStatus::Stored->value => [
+            AssetStatus::DocumentsUploaded,
+            AssetStatus::UnderTrial,
+            AssetStatus::ClearedForAccounting,
+        ],
+        AssetStatus::DocumentsUploaded->value => [
+            AssetStatus::PendingCustodyReview,
+        ],
+        AssetStatus::PendingCustodyReview->value => [
             AssetStatus::UnderTrial,
             AssetStatus::ClearedForAccounting,
         ],
@@ -123,13 +128,23 @@ class AssetLifecycleService
         return match ($asset->current_status) {
             AssetStatus::IntakeRecorded => [
                 'title' => 'MES Intake',
-                'summary' => 'The asset has been recorded by MES and is awaiting custody review.',
-                'nextAction' => 'Move the asset to the property custody review queue.',
+                'summary' => 'The asset has been recorded by MES.',
+                'nextAction' => 'Asset will be automatically moved to Stored after intake.',
+            ],
+            AssetStatus::Stored => [
+                'title' => 'In Storage',
+                'summary' => 'The asset is in storage. MES must upload the required documents to proceed.',
+                'nextAction' => 'Upload all required documents to submit for custody review.',
+            ],
+            AssetStatus::DocumentsUploaded => [
+                'title' => 'Documents Uploaded',
+                'summary' => 'MES has uploaded the required documents and submitted for custody review.',
+                'nextAction' => 'Property Custodian must verify the documents and approve custody.',
             ],
             AssetStatus::PendingCustodyReview => [
-                'title' => 'Property Custody Review',
-                'summary' => 'MES has uploaded the required documents; Property Custodian must verify them before the asset can be stored.',
-                'nextAction' => 'Verify the uploaded documents, then mark the asset as stored to generate the acknowledgement receipt and QR code.',
+                'title' => 'Pending Custody Review',
+                'summary' => 'MES has submitted the required documents. Property Custodian must verify and tag the asset.',
+                'nextAction' => 'Verify all documents, then click "Mark as Tagged" to generate the acknowledgement receipt and QR tag.',
             ],
             AssetStatus::ReceiptSigned => [
                 'title' => 'Storage Preparation',
