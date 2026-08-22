@@ -4,11 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Actions\CreateAsset;
 use App\Actions\MarkAssetStored;
-use App\Actions\SignAcknowledgementReceipt;
 use App\Actions\UpdateCaseDetails;
 use App\Http\Requests\UpdateCaseDetailsRequest;
 use App\Http\Requests\UpdateAapNumberRequest;
 use App\Http\Requests\UpdateAssetRequest;
+use App\Actions\SubmitForCustodyReview;
+use App\Actions\ResolveCustodyReview;
 use Illuminate\Support\Facades\Storage;
 use App\Services\PdfDocumentService;
 use App\Enums\AssetMode;
@@ -145,7 +146,18 @@ class AssetController extends Controller
         }
 
         return Inertia::render('Assets/Show', [
-            'asset' => $asset,
+            'asset' => $asset->load([
+                'pieces',
+                'documents.uploadedBy',
+                'documents.verifiedBy',
+                'acknowledgementReceipt',
+                'jev',
+                'disposals.donation',
+                'disposals.disposalJev',
+                'incident',
+                'qrScans.scannedBy',
+                'statusHistory',
+            ]),
             'qrPayload' => $qrPayload,
             'qrSvg' => $qrSvg,
             'requiredDocumentTypes' => collect($asset->requiredDocumentTypes())->map(fn ($t) => [
@@ -166,23 +178,22 @@ class AssetController extends Controller
                 'label' => $m->label(),
             ]),
             'can' => [
-                'markStored' => $request->user()?->can('markStored', $asset) ?? false,
-                'generateQr' => $request->user()?->can('generateQr', $asset) ?? false,
-                'updateAap' => $request->user()?->can('updateAap', $asset) ?? false,
-                'createJev' => $request->user()?->can('create', \App\Models\Jev::class) ?? false,
-                'uploadJev' => $asset->jev ? ($request->user()?->can('upload', $asset->jev) ?? false) : false,
-                'resolveCase' => $request->user()?->can('updateCaseStatus', $asset) ?? false,
-                'releaseDonation' => $request->user()?->can('disposals.process') ?? false,
-                'processDisposal' => $request->user()?->can('create', \App\Models\Disposal::class) ?? false,
+                'submitForCustodyReview' => $request->user()->can('submitForCustodyReview', $asset),
+                'resolveCustodyReview'   => $request->user()->can('resolveCustodyReview', $asset),
+                'markStored'        => $request->user()?->can('markStored', $asset) ?? false,
+                'generateQr'        => $request->user()?->can('generateQr', $asset) ?? false,
+                'updateAap'         => $request->user()?->can('updateAap', $asset) ?? false,
+                'createJev'         => $request->user()?->can('create', \App\Models\Jev::class) ?? false,
+                'uploadJev'         => $asset->jev ? ($request->user()?->can('upload', $asset->jev) ?? false) : false,
+                'resolveCase'       => $request->user()?->can('updateCaseStatus', $asset) ?? false,
+                'releaseDonation'   => $request->user()?->can('disposals.process') ?? false,
+                'processDisposal'   => $request->user()?->can('create', \App\Models\Disposal::class) ?? false,
                 'updateCaseDetails' => $asset->has_ongoing_case && ($request->user()?->can('assets.update_case') ?? false),
-                'uploadEvidence' => $request->user()?->can('documents.upload') ?? false,
-                'verifyDocuments' => $request->user()?->can('documents.verify') ?? false,
-                'issueJevOut' => $request->user()?->can('jev.create') ?? false,
-                'uploadJevOut' => $request->user()?->can('jev.upload') ?? false,
-                'edit' => $request->user()?->can('assets.update') ?? false,
-                'submitForCustodyReview' => $request->user()?->can('assets.submit_for_custody_review')
-                    && $asset->current_status === \App\Enums\AssetStatus::DocumentsUploaded
-                    && $asset->hasAllRequiredDocuments() ?? false,
+                'uploadEvidence'    => $request->user()?->can('documents.upload') ?? false,
+                'verifyDocuments'   => $request->user()?->can('documents.verify') ?? false,
+                'issueJevOut'       => $request->user()?->can('jev.create') ?? false,
+                'uploadJevOut'      => $request->user()?->can('jev.upload') ?? false,
+                'edit'              => $request->user()?->can('assets.update') ?? false,
             ],
         ]);
     }
@@ -200,21 +211,6 @@ class AssetController extends Controller
         }
 
         return response()->json(['items' => $items]);
-    }
-
-    public function submitForCustodyReview(Asset $asset, \App\Services\AssetLifecycleService $lifecycleService): RedirectResponse
-    {
-        $this->authorize('view', $asset);
-
-        $lifecycleService->transition(
-            $asset,
-            \App\Enums\AssetStatus::PendingCustodyReview,
-            request()->user(),
-            'Submitted for custody review by MES.',
-            'asset.submitted_for_custody_review',
-        );
-
-        return back()->with('success', 'Submitted for custody review.');
     }
 
     public function updateAapNumber(UpdateAapNumberRequest $request, Asset $asset, \App\Services\AuditLogService $auditLog): RedirectResponse
@@ -321,5 +317,28 @@ class AssetController extends Controller
         );
 
         return back()->with('success', 'Asset updated successfully.');
+    }
+
+    public function submitForCustodyReview(Asset $asset, SubmitForCustodyReview $action): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorize('submitForCustodyReview', $asset);
+
+        $action->execute($asset);
+
+        return back()->with('success', 'Asset submitted for custody review.');
+    }
+
+    public function resolveCustodyReview(Asset $asset, ResolveCustodyReview $action): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorize('resolveCustodyReview', $asset);
+
+        $validated = request()->validate([
+            'decision' => ['required', 'in:approved,returned'],
+            'remarks'  => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $action->execute($asset, $validated['decision'], $validated['remarks'] ?? null);
+
+        return back()->with('success', 'Custody review ' . $validated['decision'] . '.');
     }
 }

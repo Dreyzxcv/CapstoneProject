@@ -55,7 +55,7 @@ class HandleInertiaRequests extends Middleware
                         ->whereNull('read_at')
                         ->latest()
                         ->limit(10)
-                        ->get(['id', 'asset_id', 'title', 'message', 'created_at'])
+                        ->get(['id', 'asset_id', 'link', 'title', 'message', 'created_at'])
                     : [],
                 'unreadAssetIds' => fn () => $user
                     ? \App\Models\Notification::where('user_id', $user->id)

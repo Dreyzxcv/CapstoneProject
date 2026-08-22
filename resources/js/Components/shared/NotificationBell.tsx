@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 interface NotificationItem {
     id: number;
     asset_id: number | null;
+    link: string | null;
     title: string;
     message: string;
     created_at: string;
@@ -78,7 +79,7 @@ export default function NotificationBell() {
                             items.map((item) => (
                                 <Link
                                     key={item.id}
-                                    href={item.asset_id ? route('assets.show', item.asset_id) : '#'}
+                                    href={item.link ?? (item.asset_id ? route('assets.show', item.asset_id) : '#')}
                                     onClick={() => setOpen(false)}
                                     className="block border-b border-gray-50 px-4 py-3 transition hover:bg-emerald-50/60"
                                 >

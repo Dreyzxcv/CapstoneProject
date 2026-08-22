@@ -34,6 +34,17 @@ class AssetPolicy
             && $asset->hasAllRequiredDocumentsVerified();
     }
 
+    public function submitForCustodyReview(User $user, Asset $asset): bool
+    {
+        return $user->can('assets.submit_custody_review');
+    }
+
+    public function resolveCustodyReview(User $user, Asset $asset): bool
+    {
+        // Only custodians
+        return $user->hasRole('custodian');
+    }
+
     public function generateQr(User $user, Asset $asset): bool
     {
         return $user->can('assets.generate_qr')

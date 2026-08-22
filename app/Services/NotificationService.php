@@ -62,6 +62,19 @@ class NotificationService
         );
     }
 
+    public function notify(User $user, string $title, string $message, ?string $link = null, ?string $type = null, ?int $assetId = null): void
+    {
+        Notification::create([
+            'user_id'  => $user->id,
+            'asset_id' => $assetId,
+            'title'    => $title,
+            'message'  => $message,
+            'link'     => $link,
+            'type'     => $type,
+            'read_at'  => null,
+        ]);
+    }
+
     /**
      * General-purpose role notification for handoffs that aren't a status
      * transition (e.g. "JEV issued, please upload").
