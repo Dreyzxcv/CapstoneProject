@@ -361,7 +361,7 @@ export default function AssetsShow({
                         onClick={() => submit("approved")}
                         className="bg-green-600 hover:bg-green-700 text-white"
                     >
-                        ✅ Approve
+                        Approve
                     </Button>
                     <Button
                         size="sm"
@@ -369,7 +369,7 @@ export default function AssetsShow({
                         onClick={() => submit("returned")}
                         className="border-red-300 text-red-700 hover:bg-red-50"
                     >
-                        ❌ Return
+                        Return
                     </Button>
                 </div>
             </div>

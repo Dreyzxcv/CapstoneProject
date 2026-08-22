@@ -42,7 +42,7 @@ class AssetPolicy
     public function resolveCustodyReview(User $user, Asset $asset): bool
     {
         // Only custodians
-        return $user->hasRole('custodian');
+        return $user->hasRole('Property Custodian');
     }
 
     public function generateQr(User $user, Asset $asset): bool

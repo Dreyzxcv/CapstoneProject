@@ -417,7 +417,10 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                         {/* Header */}
                                         <div className="flex items-center justify-between gap-3">
                                             <p className="text-sm font-semibold capitalize text-gray-800">
-                                                {item.type}{item.species ? ` — ${item.species}` : ''}
+                                                {item.type}
+                                                {item.type === 'log' && item.species ? ` — ${item.species}` : ''}
+                                                {item.type === 'vehicle' && (item as any).vehicle_type ? ` — ${(item as any).vehicle_type}` : ''}
+                                                {item.type === 'equipment' && (item as any).equipment_type ? ` — ${(item as any).equipment_type}` : ''}
                                             </p>
                                             <AssetStatusBadge
                                                 status={item.current_status}

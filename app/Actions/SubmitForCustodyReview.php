@@ -19,6 +19,7 @@ class SubmitForCustodyReview
             'custody_review_submitted_at' => now(),
             'custody_review_submitted_by' => Auth::id(),
             'custody_review_remarks'      => null,
+            'current_status'              => \App\Enums\AssetStatus::PendingCustodyReview,
         ]);
 
         // Notify all custodians
