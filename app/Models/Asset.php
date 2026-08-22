@@ -177,15 +177,12 @@ class Asset extends Model
             default => [
                 \App\Enums\DocumentType::DaoForm,
                 \App\Enums\DocumentType::TallySheet,
+                \App\Enums\DocumentType::SeizureOrder,
                 \App\Enums\DocumentType::AapDocument,
             ],
         };
     }
 
-    /**
-     * Subset of requiredDocumentTypes() that actually blocks markStored —
-     * mirrors requiredDocumentTypes() per mode (see note above).
-     */
     public function blockingDocumentTypes(): array
     {
         return match ($this->mode) {
@@ -195,6 +192,7 @@ class Asset extends Model
             default => [
                 \App\Enums\DocumentType::DaoForm,
                 \App\Enums\DocumentType::TallySheet,
+                \App\Enums\DocumentType::SeizureOrder,
             ],
         };
     }
@@ -246,5 +244,13 @@ class Asset extends Model
         }
 
         return true;
+    }
+
+    public function hasAapDocument(): bool
+    {
+        return $this->documents()
+            ->where('document_type', \App\Enums\DocumentType::AapDocument->value)
+            ->where('status', \App\Enums\DocumentStatus::Verified->value)
+            ->exists();
     }
 }

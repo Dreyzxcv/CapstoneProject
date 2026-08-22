@@ -61,6 +61,8 @@ export interface Asset {
     aap_number: string | null;
     type: string;
     species: string | null;
+    vehicle_type?: string | null;
+    equipment_type?: string | null;
     description: string | null;
     quantity: number;
     quantity_unit?: string | null;

@@ -35,13 +35,6 @@ export function IncidentLocationMap({ coordinates, placeName, areaName }: Incide
             .then((L) => {
                 if (cancelled || !mapContainerRef.current || mapRef.current) return;
 
-                delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
-                L.Icon.Default.mergeOptions({
-                    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-                    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-                    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-                });
-
                 const map = L.map(mapContainerRef.current, {
                     center: [parsed.lat, parsed.lng],
                     zoom: 15,
@@ -53,7 +46,56 @@ export function IncidentLocationMap({ coordinates, placeName, areaName }: Incide
                     attribution: '&copy; OpenStreetMap contributors',
                 }).addTo(map);
 
-                const marker = L.marker([parsed.lat, parsed.lng]).addTo(map);
+                // Inject pulse animation styles once
+                if (!document.getElementById('leaflet-pulse-style')) {
+                    const style = document.createElement('style');
+                    style.id = 'leaflet-pulse-style';
+                    style.textContent = `
+                        @keyframes leaflet-pulse {
+                            0%   { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+                            100% { transform: translate(-50%, -50%) scale(3);   opacity: 0; }
+                        }
+                        .leaflet-pulse-ring {
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: transparent;
+                            border: 3px solid #059669;
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            animation: leaflet-pulse 1.8s ease-out infinite;
+                        }
+                        .leaflet-pulse-dot {
+                            width: 12px;
+                            height: 12px;
+                            border-radius: 50%;
+                            background: #059669;
+                            border: 2px solid white;
+                            box-shadow: 0 0 0 2px #059669;
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+
+                // Animated circle marker via DivIcon
+                const pulseIcon = L.divIcon({
+                    className: '',
+                    html: `<div style="position:relative;width:40px;height:40px;">
+                               <div class="leaflet-pulse-ring"></div>
+                               <div class="leaflet-pulse-dot"></div>
+                           </div>`,
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 20],
+                    popupAnchor: [0, -20],
+                });
+
+                const marker = L.marker([parsed.lat, parsed.lng], { icon: pulseIcon }).addTo(map);
                 if (placeName) {
                     marker.bindPopup(placeName).openPopup();
                 }

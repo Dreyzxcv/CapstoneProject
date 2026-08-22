@@ -133,6 +133,12 @@ export default function RequiredDocumentsModal({
                                     <div className="flex items-start justify-between gap-3">
                                         <div>
                                             <p className="text-sm font-semibold text-gray-800">{type.label}</p>
+                                            {type.value === 'aap_document' && !doc && (
+                                                <p className="mt-0.5 text-xs text-gray-400">
+                                                    Upload the scanned copy once received from the Regional Office.
+                                                    The asset cannot be tagged until this is verified.
+                                                </p>
+                                            )}
                                             {doc ? (
                                                 <div className="mt-1 flex items-center gap-2">
                                                     <Badge
@@ -241,7 +247,7 @@ export default function RequiredDocumentsModal({
                         <p className={`text-sm font-medium ${allVerified ? 'text-emerald-700' : 'text-amber-700'}`}>
                             {allVerified
                                 ? 'All required documents verified — ready for storage.'
-                                : 'Waiting on document upload/verification before this asset can be stored.'}
+                                : 'Waiting on document upload/verification before this asset can be tagged.'}
                         </p>
                     </div>
                 )}

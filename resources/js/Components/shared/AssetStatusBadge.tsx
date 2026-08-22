@@ -1,20 +1,22 @@
 import { Badge } from '@/Components/ui/badge';
 
 const statusVariants: Record<string, string> = {
-    intake_recorded: 'default',
-    pending_custody_review: 'amber',
-    receipt_signed: 'blue',
-    stored: 'green',
-    under_trial: 'blue',
-    cleared_for_accounting: 'amber',
-    for_disposal: 'amber',
-    pending_release: 'amber',
-    donated: 'green',
-    decayed: 'gray',
-    fabricated: 'green',
-    released: 'green',
-    forfeited: 'gray',
-    damaged: 'gray',
+    intake_recorded:            'default',
+    documents_uploaded:         'blue',
+    pending_custody_review:     'amber',
+    receipt_signed:             'cyan',
+    stored:                     'teal',
+    under_trial:                'purple',
+    cleared_for_accounting:     'indigo',
+    for_disposal:               'orange',
+    donation_pending_jev_out:   'yellow',
+    pending_release:            'yellow',
+    donated:                    'green',
+    fabricated:                 'green',
+    released:                   'green',
+    decayed:                    'red',
+    forfeited:                  'rose',
+    damaged:                    'red',
 };
 
 interface AssetStatusBadgeProps {

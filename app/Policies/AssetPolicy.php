@@ -36,7 +36,8 @@ class AssetPolicy
 
     public function generateQr(User $user, Asset $asset): bool
     {
-        return $user->can('assets.generate_qr');
+        return $user->can('assets.generate_qr')
+            && $asset->hasAapDocument();
     }
     
     public function updateAap(User $user, Asset $asset): bool

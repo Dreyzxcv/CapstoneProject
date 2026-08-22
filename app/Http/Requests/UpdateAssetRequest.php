@@ -17,6 +17,8 @@ class UpdateAssetRequest extends FormRequest
     {
         return [
             'species'                => ['nullable', 'string', 'max:255'],
+            'vehicle_type'   => ['nullable', 'string', 'max:255'],
+            'equipment_type' => ['nullable', 'string', 'max:255'],
             'description'            => ['nullable', 'string', 'max:2000'],
             'quantity'               => ['nullable', 'integer', 'min:1'],
             'quantity_unit'          => ['nullable', 'string', 'max:50'],

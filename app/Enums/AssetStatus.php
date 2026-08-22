@@ -46,12 +46,22 @@ enum AssetStatus: string
     public function badgeVariant(): string
     {
         return match ($this) {
-            self::UnderTrial => 'blue',
-            self::PendingCustodyReview, self::ForDisposal, self::ClearedForAccounting,
-            self::PendingRelease, self::DonationPendingJevOut, self::DocumentsUploaded => 'amber',
-            self::Stored, self::Donated, self::Released, self::Fabricated => 'green',
-            self::Forfeited, self::Decayed, self::Damaged => 'gray',
-            default => 'default',
+            self::IntakeRecorded            => 'default',
+            self::DocumentsUploaded         => 'blue',
+            self::PendingCustodyReview      => 'amber',
+            self::ReceiptSigned             => 'cyan',
+            self::Stored                    => 'teal',
+            self::UnderTrial                => 'purple',
+            self::ClearedForAccounting      => 'indigo',
+            self::ForDisposal               => 'orange',
+            self::DonationPendingJevOut     => 'yellow',
+            self::PendingRelease            => 'yellow',
+            self::Donated                   => 'green',
+            self::Fabricated                => 'green',
+            self::Released                  => 'green',
+            self::Decayed                   => 'red',
+            self::Forfeited                 => 'rose',
+            self::Damaged                   => 'red',
         };
     }
 

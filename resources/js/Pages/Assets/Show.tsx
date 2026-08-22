@@ -21,6 +21,8 @@ interface ShowProps {
     qrSvg: string | null;
     requiredDocumentTypes: Array<{ value: string; label: string }>;
     modes: Array<{ value: string; label: string }>;
+    speciesOptions: string[];
+    equipmentOptions: string[];
     can: {
         signReceipt: boolean;
         markStored: boolean;
@@ -41,7 +43,7 @@ interface ShowProps {
     };
 }
 
-export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTypes, modes, can }: ShowProps) {
+export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTypes, speciesOptions, equipmentOptions, modes, can }: ShowProps) {
     usePoll(6000, { only: ['asset'] });
 
     const { auth } = usePage<PageProps>().props;
@@ -54,6 +56,8 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
 
     const editForm = useForm({
         species: asset.species ?? '',
+        vehicle_type: (asset as any).vehicle_type ?? '',
+        equipment_type: (asset as any).equipment_type ?? '',
         description: asset.description ?? '',
         quantity: asset.quantity != null ? String(asset.quantity) : '',
         quantity_unit: asset.quantity_unit ?? '',
@@ -324,7 +328,10 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-sm font-medium text-gray-900">
-                                                        Piece {piece.piece_number} — {piece.species ?? '—'}
+                                                        Piece {piece.piece_number}
+                                                        {asset.type === 'log' && ` — ${piece.species ?? '—'}`}
+                                                        {asset.type === 'vehicle' && ` — ${piece.plate_number ?? '—'}`}
+                                                        {asset.type === 'equipment' && piece.equipment_type ? ` — ${piece.equipment_type}` : asset.type === 'equipment' ? (piece.description ? ` — ${piece.description}` : '') : ''}
                                                     </span>
                                                     <span className="text-xs font-medium text-emerald-700">View</span>
                                                 </div>
@@ -372,7 +379,19 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                                 )}
 
                                                 {asset.type === 'equipment' && (
-                                                    <dl className="mt-2 grid grid-cols-1 gap-y-1 text-xs text-gray-600">
+                                                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
+                                                        {piece.equipment_type && (
+                                                            <div className="col-span-2">
+                                                                <dt className="text-gray-400">Type</dt>
+                                                                <dd>{piece.equipment_type}</dd>
+                                                            </div>
+                                                        )}
+                                                        {piece.description && (
+                                                            <div className="col-span-2">
+                                                                <dt className="text-gray-400">Description</dt>
+                                                                <dd>{piece.description}</dd>
+                                                            </div>
+                                                        )}
                                                         <div>
                                                             <dt className="text-gray-400">Est. Value (₱)</dt>
                                                             <dd>
@@ -393,7 +412,9 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                             <thead className="bg-gray-50">
                                                 <tr>
                                                     <th className="px-3 py-2 text-left font-medium text-gray-500">#</th>
-                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Species</th>
+                                                    {(asset.type === 'log' || asset.type === 'wildlife') && (
+                                                        <th className="px-3 py-2 text-left font-medium text-gray-500">Species</th>
+                                                    )}
                                                     {asset.type === 'log' && (
                                                         <>
                                                             <th className="px-3 py-2 text-left font-medium text-gray-500">Dimensions (L×W×H)</th>
@@ -402,7 +423,16 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                                         </>
                                                     )}
                                                     {asset.type === 'vehicle' && (
-                                                        <th className="px-3 py-2 text-left font-medium text-gray-500">Plate No.</th>
+                                                        <>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">Type</th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">Plate No.</th>
+                                                        </>
+                                                    )}
+                                                    {asset.type === 'equipment' && (
+                                                        <>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">Type</th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">Description</th>
+                                                        </>
                                                     )}
                                                     <th className="px-3 py-2 text-left font-medium text-gray-500">Est. Value (₱)</th>
                                                     <th className="px-3 py-2 text-left font-medium text-gray-500"></th>
@@ -412,7 +442,9 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                                 {asset.pieces.map((piece) => (
                                                     <tr key={piece.id} className="hover:bg-gray-50">
                                                         <td className="px-3 py-2 text-gray-600">{piece.piece_number}</td>
-                                                        <td className="px-3 py-2 text-gray-900">{piece.species ?? '—'}</td>
+                                                        {(asset.type === 'log' || asset.type === 'wildlife') && (
+                                                            <td className="px-3 py-2 text-gray-900">{piece.species ?? '—'}</td>
+                                                        )}
                                                         {asset.type === 'log' && (
                                                             <>
                                                                 <td className="px-3 py-2 text-gray-900">
@@ -423,7 +455,16 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                                             </>
                                                         )}
                                                         {asset.type === 'vehicle' && (
-                                                            <td className="px-3 py-2 text-gray-900">{piece.plate_number ?? '—'}</td>
+                                                            <>
+                                                                <td className="px-3 py-2 text-gray-900">{piece.vehicle_type ?? '—'}</td>
+                                                                <td className="px-3 py-2 text-gray-900">{piece.plate_number ?? '—'}</td>
+                                                            </>
+                                                        )}
+                                                        {asset.type === 'equipment' && (
+                                                            <>
+                                                                <td className="px-3 py-2 text-gray-900">{piece.equipment_type ?? '—'}</td>
+                                                                <td className="px-3 py-2 text-gray-900">{piece.description ?? '—'}</td>
+                                                            </>
                                                         )}
                                                         <td className="px-3 py-2 text-gray-900">
                                                             {piece.estimated_value != null
@@ -537,7 +578,7 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                         <CardContent className="space-y-4">
                             {requiredDocumentTypes.length > 0 && (
                                 <p className="text-xs text-amber-700">
-                                    {requiredDocumentTypes.length} document{requiredDocumentTypes.length === 1 ? '' : 's'} required before storage.
+                                    {requiredDocumentTypes.length} document{requiredDocumentTypes.length === 1 ? '' : 's'} required.
                                 </p>
                             )}
 
@@ -611,7 +652,8 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                             )}
                             {asset.current_status === 'pending_custody_review' && !can.markStored && requiredDocumentTypes.length > 0 && (
                                 <p className="text-xs text-amber-700">
-                                    Waiting on required document verification before this asset can be tagged.
+                                    Waiting on document verification before this asset can be tagged.
+                                    Ensure the AAP (Scanned Document) is uploaded and verified.
                                 </p>
                             )}
                             {can.resolveCase && (
@@ -1180,10 +1222,24 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                                 <dt className="text-gray-500">Piece #</dt>
                                 <dd className="font-medium text-gray-900">{selectedPiece.piece_number}</dd>
                             </div>
-                            <div>
-                                <dt className="text-gray-500">Species</dt>
-                                <dd className="font-medium text-gray-900">{selectedPiece.species ?? '—'}</dd>
-                            </div>
+                            {asset.type === 'log' && (
+                                <div>
+                                    <dt className="text-gray-500">Species</dt>
+                                    <dd className="font-medium text-gray-900">{selectedPiece.species ?? '—'}</dd>
+                                </div>
+                            )}
+                            {asset.type === 'vehicle' && (
+                                <div>
+                                    <dt className="text-gray-500">Vehicle Type</dt>
+                                    <dd className="font-medium text-gray-900">{selectedPiece.vehicle_type ?? '—'}</dd>
+                                </div>
+                            )}
+                            {asset.type === 'equipment' && (
+                                <div>
+                                    <dt className="text-gray-500">Equipment Type</dt>
+                                    <dd className="font-medium text-gray-900">{selectedPiece.equipment_type ?? '—'}</dd>
+                                </div>
+                            )}
                             <div className="sm:col-span-2">
                                 <dt className="text-gray-500">Description</dt>
                                 <dd className="font-medium text-gray-900">{selectedPiece.description ?? '—'}</dd>
@@ -1241,17 +1297,62 @@ export default function AssetsShow({ asset, qrPayload, qrSvg, requiredDocumentTy
                 <form onSubmit={submitEdit} className="p-6 space-y-5">
                     <h2 className="text-lg font-semibold text-gray-800">Edit Asset</h2>
 
-                    {/* Species / Description */}
+                    {/* Species / Type / Description */}
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-1">
-                            <Label htmlFor="edit-species">Species / Name</Label>
-                            <Input
-                                id="edit-species"
-                                value={editForm.data.species}
-                                onChange={(e) => editForm.setData('species', e.target.value)}
-                            />
-                            <InputError message={editForm.errors.species} />
-                        </div>
+                        {asset.type === 'log' && (
+                            <div className="space-y-1">
+                                <Label htmlFor="edit-species">Species</Label>
+                                <select
+                                    id="edit-species"
+                                    value={editForm.data.species}
+                                    onChange={(e) => editForm.setData('species', e.target.value)}
+                                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                >
+                                    <option value="">— Select species —</option>
+                                    {speciesOptions.map((s) => (
+                                        <option key={s} value={s}>{s}</option>
+                                    ))}
+                                </select>
+                                {editForm.data.species === 'Others' && (
+                                    <Input
+                                        placeholder="Specify species"
+                                        value={editForm.data.species === 'Others' ? '' : editForm.data.species}
+                                        onChange={(e) => editForm.setData('species', e.target.value)}
+                                        className="mt-1"
+                                    />
+                                )}
+                                <InputError message={editForm.errors.species} />
+                            </div>
+                        )}
+                        {asset.type === 'vehicle' && (
+                            <div className="space-y-1">
+                                <Label htmlFor="edit-vehicle-type">Conveyance / Vehicle Type</Label>
+                                <Input
+                                    id="edit-vehicle-type"
+                                    placeholder="e.g. Motorcycle, Tricycle, Pump Boat"
+                                    value={editForm.data.vehicle_type}
+                                    onChange={(e) => editForm.setData('vehicle_type', e.target.value)}
+                                />
+                                <InputError message={(editForm.errors as any).vehicle_type} />
+                            </div>
+                        )}
+                        {asset.type === 'equipment' && (
+                            <div className="space-y-1">
+                                <Label htmlFor="edit-equipment-type">Equipment Type</Label>
+                                <select
+                                    id="edit-equipment-type"
+                                    value={editForm.data.equipment_type}
+                                    onChange={(e) => editForm.setData('equipment_type', e.target.value)}
+                                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                >
+                                    <option value="">— Select type —</option>
+                                    {equipmentOptions.map((o) => (
+                                        <option key={o} value={o}>{o}</option>
+                                    ))}
+                                </select>
+                                <InputError message={(editForm.errors as any).equipment_type} />
+                            </div>
+                        )}
                         <div className="space-y-1">
                             <Label htmlFor="edit-mode">Mode</Label>
                             <select

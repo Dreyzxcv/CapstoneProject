@@ -6,6 +6,7 @@ enum DocumentType: string
 {
     case DaoForm = 'dao_form';
     case TallySheet = 'tally_sheet';
+    case SeizureOrder = 'seizure_order';
     case AapDocument = 'aap_document';
     case StcpDocument = 'stcp_document';
     case ConfiscationOrder = 'confiscation_order';
@@ -20,6 +21,7 @@ enum DocumentType: string
         return match ($this) {
             self::DaoForm => 'DAO Form',
             self::TallySheet => 'Tally Sheet',
+            self::SeizureOrder => 'Seizure Order',
             self::AapDocument => 'AAP (Scanned Document)',
             self::StcpDocument => 'STCP Document',
             self::ConfiscationOrder => 'Confiscation Order',
