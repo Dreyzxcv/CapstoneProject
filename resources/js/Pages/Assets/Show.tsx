@@ -28,6 +28,7 @@ interface ShowProps {
         custody_review_submitted_at: string | null;
         custody_review_remarks: string | null;
     };
+    hasAllRequiredDocuments: boolean;
     qrPayload: string | null;
     qrSvg: string | null;
     requiredDocumentTypes: Array<{ value: string; label: string }>;
@@ -64,6 +65,7 @@ export default function AssetsShow({
     equipmentOptions,
     modes,
     can,
+    hasAllRequiredDocuments,
 }: ShowProps) {
     usePoll(6000, { only: ["asset"] });
 
@@ -1067,7 +1069,11 @@ export default function AssetsShow({
                             {/* Custody review — outside the document grid */}
                             {can.submitForCustodyReview && (
                                 <div className="border-t pt-4 space-y-2">
-                                    {asset.custody_review_status === "pending" ? (
+                                    {!hasAllRequiredDocuments ? (
+                                        <p className="text-xs text-amber-700">
+                                            Upload the required documents (DAO Form, Tally Sheet, Seizure Order) before submitting for custody review.
+                                        </p>
+                                    ) : asset.custody_review_status === "pending" ? (
                                         <div className="flex items-center gap-2 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
                                             <span>⏳</span>
                                             <span>Submitted for custody review — awaiting custodian.</span>
@@ -1158,7 +1164,6 @@ export default function AssetsShow({
                                 )}
                             {!can.signReceipt &&
                                 !can.markStored &&
-                                !can.submitForCustodyReview &&
                                 !can.resolveCase &&
                                 !(
                                     can.processDisposal &&

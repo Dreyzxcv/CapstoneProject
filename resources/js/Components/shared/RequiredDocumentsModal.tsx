@@ -135,7 +135,7 @@ export default function RequiredDocumentsModal({
                                             <p className="text-sm font-semibold text-gray-800">{type.label}</p>
                                             {type.value === 'aap_document' && !doc && (
                                                 <p className="mt-0.5 text-xs text-gray-400">
-                                                    Upload the scanned copy once received from the Regional Office.
+                                                    Upload the scanned copy once received.
                                                     The asset cannot be tagged until this is verified.
                                                 </p>
                                             )}
