@@ -36,6 +36,7 @@ export interface AssetPiece {
     id: number;
     asset_id: number;
     piece_number: number;
+    serial_number?: string | null
     qr_code_token: string;
     species: string | null;
     equipment_type?: string | null;
