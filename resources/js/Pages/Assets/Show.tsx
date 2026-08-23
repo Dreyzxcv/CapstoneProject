@@ -347,7 +347,7 @@ export default function AssetsShow({
                     Action Required — Custody Review
                 </p>
                 <p className="text-xs text-blue-700">
-                    MES submitted this asset for review. Check the uploaded
+                    This asset was submitted for custody review. Check the uploaded
                     documents, then approve or return.
                 </p>
                 <textarea
