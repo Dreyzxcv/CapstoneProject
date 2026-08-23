@@ -5,7 +5,24 @@ import NotificationBell from '@/Components/shared/NotificationBell';
 import { Link, usePage, usePoll } from '@inertiajs/react';
 import { PropsWithChildren, ReactNode, useEffect, useState } from 'react';
 import { PageProps } from '@/types';
-import { LayoutDashboard, Package, QrCode, Trash2, FileBarChart2, History, ChevronDown, LogOut, Menu, X, ClipboardPlus, PanelLeftClose, PanelLeftOpen, User, Settings, Info } from 'lucide-react';
+import {
+    LayoutDashboard,
+    Package,
+    QrCode,
+    Trash2,
+    FileBarChart2,
+    History,
+    ChevronDown,
+    LogOut,
+    Menu,
+    X,
+    ClipboardPlus,
+    PanelLeftClose,
+    PanelLeftOpen,
+    UserRoundCog,
+    Settings,
+    Info,
+} from 'lucide-react';
 
 function hasPermission(permissions: string[], permission: string): boolean {
     return permissions.includes(permission);
@@ -26,14 +43,6 @@ type NavSection = {
 
 const SIDEBAR_COLLAPSED_KEY = 'logtrack-sidebar-collapsed';
 
-function PesoIcon({ className }: { className?: string }) {
-    return (
-        <span className={`flex items-center justify-center font-bold ${className}`}>
-            ₱
-        </span>
-    );
-}
-
 export default function Authenticated({
     header,
     children,
@@ -46,7 +55,6 @@ export default function Authenticated({
     const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
 
-    // Load persisted preference once on mount (avoids SSR/hydration mismatch).
     useEffect(() => {
         const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
         if (stored === '1') setCollapsed(true);
@@ -137,7 +145,9 @@ export default function Authenticated({
                         route().current('settings.*') ||
                         route().current('users.*') ||
                         route().current('market-prices.*'),
-                    show: hasPermission(permissions, 'users.manage') || hasPermission(permissions, 'market_prices.manage'),
+                    show:
+                        hasPermission(permissions, 'users.manage') ||
+                        hasPermission(permissions, 'market_prices.manage'),
                     icon: <Settings className={iconClass} />,
                 },
             ],
@@ -191,7 +201,7 @@ export default function Authenticated({
                         (collapsed ? 'lg:w-20' : 'lg:w-65')
                     }
                 >
-                    {/* Collapse toggle — desktop only, floats on the sidebar's edge */}
+                    {/* Collapse toggle — desktop only */}
                     <button
                         onClick={toggleCollapsed}
                         className="absolute right-0 top-6 z-10 hidden h-7 w-7 translate-x-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:bg-gray-50 hover:text-emerald-700 lg:flex"
@@ -275,31 +285,33 @@ export default function Authenticated({
                         ))}
                     </nav>
 
-                    {/* Account - desktop */}
-                    <div className={'hidden border-t border-gray-200 lg:block ' + (collapsed ? 'px-2 py-4' : 'px-4 py-4')}>
+                    {/* ── Account — desktop ── */}
+                    <div className={'hidden border-t border-gray-100 lg:block ' + (collapsed ? 'px-2 py-3' : 'px-3 py-3')}>
                         <Dropdown>
                             <Dropdown.Trigger>
                                 {collapsed ? (
+                                    /* Collapsed: just the avatar */
                                     <button
                                         type="button"
                                         title={user.name}
-                                        className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-800 hover:bg-emerald-200"
+                                        className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-sm font-medium text-emerald-800 hover:bg-emerald-100 transition"
                                     >
                                         {user.name.charAt(0).toUpperCase()}
                                     </button>
                                 ) : (
+                                    /* Expanded: compact identity row */
                                     <button
                                         type="button"
-                                        className="flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-left transition hover:bg-gray-100"
+                                        className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition hover:bg-gray-50"
                                     >
-                                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
+                                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-medium text-emerald-800">
                                             {user.name.charAt(0).toUpperCase()}
                                         </span>
                                         <span className="min-w-0 flex-1">
                                             <span className="block truncate text-sm font-medium text-gray-900">{user.name}</span>
-                                            <span className="block truncate text-xs text-gray-500">{user.roles?.join(', ')}</span>
+                                            <span className="block truncate text-xs text-gray-400">{user.roles?.join(', ')}</span>
                                         </span>
-                                        <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
+                                        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                                     </button>
                                 )}
                             </Dropdown.Trigger>
@@ -308,76 +320,94 @@ export default function Authenticated({
                                 align="left"
                                 width="60"
                                 direction="up"
-                                contentClasses="bg-white py-2 shadow-xl ring-1 ring-gray-200"
+                                contentClasses="bg-white shadow-lg ring-1 ring-gray-100 rounded-xl overflow-hidden p-0"
                             >
-                                <div className="px-3 pb-2 pt-1">
-                                    <p className="truncate text-xs text-gray-500">{user.email}</p>
+                                {/* Identity header */}
+                                <div className="px-4 py-3 border-b border-gray-100">
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-medium text-emerald-800">
+                                            {user.name.charAt(0).toUpperCase()}
+                                        </span>
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
+                                            <p className="truncate text-xs text-gray-400">{user.email}</p>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="py-1">
+                                {/* Menu items */}
+                                <div className="p-1">
                                     <Dropdown.Link
                                         href={route('profile.edit')}
-                                        className="flex items-center gap-3"
+                                        className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                     >
-                                        <User className="h-4 w-4 text-gray-400" />
+                                        <UserRoundCog className="h-4 w-4 text-gray-600 shrink-0" />
                                         Profile
                                     </Dropdown.Link>
                                     <Dropdown.Link
                                         href={route('about')}
-                                        className="flex items-center gap-3"
+                                        className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                     >
-                                        <Info className="h-4 w-4 text-gray-400" />
+                                        <Info className="h-4 w-4 text-gray-600 shrink-0" />
                                         About
                                     </Dropdown.Link>
                                 </div>
 
-                                <div className="border-t border-gray-100 py-1">
+                                {/* Log out */}
+                                <div className="border-t border-gray-100 p-1">
                                     <Dropdown.Link
                                         href={route('logout')}
                                         method="post"
                                         as="button"
-                                        className="flex items-center gap-3"
+                                        className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                                     >
-                                        <LogOut className="h-4 w-4 text-gray-400" />
-                                        Log Out
+                                        <LogOut className="h-4 w-4 shrink-0" />
+                                        Log out
                                     </Dropdown.Link>
                                 </div>
                             </Dropdown.Content>
                         </Dropdown>
                     </div>
 
-                    {/* Account - mobile */}
-                    <div className="border-t border-gray-200 lg:hidden">
-                        <div className="px-4 pb-2 pt-3">
-                            <p className="truncate text-xs text-gray-500">{user.email}</p>
+                    {/* ── Account — mobile ── */}
+                    <div className="border-t border-gray-100 lg:hidden">
+                        {/* Identity header */}
+                        <div className="flex items-center gap-2.5 px-4 py-3.5">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-medium text-emerald-800">
+                                {user.name.charAt(0).toUpperCase()}
+                            </span>
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
+                                <p className="truncate text-xs text-gray-400">{user.email}</p>
+                            </div>
                         </div>
 
-                        <div className="py-1">
+                        <div className="border-t border-gray-100 p-1">
                             <Link
                                 href={route('profile.edit')}
-                                className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                             >
-                                <User className="h-4 w-4 text-gray-400" />
+                                <UserRoundCog className="h-4 w-4 text-gray-600 shrink-0" />
                                 Profile
                             </Link>
                             <Link
                                 href={route('about')}
-                                className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                             >
-                                <Info className="h-4 w-4 text-gray-400" />
+                                <Info className="h-4 w-4 text-gray-600 shrink-0" />
                                 About
                             </Link>
                         </div>
 
-                        <div className="border-t border-gray-100 py-1">
+                        <div className="border-t border-gray-100 p-1">
                             <Link
                                 method="post"
                                 href={route('logout')}
                                 as="button"
-                                className="flex w-full items-center gap-3 px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-100"
+                                className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                             >
-                                <LogOut className="h-4 w-4 text-gray-400" />
-                                Log Out
+                                <LogOut className="h-4 w-4 shrink-0" />
+                                Log out
                             </Link>
                         </div>
                     </div>

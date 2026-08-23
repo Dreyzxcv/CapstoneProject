@@ -415,7 +415,7 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                 return (
                                     <div key={item.id} className="rounded-lg border border-gray-200 p-4">
                                         {/* Header */}
-                                        <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-center justify-between gap-3 border-b border-gray-200 pb-2">
                                             <p className="text-sm font-semibold capitalize text-gray-800">
                                                 {item.type}
                                                 {item.type === 'log' && item.species ? ` — ${item.species}` : ''}
@@ -431,7 +431,7 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                         </div>
 
                                         {/* Quick facts */}
-                                        <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+                                        <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2 border-b border-gray-200 pb-2">
                                             <div>
                                                 <dt className="text-gray-500">Quantity</dt>
                                                 <dd>{item.quantity} {item.quantity_unit}</dd>
@@ -441,29 +441,6 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                                 <dd>{item.municipality_of_origin}</dd>
                                             </div>
                                         </dl>
-
-                                        {/* Rollup totals */}
-                                        {hasPieces && (
-                                            <div className="mt-3 flex flex-wrap gap-4 rounded-md bg-gray-50 px-3 py-2 text-sm">
-                                                {isLog && totalVolumeBd > 0 && (
-                                                    <div>
-                                                        <span className="text-gray-500">Volume: </span>
-                                                        <span className="font-medium">{totalVolumeBd.toFixed(2)} bd.ft</span>
-                                                        {totalVolumeCu > 0 && (
-                                                            <span className="text-gray-400"> / {totalVolumeCu.toFixed(4)} cu.m</span>
-                                                        )}
-                                                    </div>
-                                                )}
-                                                {totalValue > 0 && (
-                                                    <div>
-                                                        <span className="text-gray-500">Est. Value: </span>
-                                                        <span className="font-medium text-emerald-700">
-                                                            ₱{totalValue.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
 
                                         {/* Piece table — adaptive by type */}
                                         {hasPieces ? (
@@ -475,10 +452,11 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                                             {isLog && <th className="pb-1 pr-3 font-medium">Species</th>}
                                                             {isLog && <th className="pb-1 pr-3 font-medium">Dimensions (L×W×H)</th>}
                                                             {isLog && <th className="pb-1 pr-3 font-medium">Volume</th>}
+                                                            {isLog && <th className="pb-1 pr-3 font-medium">Est. Value</th>}
                                                             {item.type === 'vehicle' && <th className="pb-1 pr-3 font-medium">Vehicle Type</th>}
                                                             {item.type === 'vehicle' && <th className="pb-1 pr-3 font-medium">Plate / Conveyance No.</th>}
                                                             {item.type === 'equipment' && <th className="pb-1 pr-3 font-medium">Equipment Type</th>}
-                                                            <th className="pb-1 font-medium">Est. Value</th>
+                                                            {item.type === 'equipment' && <th className="pb-1 pr-3 font-medium">Serial Number</th>}
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-50">
@@ -502,6 +480,13 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                                                             : '—'}
                                                                     </td>
                                                                 )}
+                                                                {isLog && (
+                                                                    <td className="py-1">
+                                                                        {piece.estimated_value != null
+                                                                            ? `₱${Number(piece.estimated_value).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+                                                                            : '—'}
+                                                                    </td>
+                                                                )}
                                                                 {item.type === 'vehicle' && (
                                                                     <td className="py-1 pr-3 capitalize">{piece.vehicle_type ?? '—'}</td>
                                                                 )}
@@ -511,11 +496,9 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                                                 {item.type === 'equipment' && (
                                                                     <td className="py-1 pr-3 capitalize">{piece.equipment_type ?? '—'}</td>
                                                                 )}
-                                                                <td className="py-1">
-                                                                    {piece.estimated_value != null
-                                                                        ? `₱${Number(piece.estimated_value).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
-                                                                        : '—'}
-                                                                </td>
+                                                                {item.type === 'equipment' && (
+                                                                    <td className="py-1 pr-3">{piece.serial_number ?? '—'}</td>
+                                                                )}
                                                             </tr>
                                                         ))}
                                                     </tbody>

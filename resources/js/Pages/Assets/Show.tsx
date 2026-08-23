@@ -995,7 +995,7 @@ export default function AssetsShow({
                                         }
                                         areaName={asset.incident.area}
                                     />
-                                </CardContent>pie
+                                </CardContent>
                             </Card>
                         )}
                     </div>
