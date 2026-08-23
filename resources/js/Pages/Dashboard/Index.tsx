@@ -20,6 +20,8 @@ import {
     Info,
     PartyPopper,
     FileBarChart2,
+    FileCheck,
+    QrCode
 } from 'lucide-react';
 
 interface DashboardAlert {
@@ -54,11 +56,10 @@ const TYPE_ICONS: Record<string, typeof TreePine> = {
 };
 
 const PIPELINE_STAGES: Array<{ key: string; label: string; icon: typeof PackagePlus }> = [
-    { key: 'intake_recorded', label: 'Intake', icon: PackagePlus },
-    { key: 'pending_custody_review', label: 'Custody Review', icon: ClipboardCheck },
-    { key: 'receipt_signed', label: 'Signed', icon: FileSignature },
     { key: 'stored', label: 'Stored', icon: Boxes },
-    { key: 'cleared_for_accounting', label: 'Accounting', icon: Calculator },
+    { key: 'receipt_signed', label: 'Document Verified', icon: FileCheck },
+    { key: 'pending_custody_review', label: 'Custody Review', icon: ClipboardCheck },
+    { key: 'cleared_for_accounting', label: 'Tagged', icon: QrCode },
     { key: 'for_disposal', label: 'For Disposal', icon: Recycle },
 ];
 

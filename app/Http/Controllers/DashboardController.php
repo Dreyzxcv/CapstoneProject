@@ -105,9 +105,9 @@ class DashboardController extends Controller
                 'description' => 'Assets awaiting intake and custody follow-up',
                 'cards' => [
                     [
-                        'label' => 'Awaiting intake',
-                        'value' => $countByStatuses([AssetStatus::IntakeRecorded->value]),
-                        'description' => 'New intake entries captured by MES',
+                        'label' => 'Stored',
+                        'value' => $countByStatuses([AssetStatus::Stored->value]),
+                        'description' => 'Intake completed and assets placed in storage',
                     ],
                     [
                         'label' => 'Custody review',
@@ -115,9 +115,9 @@ class DashboardController extends Controller
                         'description' => 'Items waiting for document verification',
                     ],
                     [
-                        'label' => 'Receipt signed',
+                        'label' => 'Document verified',
                         'value' => $countByStatuses([AssetStatus::ReceiptSigned->value]),
-                        'description' => 'Ready for QR tagging and storage',
+                        'description' => 'Documents verified and ready for tagging',
                     ],
                 ],
             ],
@@ -126,19 +126,19 @@ class DashboardController extends Controller
                 'description' => 'Items that need verification, signing, and storage handling',
                 'cards' => [
                     [
-                        'label' => 'Pending signature',
-                        'value' => $countByStatuses([AssetStatus::PendingCustodyReview->value]),
-                        'description' => 'Awaiting acknowledgement receipt sign-off',
-                    ],
-                    [
-                        'label' => 'Ready for storage',
-                        'value' => $countByStatuses([AssetStatus::ReceiptSigned->value]),
-                        'description' => 'Signed receipts waiting for storage confirmation',
-                    ],
-                    [
                         'label' => 'Stored',
                         'value' => $countByStatuses([AssetStatus::Stored->value]),
                         'description' => 'Assets already placed in custody',
+                    ],
+                    [
+                        'label' => 'Pending verification',
+                        'value' => $countByStatuses([AssetStatus::PendingCustodyReview->value]),
+                        'description' => 'Awaiting custody review and document verification',
+                    ],
+                    [
+                        'label' => 'Tagged',
+                        'value' => $countByStatuses([AssetStatus::ReceiptSigned->value]),
+                        'description' => 'Assets that have been tagged and ready for accounting',
                     ],
                 ],
             ],
@@ -147,9 +147,9 @@ class DashboardController extends Controller
                 'description' => 'Assets moving from custody into accounting and disposal',
                 'cards' => [
                     [
-                        'label' => 'Cleared for accounting',
+                        'label' => 'Cleared for Custodian',
                         'value' => $countByStatuses([AssetStatus::ClearedForAccounting->value]),
-                        'description' => 'Cases ready for JEV and accounting action',
+                        'description' => 'Assets cleared for custodian and ready for issuing of JEV',
                     ],
                     [
                         'label' => 'For disposal',
