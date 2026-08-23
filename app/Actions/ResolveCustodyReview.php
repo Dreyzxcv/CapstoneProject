@@ -19,7 +19,7 @@ class ResolveCustodyReview
 
         // On approval, advance the status so custodian can mark as tagged
         if ($decision === 'approved') {
-            $updates['current_status'] = \App\Enums\AssetStatus::PendingCustodyReview;
+            $updates['current_status'] = \App\Enums\AssetStatus::ReceiptSigned;
         }
 
         // On return, revert status back so MES can re-upload/re-submit

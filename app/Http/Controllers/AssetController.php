@@ -177,9 +177,9 @@ class AssetController extends Controller
                 'value' => $m->value,
                 'label' => $m->label(),
             ]),
+            'hasAllRequiredDocuments' => $asset->hasAllRequiredDocuments(),
             'can' => [
                 'submitForCustodyReview' => $request->user()->can('submitForCustodyReview', $asset),
-                'hasAllRequiredDocuments' => $asset->hasAllRequiredDocuments(),
                 'resolveCustodyReview'   => $request->user()->can('resolveCustodyReview', $asset),
                 'markStored'        => $request->user()?->can('markStored', $asset) ?? false,
                 'generateQr'        => $request->user()?->can('generateQr', $asset) ?? false,
