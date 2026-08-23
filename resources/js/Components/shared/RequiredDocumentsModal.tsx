@@ -7,7 +7,7 @@ import { PdfBadge } from '@/Components/shared/PdfBadge';
 import { EvidenceUploader } from '@/Components/shared/EvidenceUploader';
 import { documentUrl } from '@/lib/utils';
 import { DocumentItem } from '@/types';
-import { CheckCircle2, XCircle, UploadCloud, Clock } from 'lucide-react';
+import { CheckCircle2, XCircle, UploadCloud, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface RequiredDocType {
     value: string;
@@ -45,11 +45,20 @@ export default function RequiredDocumentsModal({
 
     const [rejectingId, setRejectingId] = useState<number | null>(null);
     const [pendingUpload, setPendingUpload] = useState<{ type: string; file: File; previewUrl: string; isImage: boolean } | null>(null);
+    const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
 
     function latestDocFor(type: string): DocumentItem | undefined {
         return documents
             .filter((d) => d.document_type === type)
             .sort((a, b) => b.id - a.id)[0];
+    }
+
+    function toggleExpanded(type: string) {
+        setExpandedTypes((prev) => {
+            const next = new Set(prev);
+            next.has(type) ? next.delete(type) : next.add(type);
+            return next;
+        });
     }
 
     function handleFileSelected(type: string, e: ChangeEvent<HTMLInputElement>) {
@@ -104,9 +113,6 @@ export default function RequiredDocumentsModal({
     }
 
     const allVerified = requiredTypes.every((t) => latestDocFor(t.value)?.status === 'verified');
-
-    // General evidence = anything already uploaded that isn't tied to a
-    // required document_type (photos, misc. supporting files).
     const generalEvidence = documents.filter((d) => !d.document_type);
 
     return (
@@ -118,7 +124,7 @@ export default function RequiredDocumentsModal({
                 </p>
 
                 {requiredTypes.length > 0 && (
-                    <div className="mt-6 space-y-4">
+                    <div className="mt-6 space-y-2">
                         <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                             Required Documents
                         </p>
@@ -127,18 +133,88 @@ export default function RequiredDocumentsModal({
                             const doc = latestDocFor(type.value);
                             const url = doc ? documentUrl(doc.file_path) : null;
                             const isImage = doc?.mime_type?.startsWith('image/');
+                            const isUploaded = !!doc && doc.status !== 'rejected';
+                            const isExpanded = expandedTypes.has(type.value);
+                            const needsAction = !doc || doc.status === 'rejected';
 
+                            // Collapsed row — already uploaded (pending or verified)
+                            if (isUploaded && !isExpanded) {
+                                return (
+                                    <div
+                                        key={type.value}
+                                        className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-2.5"
+                                    >
+                                        {/* Status icon */}
+                                        {doc.status === 'verified' ? (
+                                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                                        ) : (
+                                            <Clock className="h-4 w-4 shrink-0 text-amber-400" />
+                                        )}
+
+                                        {/* Label + badge */}
+                                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                                            <span className="text-sm font-medium text-gray-700">{type.label}</span>
+                                            <Badge
+                                                variant={doc.status === 'verified' ? 'green' : 'amber'}
+                                                className="text-xs"
+                                            >
+                                                {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                                            </Badge>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="flex shrink-0 items-center gap-2">
+                                            {url && (
+                                                <a
+                                                    href={url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs text-emerald-700 hover:underline"
+                                                >
+                                                    View
+                                                </a>
+                                            )}
+                                            {(canVerify || (canUpload && doc.status === 'pending')) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleExpanded(type.value)}
+                                                    className="text-gray-400 hover:text-gray-600"
+                                                    title="Expand"
+                                                >
+                                                    <ChevronDown className="h-4 w-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // Expanded / needs-action card
                             return (
                                 <div key={type.value} className="rounded-lg border border-gray-200 p-4">
                                     <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-800">{type.label}</p>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-semibold text-gray-800">{type.label}</p>
+                                                {isUploaded && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleExpanded(type.value)}
+                                                        className="text-gray-400 hover:text-gray-600"
+                                                        title="Collapse"
+                                                    >
+                                                        <ChevronUp className="h-4 w-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+
                                             {type.value === 'aap_document' && !doc && (
                                                 <p className="mt-0.5 text-xs text-gray-400">
                                                     Upload the scanned copy once received.
                                                     The asset cannot be tagged until this is verified.
                                                 </p>
                                             )}
+
                                             {doc ? (
                                                 <div className="mt-1 flex items-center gap-2">
                                                     <Badge
@@ -159,6 +235,7 @@ export default function RequiredDocumentsModal({
                                             ) : (
                                                 <p className="mt-1 text-xs text-gray-500">Not yet uploaded.</p>
                                             )}
+
                                             {doc?.status === 'rejected' && doc.remarks && (
                                                 <p className="mt-2 rounded-md bg-red-50 px-2 py-1.5 text-xs text-red-700">
                                                     <span className="font-semibold">Remarks: </span>{doc.remarks}
@@ -169,7 +246,7 @@ export default function RequiredDocumentsModal({
                                         {doc && !isImage && <PdfBadge className="h-9 w-9 shrink-0" />}
                                     </div>
 
-                                    {canUpload && (!doc || doc.status === 'rejected') && (
+                                    {canUpload && needsAction && (
                                         <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed border-gray-300 p-3 text-xs text-gray-500 hover:border-emerald-400 hover:text-emerald-600">
                                             <UploadCloud className="h-4 w-4" />
                                             {doc?.status === 'rejected' ? 'Re-upload corrected document' : 'Upload document'}
@@ -252,7 +329,7 @@ export default function RequiredDocumentsModal({
                     </div>
                 )}
 
-                {/* General evidence — photos or supporting docs not tied to a required type */}
+                {/* General evidence */}
                 <div className={requiredTypes.length > 0 ? 'mt-6 border-t border-gray-100 pt-6' : 'mt-6'}>
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
                         Additional Evidence
