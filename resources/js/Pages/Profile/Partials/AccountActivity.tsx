@@ -19,53 +19,42 @@ function formatModel(modelType: string | null, modelId: number | null): string {
 }
 
 export default function AccountActivity({
-    lastLoginAt,
     recentActivity,
     className = '',
 }: {
-    lastLoginAt: string | null;
+    lastLoginAt?: string | null; // kept for API compat, no longer rendered here
     recentActivity: RecentActivityEntry[];
     className?: string;
 }) {
+    if (recentActivity.length === 0) {
+        return (
+            <p className="text-sm text-gray-500">No recent activity recorded yet.</p>
+        );
+    }
+
     return (
-        <section className={className}>
-            <header>
-                <h2 className="text-lg font-medium text-gray-900">Account Activity</h2>
-                <p className="mt-1 text-sm text-gray-600">
-                    A quick look at your recent sign-in and account actions.
-                </p>
-            </header>
-
-            <div className="mt-6 space-y-4">
-                <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
-                    <span className="font-medium text-gray-700">Last sign-in: </span>
-                    <span className="text-gray-600">
-                        {lastLoginAt ? new Date(lastLoginAt).toLocaleString() : 'No sign-in recorded yet'}
+        <ul className={`divide-y divide-gray-100 rounded-md border border-gray-200 ${className}`}>
+            {recentActivity.map((entry) => (
+                <li key={entry.id} className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm">
+                    <div className="min-w-0">
+                        <p className="font-medium text-gray-800">{formatAction(entry.action)}</p>
+                        {entry.model_type && (
+                            <p className="text-xs text-gray-500">
+                                {formatModel(entry.model_type, entry.model_id)}
+                            </p>
+                        )}
+                    </div>
+                    <span className="shrink-0 text-xs text-gray-400">
+                        {new Date(entry.created_at).toLocaleString('en-PH', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                        })}
                     </span>
-                </div>
-
-                {recentActivity.length === 0 ? (
-                    <p className="text-sm text-gray-500">No recent activity recorded yet.</p>
-                ) : (
-                    <ul className="divide-y divide-gray-100 rounded-md border border-gray-200">
-                        {recentActivity.map((entry) => (
-                            <li key={entry.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-                                <div>
-                                    <p className="font-medium text-gray-800">{formatAction(entry.action)}</p>
-                                    {entry.model_type && (
-                                        <p className="text-xs text-gray-500">
-                                            {formatModel(entry.model_type, entry.model_id)}
-                                        </p>
-                                    )}
-                                </div>
-                                <span className="shrink-0 text-xs text-gray-500">
-                                    {new Date(entry.created_at).toLocaleString()}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </div>
-        </section>
+                </li>
+            ))}
+        </ul>
     );
 }

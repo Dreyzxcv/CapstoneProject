@@ -18,11 +18,6 @@ interface SessionEntry {
     is_current_device: boolean;
 }
 
-// Brave (and other Chromium forks) send a Chrome-shaped User-Agent on
-// purpose for site compatibility, so the server can never tell them apart
-// from the request alone. The only reliable signal is this client-side
-// API, which only exists in Brave itself — so it can only ever confirm
-// the browser you're *currently* using, not other listed sessions.
 function useIsBrave(): boolean | null {
     const [isBrave, setIsBrave] = useState<boolean | null>(null);
 
@@ -87,23 +82,18 @@ export default function ActiveSessionsForm({
 
     return (
         <section className={className}>
-            <header>
-                <h2 className="text-lg font-medium text-gray-900">Active Sessions</h2>
-                <p className="mt-1 text-sm text-gray-600">
-                    Devices and browsers currently signed in to your account.
-                </p>
-            </header>
-
-            <div className="mt-6 space-y-3">
+            <div className="space-y-2">
                 {sessions.map((session) => {
-                    const Icon = session.platform === 'Android' || session.platform === 'iOS' ? Smartphone : Laptop;
+                    const Icon = session.platform === 'Android' || session.platform === 'iOS'
+                        ? Smartphone
+                        : Laptop;
                     return (
                         <div
                             key={session.id}
                             className="flex items-center gap-3 rounded-md border border-gray-200 px-4 py-3"
                         >
                             <Icon className="h-5 w-5 shrink-0 text-gray-400" />
-                            <div>
+                            <div className="min-w-0">
                                 <p className="text-sm font-medium text-gray-800">
                                     {displayBrowser(session)} on {session.platform}
                                     {session.is_current_device && (
@@ -114,7 +104,13 @@ export default function ActiveSessionsForm({
                                 </p>
                                 <p className="text-xs text-gray-500">
                                     {session.ip_address ?? 'Unknown IP'} &middot; Last active{' '}
-                                    {new Date(session.last_active).toLocaleString()}
+                                    {new Date(session.last_active).toLocaleString('en-PH', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                        hour12: true,
+                                    })}
                                 </p>
                             </div>
                         </div>
@@ -123,8 +119,10 @@ export default function ActiveSessionsForm({
             </div>
 
             {otherSessionsCount > 0 && (
-                <div className="mt-6">
-                    <PrimaryButton onClick={confirmLogout}>Log Out Other Browser Sessions</PrimaryButton>
+                <div className="mt-4">
+                    <PrimaryButton onClick={confirmLogout}>
+                        Log Out Other Sessions
+                    </PrimaryButton>
                 </div>
             )}
 
