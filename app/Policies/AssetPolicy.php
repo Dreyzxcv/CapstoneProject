@@ -30,7 +30,10 @@ class AssetPolicy
     public function markStored(User $user, Asset $asset): bool
     {
         return $user->can('assets.mark_stored')
-            && $asset->current_status === \App\Enums\AssetStatus::PendingCustodyReview
+            && in_array($asset->current_status, [
+                \App\Enums\AssetStatus::PendingCustodyReview,
+                \App\Enums\AssetStatus::ReceiptSigned,
+            ])
             && $asset->hasAllRequiredDocumentsVerified();
     }
 

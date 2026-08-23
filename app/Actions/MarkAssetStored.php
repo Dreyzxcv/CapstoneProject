@@ -17,7 +17,10 @@ class MarkAssetStored
 
     public function execute(Asset $asset, User $user): Asset
     {
-        if ($asset->current_status !== AssetStatus::PendingCustodyReview) {
+        if (! in_array($asset->current_status, [
+            AssetStatus::PendingCustodyReview,
+            AssetStatus::ReceiptSigned,
+        ])) {
             throw new DomainException('Asset must be pending custody review before it can be tagged.');
         }
 

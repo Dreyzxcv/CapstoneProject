@@ -45,6 +45,7 @@ interface PieceRow {
     estimated_value: string;
     estimated_value_auto: boolean;
     plate_number: string;
+    serial_number: string;
 }
 
 interface AssetRow {
@@ -100,6 +101,7 @@ function emptyPieceRow(species = ''): PieceRow {
         estimated_value: '',
         estimated_value_auto: false,
         plate_number: '',
+        serial_number: '',
     };
 }
 
@@ -634,22 +636,17 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                     </div>
                 )}
 
-                {/* Non-log estimated value */}
-                {!isLog && (
+                {/* Equipment: optional serial number */}
+                {asset.type === 'equipment' && (
                     <div className="max-w-xs space-y-2">
-                        <Label htmlFor={`piece-value-${assetIndex}-${pieceIndex}`}>
-                            Estimated Value (php)<span className="text-red-500">*</span>
-                        </Label>
+                        <Label htmlFor={`piece-serial-${assetIndex}-${pieceIndex}`}>Serial Number</Label>
                         <Input
-                            id={`piece-value-${assetIndex}-${pieceIndex}`}
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={piece.estimated_value}
-                            onChange={(e) => updatePiece(assetIndex, pieceIndex, { estimated_value: e.target.value })}
-                            required
+                            id={`piece-serial-${assetIndex}-${pieceIndex}`}
+                            placeholder="e.g. SN-123456"
+                            value={piece.serial_number}
+                            onChange={(e) => updatePiece(assetIndex, pieceIndex, { serial_number: e.target.value })}
                         />
-                        <InputError message={pieceError(assetIndex, pieceIndex, 'estimated_value')} />
+                        <InputError message={pieceError(assetIndex, pieceIndex, 'serial_number')} />
                     </div>
                 )}
             </div>
@@ -1207,12 +1204,20 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                             <dd className="text-gray-900">{piece.plate_number || '—'}</dd>
                                                         </div>
                                                     )}
-                                                    <div>
-                                                        <dt className="text-gray-500">Est. Value</dt>
-                                                        <dd className="text-gray-900">
-                                                            {piece.estimated_value ? `₱${Number(piece.estimated_value).toLocaleString()}` : '—'}
-                                                        </dd>
-                                                    </div>
+                                                    {asset.type === 'equipment' && (
+                                                        <div>
+                                                            <dt className="text-gray-500">Serial No.</dt>
+                                                            <dd className="text-gray-900">{piece.serial_number || '—'}</dd>
+                                                        </div>
+                                                    )}
+                                                    {asset.type === 'log' && (
+                                                        <div>
+                                                            <dt className="text-gray-500">Est. Value</dt>
+                                                            <dd className="text-gray-900">
+                                                                {piece.estimated_value ? `₱${Number(piece.estimated_value).toLocaleString()}` : '—'}
+                                                            </dd>
+                                                        </div>
+                                                    )}
                                                 </dl>
                                             </div>
                                         ))}

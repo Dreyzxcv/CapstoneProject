@@ -130,6 +130,7 @@ class CreateIncidentWithAssets
                         'volume_cu_m'     => $pieceData['volume_cu_m'] ?? null,
                         'estimated_value' => $pieceData['estimated_value'] ?? null,
                         'plate_number'    => $pieceData['plate_number'] ?? null,
+                        'serial_number' => $pieceData['serial_number'] ?? null, 
                     ]);
                 }
             }

@@ -57,6 +57,7 @@ class StoreIncidentRequest extends FormRequest
             'assets.*.pieces.*.volume_cu_m'       => ['nullable', 'numeric', 'min:0'],
             'assets.*.pieces.*.estimated_value'   => ['nullable', 'numeric', 'min:0'],
             'assets.*.pieces.*.plate_number'      => ['nullable', 'string', 'max:50'],
+            'assets.*.pieces.*.serial_number' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

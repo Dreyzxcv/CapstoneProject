@@ -22,6 +22,11 @@ class AssetLifecycleService
             AssetStatus::UnderTrial,
             AssetStatus::ClearedForAccounting,
         ],
+        AssetStatus::ReceiptSigned->value => [
+            AssetStatus::Stored,
+            AssetStatus::UnderTrial,
+            AssetStatus::ClearedForAccounting,
+        ],
         AssetStatus::DocumentsUploaded->value => [
             AssetStatus::PendingCustodyReview,
         ],
