@@ -19,7 +19,7 @@ class UploadJev
         protected AuditLogService $auditLogService,
     ) {}
 
-    public function execute(Asset $asset, Jev $jev, User $mesUser): Jev
+    public function execute(Asset $asset, Jev $jev, User $accountingUser): Jev
     {
         if ($jev->asset_id !== $asset->id) {
             throw new DomainException('JEV does not belong to this asset.');
@@ -33,9 +33,9 @@ class UploadJev
             throw new DomainException('Asset is not awaiting JEV upload.');
         }
 
-        return DB::transaction(function () use ($asset, $jev, $mesUser) {
+        return DB::transaction(function () use ($asset, $jev, $accountingUser) {
             $jev->update([
-                'uploaded_by_mes_id' => $mesUser->id,
+                'uploaded_by_accounting_id' => $accountingUser->id,
                 'uploaded_at' => now(),
             ]);
 
@@ -52,12 +52,12 @@ class UploadJev
             $this->lifecycleService->transition(
                 $asset->fresh(),
                 AssetStatus::ForDisposal,
-                $mesUser,
-                "JEV {$jev->jev_number} uploaded by MES.",
+                $accountingUser,
+                "JEV {$jev->jev_number} uploaded by Accounting.",
                 'jev.uploaded',
             );
 
-            $this->auditLogService->log('jev.uploaded', $jev, null, $jev->fresh()->toArray(), $mesUser->id);
+            $this->auditLogService->log('jev.uploaded', $jev, null, $jev->fresh()->toArray(), $accountingUser->id);
 
             return $jev->fresh();
         });

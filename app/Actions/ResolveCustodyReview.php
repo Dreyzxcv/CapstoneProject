@@ -1,33 +1,58 @@
 <?php
+
 namespace App\Actions;
 
+use App\Enums\AssetStatus;
 use App\Models\Asset;
+use App\Models\AssetCaseStatusHistory;
 use App\Models\User;
+use App\Services\AssetLifecycleService;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
 
 class ResolveCustodyReview
 {
-    public function __construct(private NotificationService $notifications) {}
+    public function __construct(
+        private NotificationService $notifications,
+        private AssetLifecycleService $lifecycle,
+    ) {}
 
     public function execute(Asset $asset, string $decision, ?string $remarks = null): void
     {
-        $updates = [
+        $actor = Auth::user();
+
+        // Always persist the review fields first
+        $asset->update([
             'custody_review_status'  => $decision,
             'custody_review_remarks' => $remarks,
-        ];
+        ]);
 
-        // On approval, advance the status so custodian can mark as tagged
         if ($decision === 'approved') {
-            $updates['current_status'] = \App\Enums\AssetStatus::ReceiptSigned;
+            // Use lifecycle so a history row is written automatically
+            $this->lifecycle->transition(
+                $asset,
+                AssetStatus::ReceiptSigned,
+                $actor,
+                'Custody review approved by Property Custodian'
+                    . ($remarks ? ": {$remarks}" : '.'),
+                'asset.custody_review_approved',
+            );
         }
 
-        // On return, revert status back so MES can re-upload/re-submit
         if ($decision === 'returned') {
-            $updates['current_status'] = \App\Enums\AssetStatus::DocumentsUploaded;
-        }
+            // Write a history note without changing the status
+            // (MES stays on DocumentsUploaded so they can re-submit)
+            $asset->update(['current_status' => AssetStatus::DocumentsUploaded]);
 
-        $asset->update($updates);
+            AssetCaseStatusHistory::create([
+                'asset_id'   => $asset->id,
+                'status'     => AssetStatus::DocumentsUploaded,
+                'changed_by' => $actor->id,
+                'notes'      => 'Custody review returned for revision by Property Custodian'
+                    . ($remarks ? ": {$remarks}" : '.'),
+                'changed_at' => now(),
+            ]);
+        }
 
         // Notify the submitter
         $submitter = User::find($asset->custody_review_submitted_by);
@@ -40,7 +65,7 @@ class ResolveCustodyReview
                     'Asset %s was %s by %s.%s',
                     $asset->asset_code,
                     $verb,
-                    Auth::user()->name,
+                    $actor->name,
                     $remarks ? " Remarks: {$remarks}" : ''
                 ),
                 link: route('assets.show', $asset),

@@ -31,6 +31,7 @@ class AssetLifecycleService
             AssetStatus::PendingCustodyReview,
         ],
         AssetStatus::PendingCustodyReview->value => [
+            AssetStatus::ReceiptSigned,
             AssetStatus::UnderTrial,
             AssetStatus::ClearedForAccounting,
         ],
@@ -124,7 +125,7 @@ class AssetLifecycleService
             $asset,
             AssetStatus::ClearedForAccounting,
             $user,
-            'Asset cleared for Property and Accounting.',
+            'Asset documents are cleared for Property Custodian and ready for Accounting.',
         );
     }
 
@@ -155,11 +156,6 @@ class AssetLifecycleService
                 'title' => 'Storage Preparation',
                 'summary' => 'The acknowledgement receipt has been signed, and the item is ready for tagging and storage.',
                 'nextAction' => 'Mark the asset as stored once the QR tag and physical placement are complete.',
-            ],
-            AssetStatus::Stored => [
-                'title' => 'Custody Holding',
-                'summary' => 'The asset is now in storage and can proceed to legal or accounting follow-up.',
-                'nextAction' => 'Route the asset to trial, accounting, or disposal based on case status.',
             ],
             AssetStatus::UnderTrial => [
                 'title' => 'Case Hold',
