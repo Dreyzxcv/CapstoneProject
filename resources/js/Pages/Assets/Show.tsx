@@ -610,19 +610,16 @@ export default function AssetsShow({
                                                                     "—"}
                                                             </dd>
                                                         </div>
-                                                        <div>
-                                                            <dt className="text-gray-400">
-                                                                Est. Value (₱)
-                                                            </dt>
-                                                            <dd>
-                                                                {piece.estimated_value !=
-                                                                null
-                                                                    ? Number(
-                                                                          piece.estimated_value,
-                                                                      ).toLocaleString()
-                                                                    : "—"}
-                                                            </dd>
-                                                        </div>
+                                                        {piece.description && (
+                                                            <div className="col-span-2">
+                                                                <dt className="text-gray-400">
+                                                                    Description
+                                                                </dt>
+                                                                <dd>
+                                                                    {piece.description}
+                                                                </dd>
+                                                            </div>
+                                                        )}
                                                     </dl>
                                                 )}
 
@@ -698,6 +695,9 @@ export default function AssetsShow({
                                                             <th className="px-3 py-2 text-left font-medium text-gray-500">
                                                                 Vol. (cu.m)
                                                             </th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                                Action
+                                                            </th>
                                                         </>
                                                     )}
                                                     {asset.type ===
@@ -708,6 +708,12 @@ export default function AssetsShow({
                                                             </th>
                                                             <th className="px-3 py-2 text-left font-medium text-gray-500">
                                                                 Plate No.
+                                                            </th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                                Description
+                                                            </th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                                Action
                                                             </th>
                                                         </>
                                                     )}
@@ -720,11 +726,15 @@ export default function AssetsShow({
                                                             <th className="px-3 py-2 text-left font-medium text-gray-500">
                                                                 Description
                                                             </th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                                Serial No.
+                                                            </th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                                Action
+                                                            </th>
                                                         </>
                                                     )}
-                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                        Est. Value (₱)
-                                                    </th>
+                                                    
                                                     <th className="px-3 py-2 text-left font-medium text-gray-500"></th>
                                                 </tr>
                                             </thead>
@@ -780,6 +790,10 @@ export default function AssetsShow({
                                                                     {piece.plate_number ??
                                                                         "—"}
                                                                 </td>
+                                                                <td className="px-3 py-2 text-gray-900">
+                                                                    {piece.description ??
+                                                                        "—"}
+                                                                </td>
                                                             </>
                                                         )}
                                                         {asset.type ===
@@ -793,16 +807,11 @@ export default function AssetsShow({
                                                                     {piece.description ??
                                                                         "—"}
                                                                 </td>
+                                                                <td className="px-3 py-2 text-gray-900">
+                                                                    {piece.serial_number ?? "—"}
+                                                                </td>
                                                             </>
                                                         )}
-                                                        <td className="px-3 py-2 text-gray-900">
-                                                            {piece.estimated_value !=
-                                                            null
-                                                                ? Number(
-                                                                      piece.estimated_value,
-                                                                  ).toLocaleString()
-                                                                : "—"}
-                                                        </td>
                                                         <td className="px-3 py-2">
                                                             <button
                                                                 type="button"
@@ -831,21 +840,21 @@ export default function AssetsShow({
                                 <span className="font-medium">Agency:</span>{" "}
                                 {asset.apprehending_agency}
                             </p>
-                            <p>
-                                <span className="font-medium">
-                                    Estimated Value (php):
-                                </span>{" "}
-                                {asset.estimated_value != null
-                                    ? Number(
-                                          asset.estimated_value,
-                                      ).toLocaleString("en-PH", {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                      })
-                                    : "—"}
-                            </p>
                             {asset.type === "log" && (
                                 <>
+                                    <p>
+                                        <span className="font-medium">
+                                            Estimated Value (php):
+                                        </span>{" "}
+                                        {asset.estimated_value != null
+                                            ? Number(
+                                                asset.estimated_value,
+                                            ).toLocaleString("en-PH", {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            })
+                                            : "—"}
+                                    </p>
                                     <p>
                                         <span className="font-medium">
                                             Volume (bd.ft):
@@ -955,7 +964,7 @@ export default function AssetsShow({
                                             ? "Abandoned (no known claimant)"
                                             : (asset.incident
                                                   .claimant_offender_name ??
-                                              "—")}
+                                              "(Abandoned)")}
                                     </p>
                                     <p>
                                         <span className="font-medium">
@@ -986,7 +995,7 @@ export default function AssetsShow({
                                         }
                                         areaName={asset.incident.area}
                                     />
-                                </CardContent>
+                                </CardContent>pie
                             </Card>
                         )}
                     </div>
@@ -995,78 +1004,126 @@ export default function AssetsShow({
                 {/* Evidence, Actions, JEV — side by side on desktop, stacked on mobile */}
                 <div className="grid items-start gap-6 lg:grid-cols-3">
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between pb-3">
                             <CardTitle className="text-base">
                                 Evidence & Documents
                             </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {requiredDocumentTypes.length > 0 && (
-                                <p className="text-xs text-amber-700">
-                                    {requiredDocumentTypes.length} document
-                                    {requiredDocumentTypes.length === 1
-                                        ? ""
-                                        : "s"}{" "}
-                                    required.
-                                </p>
-                            )}
-
                             <Button
                                 type="button"
                                 variant="outline"
-                                className="w-full"
+                                size="sm"
+                                className="gap-1.5 text-xs"
                                 onClick={() => setShowRequiredDocsModal(true)}
                             >
-                                Upload Documents
+                                <Upload className="h-3.5 w-3.5" />
+                                Manage
                             </Button>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {/* Required documents checklist */}
+                            {requiredDocumentTypes.length > 0 && (() => {
+                                const docs = asset.documents ?? [];
+                                const latestFor = (type: string) =>
+                                    docs
+                                        .filter((d) => d.document_type === type)
+                                        .sort((a, b) => b.id - a.id)[0];
 
-                            {(asset.documents ?? []).length === 0 ? (
-                                <p className="text-sm text-gray-500">
-                                    No supporting documents uploaded yet.
-                                </p>
-                            ) : (
-                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-3">
-                                    {(asset.documents ?? []).map((doc) => {
-                                        const url = documentUrl(doc.file_path);
-                                        const isImage = doc.mime_type?.startsWith("image/");
-                                        return (
-                                            <a
-                                                key={doc.id}
-                                                href={url ?? "#"}
-                                                title={doc.original_name}
-                                                className="group relative block overflow-hidden rounded-md border border-gray-200"
-                                            >
-                                                {doc.document_type && (
-                                                    <span
-                                                        className={
-                                                            "absolute right-1 top-1 z-10 rounded-full px-1.5 py-0.5 text-[9px] font-semibold " +
-                                                            (doc.status === "verified"
-                                                                ? "bg-emerald-100 text-emerald-800"
-                                                                : doc.status === "rejected"
-                                                                ? "bg-red-100 text-red-800"
-                                                                : "bg-amber-100 text-amber-800")
-                                                        }
-                                                    >
-                                                        {doc.status}
+                                return (
+                                    <div className="space-y-1.5">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                            Required Documents
+                                        </p>
+                                        {requiredDocumentTypes.map((type) => {
+                                            const doc = latestFor(type.value);
+                                            const status = doc?.status;
+                                            return (
+                                                <div
+                                                    key={type.value}
+                                                    className="flex items-center gap-2.5"
+                                                >
+                                                    {status === "verified" ? (
+                                                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 text-[10px]">✓</span>
+                                                    ) : status === "rejected" ? (
+                                                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 text-[10px]">✕</span>
+                                                    ) : status === "pending" ? (
+                                                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 text-[10px]">⏳</span>
+                                                    ) : (
+                                                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 text-[10px]">–</span>
+                                                    )}
+                                                    <span className={`text-xs ${status === "verified" ? "text-gray-600" : status === "rejected" ? "text-red-700 font-medium" : !status ? "text-gray-400" : "text-amber-700"}`}>
+                                                        {type.label}
                                                     </span>
-                                                )}
-                                                {isImage ? (
-                                                    <img src={url ?? ""} className="h-24 w-full object-cover" />
-                                                ) : (
-                                                    <div className="flex h-24 w-full flex-col items-center justify-center gap-1 overflow-hidden bg-gray-50 px-1 text-center">
-                                                        <PdfBadge className="h-7 w-7 shrink-0" />
-                                                        <p className="w-full truncate px-1 text-[10px] text-gray-500">
-                                                            {doc.original_name}
-                                                        </p>
-                                                    </div>
-                                                )}
-                                            </a>
-                                        );
-                                    })}
-                                </div>
+                                                    {status && (
+                                                        <span className={`ml-auto text-[10px] font-medium ${status === "verified" ? "text-emerald-600" : status === "rejected" ? "text-red-600" : "text-amber-600"}`}>
+                                                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Additional evidence thumbnails */}
+                            {(() => {
+                                const evidenceDocs = (asset.documents ?? []).filter((d) => !d.document_type);
+                                if (evidenceDocs.length === 0) return null;
+                                return (
+                                    <div className="space-y-1.5">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                            Additional Evidence
+                                        </p>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {evidenceDocs.map((doc) => {
+                                                const url = documentUrl(doc.file_path);
+                                                const isImage = doc.mime_type?.startsWith("image/");
+                                                return (
+                                                    <a
+                                                        key={doc.id}
+                                                        href={url ?? "#"}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        title={doc.original_name}
+                                                        className="group relative block overflow-hidden rounded-md border border-gray-200"
+                                                    >
+                                                        <span
+                                                            className={
+                                                                "absolute right-1 top-1 z-10 rounded-full px-1.5 py-0.5 text-[9px] font-semibold " +
+                                                                (doc.status === "verified"
+                                                                    ? "bg-emerald-100 text-emerald-800"
+                                                                    : doc.status === "rejected"
+                                                                    ? "bg-red-100 text-red-800"
+                                                                    : "bg-amber-100 text-amber-800")
+                                                            }
+                                                        >
+                                                            {doc.status}
+                                                        </span>
+                                                        {isImage ? (
+                                                            <img src={url ?? ""} className="h-20 w-full object-cover" />
+                                                        ) : (
+                                                            <div className="flex h-20 w-full flex-col items-center justify-center gap-1 bg-gray-50 px-1 text-center">
+                                                                <PdfBadge className="h-6 w-6 shrink-0" />
+                                                                <p className="w-full truncate px-1 text-[10px] text-gray-500">
+                                                                    {doc.original_name}
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </a>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {(asset.documents ?? []).length === 0 && requiredDocumentTypes.length === 0 && (
+                                <p className="text-sm text-gray-500">
+                                    No documents uploaded yet.
+                                </p>
                             )}
 
-                            {/* Custody review — outside the document grid */}
+                            {/* Custody review */}
                             {can.submitForCustodyReview && (
                                 <div className="border-t pt-4 space-y-2">
                                     {!hasAllRequiredDocuments ? (
