@@ -119,7 +119,6 @@ class AssetController extends Controller
             'pieces',
             'creator',
             'acknowledgementReceipt.signedByCustodian',
-            'statusHistory.changedBy',
             'jev.createdByAccounting',
             'jev.uploadedByMes',
             'disposals.donation',
@@ -156,7 +155,7 @@ class AssetController extends Controller
                 'disposals.disposalJev',
                 'incident',
                 'qrScans.scannedBy',
-                'statusHistory',
+                'statusHistory.changedBy.roles',
             ]),
             'qrPayload' => $qrPayload,
             'qrSvg' => $qrSvg,
@@ -173,8 +172,7 @@ class AssetController extends Controller
                 'Chainsaw', 'Power Saw', 'Handheld Circular Saw',
                 'Winch / Cable Puller', 'Hand Tools (Axe, Bolo, Wedge)', 'Others',
             ],
-            'modes' => collect(AssetMode::cases())->map(fn ($m) => [   // ← new: needed by edit modal
-                'value' => $m->value,
+            'modes' => collect(AssetMode::cases())->map(fn ($m) => [
                 'label' => $m->label(),
             ]),
             'hasAllRequiredDocuments' => $asset->hasAllRequiredDocuments(),

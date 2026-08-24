@@ -22,6 +22,14 @@ class SubmitForCustodyReview
             'current_status'              => \App\Enums\AssetStatus::PendingCustodyReview,
         ]);
 
+        \App\Models\AssetCaseStatusHistory::create([
+            'asset_id'   => $asset->id,
+            'status'     => \App\Enums\AssetStatus::PendingCustodyReview,
+            'changed_by' => Auth::id(),
+            'notes'      => 'Submitted for custody review.',
+            'changed_at' => now(),
+        ]);
+
         // Notify all custodians
         $custodians = User::role('Property Custodian')->where('is_active', true)->get();
 

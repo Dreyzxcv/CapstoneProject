@@ -113,7 +113,9 @@ export interface StatusHistoryEntry {
     status: string;
     notes: string | null;
     changed_at: string;
-    changed_by?: User;
+    changed_by?: Omit<User, 'roles'> & {
+        roles: Array<{ id: number; name: string; guard_name: string }>;
+    };
 }
 
 export interface JevLineItem {

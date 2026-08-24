@@ -2192,11 +2192,18 @@ export default function AssetsShow({
                                         </p>
                                     </div>
                                     <div className="min-w-0 shrink-0 break-words text-right text-gray-500">
-                                        <p>{entry.changed_by?.name}</p>
-                                        <p>
-                                            {new Date(
-                                                entry.changed_at,
-                                            ).toLocaleString()}
+                                        {entry.changed_by && (
+                                            <p className="text-xs font-medium text-gray-700">
+                                                {entry.changed_by.name}
+                                            </p>
+                                        )}
+                                        {entry.changed_by?.roles?.[0] && (
+                                            <p className="text-[11px] text-gray-400">
+                                                {(entry.changed_by.roles[0] as any).name}
+                                            </p>
+                                        )}
+                                        <p className="text-xs">
+                                            {new Date(entry.changed_at).toLocaleString()}
                                         </p>
                                     </div>
                                 </div>
