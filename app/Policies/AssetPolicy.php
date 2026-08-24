@@ -39,7 +39,15 @@ class AssetPolicy
 
     public function submitForCustodyReview(User $user, Asset $asset): bool
     {
-        return $user->can('assets.submit_custody_review');
+        if (! $user->can('assets.submit_custody_review')) {
+            return false;
+        }
+
+        if ($asset->hasAapDocument() && blank($asset->aap_number)) {
+            return false;
+        }
+
+        return true;
     }
 
     public function resolveCustodyReview(User $user, Asset $asset): bool
@@ -56,12 +64,21 @@ class AssetPolicy
     
     public function updateAap(User $user, Asset $asset): bool
     {
-        return $user->can('assets.update_aap');
+        return $user->can('assets.update_aap')
+            && $asset->hasAapDocument();
     }
 
     public function updateCaseStatus(User $user, Asset $asset): bool
     {
         return $user->can('assets.update_case')
             && $asset->current_status === \App\Enums\AssetStatus::UnderTrial;
+    }
+
+    public function submitAapForReview(User $user, Asset $asset): bool
+    {
+        return $user->can('assets.submit_custody_review')
+            && $asset->hasAapDocument()
+            && ! blank($asset->aap_number)
+            && ! $asset->aap_review_requested;
     }
 }

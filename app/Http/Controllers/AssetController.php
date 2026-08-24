@@ -7,6 +7,7 @@ use App\Actions\MarkAssetStored;
 use App\Actions\UpdateCaseDetails;
 use App\Http\Requests\UpdateCaseDetailsRequest;
 use App\Http\Requests\UpdateAapNumberRequest;
+use App\Actions\SubmitAapForReview;
 use App\Http\Requests\UpdateAssetRequest;
 use App\Actions\SubmitForCustodyReview;
 use App\Actions\ResolveCustodyReview;
@@ -178,6 +179,7 @@ class AssetController extends Controller
             'hasAllRequiredDocuments' => $asset->hasAllRequiredDocuments(),
             'can' => [
                 'submitForCustodyReview' => $request->user()->can('submitForCustodyReview', $asset),
+                'submitAapForReview' => $request->user()?->can('submitAapForReview', $asset) ?? false,
                 'resolveCustodyReview'   => $request->user()->can('resolveCustodyReview', $asset),
                 'markStored'        => $request->user()?->can('markStored', $asset) ?? false,
                 'generateQr'        => $request->user()?->can('generateQr', $asset) ?? false,
@@ -194,8 +196,10 @@ class AssetController extends Controller
                 'uploadJevOut'      => $request->user()?->can('jev.upload') ?? false,
                 'edit'              => $request->user()?->can('assets.update') ?? false,
             ],
+            'aapDocumentUploaded' => $asset->hasAapDocument(),
         ]);
     }
+    
 
     public function byCode(Request $request, string $assetCode)
     {
@@ -339,5 +343,14 @@ class AssetController extends Controller
         $action->execute($asset, $validated['decision'], $validated['remarks'] ?? null);
 
         return back()->with('success', 'Custody review ' . $validated['decision'] . '.');
+    }
+
+    public function submitAapForReview(Asset $asset, SubmitAapForReview $action): RedirectResponse
+    {
+        $this->authorize('submitAapForReview', $asset);
+
+        $action->execute($asset);
+
+        return back()->with('success', 'AAP document submitted for verification. Custodian has been notified.');
     }
 }

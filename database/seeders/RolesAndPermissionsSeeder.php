@@ -46,7 +46,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'System Admin' => $permissions,
             'MES Officer' => [
                 'assets.view', 'assets.create', 'assets.update', 'assets.update_case', 'assets.scan', 'incidents.create',
-                'disposals.view', 'reports.view', 'documents.upload', 'assets.submit_custody_review',
+                'disposals.view', 'reports.view', 'documents.upload', 'assets.submit_custody_review', 'assets.update_aap',
             ],
             'Property Custodian' => [
                 'assets.view', 'assets.sign_receipt', 'assets.mark_stored',

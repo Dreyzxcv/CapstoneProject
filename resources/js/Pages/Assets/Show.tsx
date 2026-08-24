@@ -29,6 +29,7 @@ interface ShowProps {
         custody_review_remarks: string | null;
     };
     hasAllRequiredDocuments: boolean;
+    aapDocumentUploaded: boolean; 
     qrPayload: string | null;
     qrSvg: string | null;
     requiredDocumentTypes: Array<{ value: string; label: string }>;
@@ -37,6 +38,7 @@ interface ShowProps {
     equipmentOptions: string[];
     can: {
         submitForCustodyReview: boolean;
+        submitAapForReview: boolean;
         resolveCustodyReview: boolean;
         signReceipt: boolean;
         markStored: boolean;
@@ -66,6 +68,7 @@ export default function AssetsShow({
     modes,
     can,
     hasAllRequiredDocuments,
+    aapDocumentUploaded,
 }: ShowProps) {
     usePoll(6000, { only: ["asset"] });
 
@@ -150,6 +153,12 @@ export default function AssetsShow({
             preserveScroll: true,
             onSuccess: () => setEditingAap(false),
         });
+    }
+
+    function handleSubmitAapForReview() {
+        if (confirm('Notify the Property Custodian to verify the AAP Scanned Document?')) {
+            router.post(route('assets.submit-aap-review', asset.id));
+        }
     }
 
     const currentRole = auth.user?.roles?.[0] ?? "User";
@@ -533,6 +542,29 @@ export default function AssetsShow({
                                     className="mt-1"
                                 />
                             </div>
+                            {can.submitAapForReview && (
+                                <div className="md:col-span-2 mt-1">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={handleSubmitAapForReview}
+                                        className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                                    >
+                                        Notify Custodian to Verify AAP
+                                    </Button>
+                                </div>
+                            )}
+                            {(asset as any).aap_review_requested && (
+                                <div className="md:col-span-2">
+                                    <p className="text-xs text-blue-600">
+                                        Custodian notified to verify AAP —{' '}
+                                        {(asset as any).aap_review_requested_at
+                                            ? new Date((asset as any).aap_review_requested_at).toLocaleDateString()
+                                            : ''}
+                                    </p>
+                                </div>
+                            )}
                             {/* Pieces breakdown */}
                             {asset.pieces && asset.pieces.length > 0 && (
                                 <div className="md:col-span-2 mt-2 border-t border-b border-gray-100 pt-4 pb-4">
@@ -1158,6 +1190,21 @@ export default function AssetsShow({
                                         <p className="text-xs text-amber-700">
                                             Upload the required documents (DAO Form, Tally Sheet, Seizure Order) before submitting for custody review.
                                         </p>
+                                    ) : aapDocumentUploaded && !asset.aap_number ? (
+                                        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                                            <p className="font-medium">AAP Number required before submitting.</p>
+                                            <p className="mt-0.5 text-xs text-amber-700">
+                                                The AAP Scanned Document has been uploaded. Please{" "}
+                                                <button
+                                                    type="button"
+                                                    className="underline font-medium"
+                                                    onClick={() => setEditingAap(true)}
+                                                >
+                                                    enter the AAP number
+                                                </button>{" "}
+                                                in the Overview section above.
+                                            </p>
+                                        </div>
                                     ) : asset.custody_review_status === "pending" ? (
                                         <div className="flex items-center gap-2 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
                                             <span>⏳</span>

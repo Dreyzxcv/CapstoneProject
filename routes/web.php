@@ -29,6 +29,8 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/assets/{asset}/resolve-custody-review', [AssetController::class, 'resolveCustodyReview'])
         ->name('assets.resolve-custody-review');
     Route::post('/assets/{asset}/mark-stored', [AssetController::class, 'markStored'])->name('assets.mark-stored');
+    Route::post('/assets/{asset}/submit-aap-review', [AssetController::class, 'submitAapForReview'])
+        ->name('assets.submit-aap-review');
 
     Route::post('/assets/{asset}/jev', [JevController::class, 'store'])->name('assets.jev.store');
     Route::post('/assets/{asset}/jev/upload', [JevController::class, 'upload'])->name('assets.jev.upload');

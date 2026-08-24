@@ -23,6 +23,8 @@ class Asset extends Model
         'aap_number',
         'type',
         'species',
+        'aap_review_requested',
+        'aap_review_requested_at',
         'custody_review_status',
         'custody_review_submitted_at',
         'custody_review_submitted_by',
@@ -255,7 +257,10 @@ class Asset extends Model
     {
         return $this->documents()
             ->where('document_type', \App\Enums\DocumentType::AapDocument->value)
-            ->where('status', \App\Enums\DocumentStatus::Verified->value)
+            ->whereIn('status', [
+                \App\Enums\DocumentStatus::Pending->value,
+                \App\Enums\DocumentStatus::Verified->value,
+            ])
             ->exists();
     }
 }
