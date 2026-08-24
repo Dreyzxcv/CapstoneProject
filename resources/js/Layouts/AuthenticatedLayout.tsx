@@ -53,6 +53,7 @@ export default function Authenticated({
     const permissions = user.permissions ?? [];
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
+    const [showingAccountMenu, setShowingAccountMenu] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
 
     useEffect(() => {
@@ -249,7 +250,7 @@ export default function Authenticated({
                     </div>
 
                     {/* Nav sections */}
-                    <nav className="space-y-6 overflow-y-auto px-4 pb-6 lg:flex-1 lg:px-4 lg:pb-8">
+                    <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-6 lg:px-4 lg:pb-8">
                         {sections.map((section) => (
                             <div key={section.label}>
                                 <p
@@ -371,45 +372,58 @@ export default function Authenticated({
 
                     {/* ── Account — mobile ── */}
                     <div className="border-t border-gray-100 lg:hidden">
-                        {/* Identity header */}
-                        <div className="flex items-center gap-2.5 px-4 py-3.5">
+                        <button
+                            type="button"
+                            onClick={() => setShowingAccountMenu((prev) => !prev)}
+                            className="flex w-full items-center gap-2.5 px-4 py-3.5 text-left hover:bg-gray-50 transition-colors"
+                        >
                             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-medium text-emerald-800">
                                 {user.name.charAt(0).toUpperCase()}
                             </span>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
                                 <p className="truncate text-xs text-gray-400">{user.email}</p>
                             </div>
-                        </div>
+                            <ChevronDown
+                                className={
+                                    'h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 ' +
+                                    (showingAccountMenu ? 'rotate-180' : '')
+                                }
+                            />
+                        </button>
 
-                        <div className="border-t border-gray-100 p-1">
-                            <Link
-                                href={route('profile.edit')}
-                                className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                                <UserRoundCog className="h-4 w-4 text-gray-600 shrink-0" />
-                                Profile
-                            </Link>
-                            <Link
-                                href={route('about')}
-                                className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                                <Info className="h-4 w-4 text-gray-600 shrink-0" />
-                                About
-                            </Link>
-                        </div>
+                        {showingAccountMenu && (
+                            <>
+                                <div className="border-t border-gray-100 p-1">
+                                    <Link
+                                        href={route('profile.edit')}
+                                        className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                    >
+                                        <UserRoundCog className="h-4 w-4 text-gray-600 shrink-0" />
+                                        Profile
+                                    </Link>
+                                    <Link
+                                        href={route('about')}
+                                        className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                    >
+                                        <Info className="h-4 w-4 text-gray-600 shrink-0" />
+                                        About
+                                    </Link>
+                                </div>
 
-                        <div className="border-t border-gray-100 p-1">
-                            <Link
-                                method="post"
-                                href={route('logout')}
-                                as="button"
-                                className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                            >
-                                <LogOut className="h-4 w-4 shrink-0" />
-                                Log out
-                            </Link>
-                        </div>
+                                <div className="border-t border-gray-100 p-1">
+                                    <Link
+                                        method="post"
+                                        href={route('logout')}
+                                        as="button"
+                                        className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                    >
+                                        <LogOut className="h-4 w-4 shrink-0" />
+                                        Log out
+                                    </Link>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </aside>
 

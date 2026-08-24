@@ -410,6 +410,7 @@ class ReportController extends Controller
             'volume_cu_m'  => ['key' => 'volume_cu_m',  'label' => 'Volume (cu.m)',  'type' => 'number'],
             'estimated_value' => ['key' => 'estimated_value', 'label' => 'Estimated Value', 'type' => 'number'],
             'plate_number' => ['key' => 'plate_number', 'label' => 'Plate Number', 'type' => 'text'],
+            'serial_number' => ['key' => 'serial_number', 'label' => 'Serial Number', 'type' => 'text'],
             // ── Asset-level context ───────────────────────────────────────
             'municipality_of_origin' => [
                 'key'  => 'municipality_of_origin',
@@ -534,6 +535,7 @@ class ReportController extends Controller
                 p.volume_cu_m,
                 p.estimated_value,
                 p.plate_number,
+                p.serial_number,
                 {$assetCols}
             ");
 
@@ -557,6 +559,7 @@ class ReportController extends Controller
                 a.volume_cu_m,
                 a.estimated_value,
                 a.plate_number,
+                NULL        AS serial_number,
                 {$assetCols}
             ");
 

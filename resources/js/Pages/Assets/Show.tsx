@@ -311,6 +311,34 @@ export default function AssetsShow({
             !d.disposal_jev.uploaded_at,
     );
 
+    const BD_FT_TO_CU_M = 0.002359737;
+
+    function calculateBdFtFromDimensions(length: string, width: string, height: string): string {
+        const l = parseFloat(length);
+        const w = parseFloat(width);
+        const h = parseFloat(height);
+        if ([l, w, h].some((v) => Number.isNaN(v) || v <= 0)) return '';
+        return ((l * w * h) / 12).toFixed(2);
+    }
+
+    function convertBdFtToCuM(bdFt: string): string {
+        const value = parseFloat(bdFt);
+        if (Number.isNaN(value) || value <= 0) return '';
+        return (value * BD_FT_TO_CU_M).toFixed(4);
+    }
+
+    function handleEditDimensionChange(field: 'length' | 'width' | 'height', value: string) {
+        const updated = { ...editForm.data, [field]: value };
+        const bdFt = calculateBdFtFromDimensions(updated.length, updated.width, updated.height);
+        const cuM = convertBdFtToCuM(bdFt);
+        editForm.setData({
+            ...updated,
+            [field]: value,
+            volume_bd_ft: bdFt,
+            volume_cu_m: cuM,
+        });
+    }
+
     const donationsWithJevOut = disposals.filter(
         (d) =>
             d.disposal_type === "donation" &&
@@ -2181,136 +2209,108 @@ export default function AssetsShow({
             <Modal
                 show={selectedPiece !== null}
                 onClose={() => setSelectedPiece(null)}
-                maxWidth="lg"
+                maxWidth="md"
             >
                 {selectedPiece && (
                     <div className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-gray-900">
-                                Piece {selectedPiece.piece_number} — Detail
-                            </h2>
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <p className="text-xs text-gray-400 uppercase tracking-widest mb-0.5">
+                                    {asset.asset_code}
+                                </p>
+                                <h2 className="text-2xl font-bold text-gray-900 leading-none">
+                                    Piece {selectedPiece.piece_number}
+                                </h2>
+                            </div>
                             <button
                                 type="button"
                                 onClick={() => setSelectedPiece(null)}
-                                className="text-gray-400 hover:text-gray-600 text-sm"
+                                className="text-gray-300 hover:text-gray-500 transition-colors text-xl leading-none"
                             >
                                 ✕
                             </button>
                         </div>
-                        <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                            <div>
-                                <dt className="text-gray-500">Piece #</dt>
-                                <dd className="font-medium text-gray-900">
-                                    {selectedPiece.piece_number}
-                                </dd>
-                            </div>
+
+                        {/* Divider */}
+                        <div className="h-px bg-gray-100 mb-6" />
+
+                        {/* Fields */}
+                        <dl className="space-y-4 text-sm">
                             {asset.type === "log" && (
-                                <div>
-                                    <dt className="text-gray-500">Species</dt>
-                                    <dd className="font-medium text-gray-900">
-                                        {selectedPiece.species ?? "—"}
-                                    </dd>
+                                <div className="flex justify-between">
+                                    <dt className="text-gray-400">Species</dt>
+                                    <dd className="font-medium text-gray-900">{selectedPiece.species ?? "—"}</dd>
                                 </div>
                             )}
                             {asset.type === "vehicle" && (
-                                <div>
-                                    <dt className="text-gray-500">
-                                        Vehicle Type
-                                    </dt>
-                                    <dd className="font-medium text-gray-900">
-                                        {selectedPiece.vehicle_type ?? "—"}
-                                    </dd>
-                                </div>
+                                <>
+                                    <div className="flex justify-between">
+                                        <dt className="text-gray-400">Vehicle Type</dt>
+                                        <dd className="font-medium text-gray-900">{selectedPiece.vehicle_type ?? "—"}</dd>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <dt className="text-gray-400">Plate / Conveyance No.</dt>
+                                        <dd className="font-medium text-gray-900">{selectedPiece.plate_number ?? "—"}</dd>
+                                    </div>
+                                </>
                             )}
                             {asset.type === "equipment" && (
-                                <div>
-                                    <dt className="text-gray-500">
-                                        Equipment Type
-                                    </dt>
-                                    <dd className="font-medium text-gray-900">
-                                        {selectedPiece.equipment_type ?? "—"}
-                                    </dd>
-                                </div>
-                            )}
-                            <div className="sm:col-span-2">
-                                <dt className="text-gray-500">Description</dt>
-                                <dd className="font-medium text-gray-900">
-                                    {selectedPiece.description ?? "—"}
-                                </dd>
-                            </div>
-                            {asset.type === "log" && (
                                 <>
-                                    <div>
-                                        <dt className="text-gray-500">
-                                            Length
-                                        </dt>
-                                        <dd className="font-medium text-gray-900">
-                                            {selectedPiece.length ?? "—"}
-                                        </dd>
+                                    <div className="flex justify-between">
+                                        <dt className="text-gray-400">Equipment Type</dt>
+                                        <dd className="font-medium text-gray-900">{selectedPiece.equipment_type ?? "—"}</dd>
                                     </div>
-                                    <div>
-                                        <dt className="text-gray-500">Width</dt>
-                                        <dd className="font-medium text-gray-900">
-                                            {selectedPiece.width ?? "—"}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-gray-500">
-                                            Height
-                                        </dt>
-                                        <dd className="font-medium text-gray-900">
-                                            {selectedPiece.height ?? "—"}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-gray-500">
-                                            Volume (bd.ft)
-                                        </dt>
-                                        <dd className="font-medium text-gray-900">
-                                            {selectedPiece.volume_bd_ft ?? "—"}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-gray-500">
-                                            Volume (cu.m)
-                                        </dt>
-                                        <dd className="font-medium text-gray-900">
-                                            {selectedPiece.volume_cu_m ?? "—"}
+                                    <div className="flex justify-between">
+                                        <dt className="text-gray-400">Serial Number</dt>
+                                        <dd className="font-medium text-gray-900 font-mono tracking-wide">
+                                            {selectedPiece.serial_number ?? "—"}
                                         </dd>
                                     </div>
                                 </>
                             )}
-                            {asset.type === "vehicle" && (
-                                <div>
-                                    <dt className="text-gray-500">
-                                        Plate / Conveyance No.
-                                    </dt>
-                                    <dd className="font-medium text-gray-900">
-                                        {selectedPiece.plate_number ?? "—"}
-                                    </dd>
+
+                            {selectedPiece.description && (
+                                <div className="flex justify-between gap-4">
+                                    <dt className="text-gray-400 shrink-0">Description</dt>
+                                    <dd className="font-medium text-gray-900 text-right">{selectedPiece.description}</dd>
                                 </div>
                             )}
-                            <div>
-                                <dt className="text-gray-500">
-                                    Estimated Value (₱)
-                                </dt>
-                                <dd className="font-medium text-gray-900">
-                                    {selectedPiece.estimated_value != null
-                                        ? Number(
-                                              selectedPiece.estimated_value,
-                                          ).toLocaleString()
-                                        : "—"}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-gray-500">Encoded At</dt>
-                                <dd className="font-medium text-gray-900">
-                                    {new Date(
-                                        selectedPiece.created_at,
-                                    ).toLocaleString()}
-                                </dd>
-                            </div>
+
+                            {asset.type === "log" && (
+                                <>
+                                    <div className="h-px bg-gray-100" />
+                                    <div className="flex justify-between">
+                                        <dt className="text-gray-400">Dimensions (L × W × H)</dt>
+                                        <dd className="font-medium text-gray-900 tabular-nums">
+                                            {selectedPiece.length ?? "—"} × {selectedPiece.width ?? "—"} × {selectedPiece.height ?? "—"}
+                                        </dd>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <dt className="text-gray-400">Volume (bd.ft)</dt>
+                                        <dd className="font-medium text-gray-900 tabular-nums">{selectedPiece.volume_bd_ft ?? "—"}</dd>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <dt className="text-gray-400">Volume (cu.m)</dt>
+                                        <dd className="font-medium text-gray-900 tabular-nums">{selectedPiece.volume_cu_m ?? "—"}</dd>
+                                    </div>
+                                    <div className="h-px bg-gray-100" />
+                                    <div className="flex justify-between">
+                                        <dt className="text-gray-400">Estimated Value</dt>
+                                        <dd className="font-medium text-gray-900 tabular-nums">
+                                            {selectedPiece.estimated_value != null
+                                                ? `₱ ${Number(selectedPiece.estimated_value).toLocaleString()}`
+                                                : "—"}
+                                        </dd>
+                                    </div>
+                                </>
+                            )}
                         </dl>
+
+                        {/* Footer */}
+                        <p className="mt-6 text-xs text-gray-300">
+                            Encoded {new Date(selectedPiece.created_at).toLocaleString()}
+                        </p>
                     </div>
                 )}
             </Modal>
@@ -2320,13 +2320,13 @@ export default function AssetsShow({
                 onClose={() => setShowEditModal(false)}
                 maxWidth="2xl"
             >
-                <form onSubmit={submitEdit} className="p-6 space-y-5">
+                <form onSubmit={submitEdit} className="p-4 sm:p-6 space-y-4 sm:space-y-5 max-h-[90dvh] overflow-y-auto">
                     <h2 className="text-lg font-semibold text-gray-800">
                         Edit Asset
                     </h2>
 
                     {/* Species / Type / Description */}
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
                         {asset.type === "log" && (
                             <div className="space-y-1">
                                 <Label htmlFor="edit-species">Species</Label>
@@ -2495,82 +2495,58 @@ export default function AssetsShow({
                             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                                 Dimensions
                             </p>
-                            <div className="grid gap-4 sm:grid-cols-3">
-                                {(["length", "width", "height"] as const).map(
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+                               {(["length", "width", "height"] as const).map(
                                     (dim) => (
                                         <div key={dim} className="space-y-1">
                                             <Label htmlFor={`edit-${dim}`}>
-                                                {dim.charAt(0).toUpperCase() +
-                                                    dim.slice(1)}
+                                                {dim.charAt(0).toUpperCase() + dim.slice(1)}
                                             </Label>
                                             <Input
                                                 id={`edit-${dim}`}
                                                 type="number"
                                                 min={0}
                                                 step="0.01"
-                                                value={
-                                                    (editForm.data as any)[dim]
-                                                }
+                                                value={(editForm.data as any)[dim]}
                                                 onChange={(e) =>
-                                                    editForm.setData(
-                                                        dim,
-                                                        e.target.value,
-                                                    )
+                                                    handleEditDimensionChange(dim, e.target.value)
                                                 }
                                             />
                                             <InputError
-                                                message={
-                                                    (editForm.errors as any)[
-                                                        dim
-                                                    ]
-                                                }
+                                                message={(editForm.errors as any)[dim]}
                                             />
                                         </div>
                                     ),
                                 )}
                             </div>
-                            <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="grid grid-cols-2 gap-3 sm:gap-4">
                                 <div className="space-y-1">
-                                    <Label htmlFor="edit-volume-bd">
-                                        Volume (bd.ft)
-                                    </Label>
+                                    <Label htmlFor="edit-volume-bd">Volume (bd.ft)</Label>
                                     <Input
                                         id="edit-volume-bd"
                                         type="number"
                                         min={0}
                                         step="0.01"
                                         value={editForm.data.volume_bd_ft}
-                                        onChange={(e) =>
-                                            editForm.setData(
-                                                "volume_bd_ft",
-                                                e.target.value,
-                                            )
-                                        }
+                                        disabled
+                                        className="bg-gray-100"
                                     />
-                                    <InputError
-                                        message={editForm.errors.volume_bd_ft}
-                                    />
+                                    <p className="text-xs text-gray-400">Auto-computed from dimensions</p>
+                                    <InputError message={editForm.errors.volume_bd_ft} />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label htmlFor="edit-volume-cu">
-                                        Volume (cu.m)
-                                    </Label>
+                                    <Label htmlFor="edit-volume-cu">Volume (cu.m)</Label>
                                     <Input
                                         id="edit-volume-cu"
                                         type="number"
                                         min={0}
                                         step="0.0001"
                                         value={editForm.data.volume_cu_m}
-                                        onChange={(e) =>
-                                            editForm.setData(
-                                                "volume_cu_m",
-                                                e.target.value,
-                                            )
-                                        }
+                                        disabled
+                                        className="bg-gray-100"
                                     />
-                                    <InputError
-                                        message={editForm.errors.volume_cu_m}
-                                    />
+                                    <p className="text-xs text-gray-400">Auto-converted from bd.ft</p>
+                                    <InputError message={editForm.errors.volume_cu_m} />
                                 </div>
                             </div>
                         </div>
@@ -2618,7 +2594,7 @@ export default function AssetsShow({
                     </div>
 
                     {/* Location / Agency */}
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
                         <div className="space-y-1">
                             <Label htmlFor="edit-location">
                                 Location Apprehended
@@ -2658,7 +2634,7 @@ export default function AssetsShow({
                     </div>
 
                     {/* Case Flags */}
-                    <div className="flex flex-wrap gap-6">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-6">
                         <label className="flex cursor-pointer items-center gap-2 text-sm">
                             <input
                                 type="checkbox"
@@ -2690,7 +2666,7 @@ export default function AssetsShow({
                     </div>
 
                     {/* Footer buttons */}
-                    <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
+                    <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 border-t border-gray-100 pt-4">
                         <Button
                             type="button"
                             variant="outline"
