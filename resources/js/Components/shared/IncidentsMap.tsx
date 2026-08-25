@@ -4,8 +4,8 @@ import { MapPin, Maximize2, Minimize2, Loader2, Satellite, Map as MapIcon } from
 import { router } from '@inertiajs/react';
 
 const CATANDUANES_BOUNDS: [[number, number], [number, number]] = [
-    [13.40, 124.05],
-    [14.10, 124.45],
+    [13.35, 124.00],
+    [14.15, 124.50],
 ];
 const CATANDUANES_CENTER: [number, number] = [13.75, 124.24];
 
@@ -79,7 +79,7 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
                 center: CATANDUANES_CENTER,
                 zoom: 10,
                 minZoom: 9,
-                maxZoom: 17,
+                maxZoom: 19,
                 maxBounds: CATANDUANES_BOUNDS,
                 maxBoundsViscosity: 1.0,
                 scrollWheelZoom: true,
@@ -182,20 +182,39 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
                 .addTo(map)
                 .bindPopup(
                     `<div class="incident-popup">
-                        <div class="incident-popup-band" style="background:${dotColor}"></div>
-                        <div class="incident-popup-body">
-                            <p class="incident-popup-code">${incident.incident_code}</p>
-                            <p class="incident-popup-place">${incident.place_of_apprehension}</p>
-                            <div class="incident-popup-meta">
-                                <span>${dateLabel}</span>
-                                <span class="incident-popup-dot">&middot;</span>
-                                <span>${incident.asset_count} asset${incident.asset_count === 1 ? '' : 's'}</span>
+                        <div class="incident-popup-hero" style="background:${dotColor}18; border-bottom: 1px solid ${dotColor}30;">
+                            <div class="incident-popup-accent" style="background:${dotColor}"></div>
+                            <div class="incident-popup-hero-content">
+                                <div class="incident-popup-icon" style="background:${dotColor}22; color:${dotColor}">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                                </div>
+                                <div>
+                                    <p class="incident-popup-code">${incident.incident_code}</p>
+                                    ${incident.is_abandoned ? `<span class="incident-popup-badge-abandoned">Abandoned</span>` : ''}
+                                </div>
                             </div>
-                            ${incident.is_abandoned ? '<span class="incident-popup-badge">Abandoned</span>' : ''}
+                        </div>
+                        <div class="incident-popup-body">
+                            <div class="incident-popup-place-row">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                                <span class="incident-popup-place">${incident.place_of_apprehension}</span>
+                            </div>
+                            <div class="incident-popup-stats">
+                                <div class="incident-popup-stat">
+                                    <span class="incident-popup-stat-value">${incident.asset_count}</span>
+                                    <span class="incident-popup-stat-label">Asset${incident.asset_count === 1 ? '' : 's'}</span>
+                                </div>
+                                <div class="incident-popup-stat-divider"></div>
+                                <div class="incident-popup-stat">
+                                    <span class="incident-popup-stat-value">${dateLabel.split(' ')[2] ?? '—'}</span>
+                                    <span class="incident-popup-stat-label">${dateLabel !== 'Date not on file' ? dateLabel.split(' ').slice(0,2).join(' ') : 'No date'}</span>
+                                </div>
+                            </div>
                             ${
                                 primaryAssetId
-                                    ? `<button id="${viewButtonId}" class="incident-popup-button">
-                                        View Asset${incident.asset_count > 1 ? 's' : ''} →
+                                    ? `<button id="${viewButtonId}" class="incident-popup-button" style="--btn-color:${dotColor}">
+                                        <span>View Asset${incident.asset_count > 1 ? 's' : ''}</span>
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                                     </button>`
                                     : ''
                             }
@@ -318,73 +337,162 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
 
                 .incident-popup-wrapper .leaflet-popup-content-wrapper {
                     padding: 0;
-                    border-radius: 12px;
+                    border-radius: 16px;
                     overflow: hidden;
-                    box-shadow: 0 10px 30px -6px rgba(0,0,0,0.35);
+                    box-shadow: 0 20px 40px -8px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.06);
                 }
                 .incident-popup-wrapper .leaflet-popup-content {
                     margin: 0;
-                    width: 220px !important;
+                    width: 240px !important;
+                }
+                .incident-popup-wrapper .leaflet-popup-tip-container {
+                    margin-top: -1px;
                 }
                 .incident-popup-wrapper .leaflet-popup-tip {
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
                 }
-                .incident-popup-band {
-                    height: 5px;
-                    width: 100%;
+                .incident-popup-wrapper .leaflet-popup-close-button {
+                    top: 8px !important;
+                    right: 10px !important;
+                    width: 20px !important;
+                    height: 20px !important;
+                    font-size: 16px !important;
+                    color: rgba(0,0,0,0.35) !important;
+                    font-weight: 300 !important;
+                    line-height: 20px !important;
+                    z-index: 10;
                 }
-                .incident-popup-body {
-                    padding: 12px 14px 14px;
+                .incident-popup-wrapper .leaflet-popup-close-button:hover {
+                    color: #111827 !important;
+                }
+                .incident-popup {
                     font-family: inherit;
+                    background: #ffffff;
+                }
+                .incident-popup-hero {
+                    position: relative;
+                    padding: 14px 14px 12px;
+                    overflow: hidden;
+                }
+                .incident-popup-accent {
+                    position: absolute;
+                    left: 0; top: 0; bottom: 0;
+                    width: 4px;
+                }
+                .incident-popup-hero-content {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding-left: 8px;
+                }
+                .incident-popup-icon {
+                    flex-shrink: 0;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                 }
                 .incident-popup-code {
                     margin: 0;
-                    font-size: 13px;
+                    font-size: 13.5px;
                     font-weight: 700;
-                    color: #111827;
+                    color: #0f172a;
+                    letter-spacing: -0.01em;
                 }
-                .incident-popup-place {
-                    margin: 2px 0 0;
-                    font-size: 12px;
-                    color: #4b5563;
-                    line-height: 1.4;
+                .incident-popup-badge-abandoned {
+                    display: inline-block;
+                    margin-top: 3px;
+                    padding: 1px 7px;
+                    border-radius: 9999px;
+                    background: #fef3c7;
+                    color: #92400e;
+                    font-size: 9.5px;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    border: 1px solid #fde68a;
                 }
-                .incident-popup-meta {
-                    margin-top: 6px;
+                .incident-popup-body {
+                    padding: 10px 14px 14px;
+                }
+                .incident-popup-place-row {
                     display: flex;
                     align-items: center;
-                    gap: 4px;
-                    font-size: 11px;
-                    color: #9ca3af;
+                    gap: 5px;
+                    margin-bottom: 10px;
                 }
-                .incident-popup-dot { color: #d1d5db; }
-                .incident-popup-badge {
-                    display: inline-block;
-                    margin-top: 6px;
-                    padding: 1px 8px;
-                    border-radius: 9999px;
-                    background: #f3f4f6;
-                    color: #374151;
-                    font-size: 10px;
-                    font-weight: 600;
+                .incident-popup-place {
+                    font-size: 11.5px;
+                    color: #6b7280;
+                    line-height: 1.4;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .incident-popup-stats {
+                    display: flex;
+                    align-items: center;
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 10px;
+                    overflow: hidden;
+                    margin-bottom: 12px;
+                }
+                .incident-popup-stat {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    padding: 8px 6px;
+                    gap: 2px;
+                }
+                .incident-popup-stat-divider {
+                    width: 1px;
+                    height: 28px;
+                    background: #e2e8f0;
+                    flex-shrink: 0;
+                }
+                .incident-popup-stat-value {
+                    font-size: 15px;
+                    font-weight: 700;
+                    color: #0f172a;
+                    line-height: 1;
+                }
+                .incident-popup-stat-label {
+                    font-size: 9.5px;
+                    color: #94a3b8;
+                    font-weight: 500;
                     text-transform: uppercase;
-                    letter-spacing: 0.03em;
+                    letter-spacing: 0.04em;
                 }
                 .incident-popup-button {
-                    margin-top: 10px;
                     width: 100%;
-                    padding: 6px 10px;
-                    font-size: 11.5px;
+                    padding: 8px 12px;
+                    font-size: 12px;
                     font-weight: 600;
                     color: #fff;
-                    background: #047857;
+                    background: var(--btn-color, #047857);
                     border: none;
-                    border-radius: 7px;
+                    border-radius: 9px;
                     cursor: pointer;
-                    transition: background 0.15s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                    transition: opacity 0.15s ease, transform 0.1s ease;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+                    font-family: inherit;
                 }
                 .incident-popup-button:hover {
-                    background: #065f46;
+                    opacity: 0.88;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.22);
+                }
+                .incident-popup-button:active {
+                    transform: translateY(0);
+                    opacity: 1;
                 }
 
                 .incident-map-shell .leaflet-control-zoom a {
