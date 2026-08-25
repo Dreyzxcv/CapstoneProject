@@ -29,6 +29,15 @@ class AssetPolicy
 
     public function markStored(User $user, Asset $asset): bool
     {
+        if ($asset->hasAapDocument() && ! $asset->hasAapDocumentVerified()) {
+            return false;
+        }
+
+        // Custody review must be approved before the custodian can tag the asset.
+        if ($asset->custody_review_status !== 'approved') {
+            return false;
+        }
+
         return $user->can('assets.mark_stored')
             && in_array($asset->current_status, [
                 \App\Enums\AssetStatus::PendingCustodyReview,

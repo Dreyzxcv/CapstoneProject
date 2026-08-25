@@ -61,6 +61,8 @@ class Asset extends Model
             'custody_review_status' => 'string',
             'has_ongoing_case' => 'boolean',
             'has_confiscation_order' => 'boolean',
+            'aap_review_requested' => 'boolean',
+            'aap_review_requested_at' => 'datetime',
             'appeal_deadline' => 'datetime',
             'metadata' => 'array',
             'quantity' => 'integer',
@@ -261,6 +263,14 @@ class Asset extends Model
                 \App\Enums\DocumentStatus::Pending->value,
                 \App\Enums\DocumentStatus::Verified->value,
             ])
+            ->exists();
+    }
+
+    public function hasAapDocumentVerified(): bool
+    {
+        return $this->documents()
+            ->where('document_type', \App\Enums\DocumentType::AapDocument->value)
+            ->where('status', \App\Enums\DocumentStatus::Verified->value)
             ->exists();
     }
 }

@@ -22,6 +22,9 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Enums\AssetStatus;
 use App\Services\AssetLifecycleService;
+use App\Services\NotificationService;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 class DocumentController extends Controller
 {
@@ -185,16 +188,20 @@ class DocumentController extends Controller
         return back()->with('success', 'Submitted for custody review.');
     }
 
-    public function verify(VerifyDocumentRequest $request, Document $document, AuditLogService $auditLog): RedirectResponse
-    {
+    public function verify(
+        VerifyDocumentRequest $request,
+        Document $document,
+        AuditLogService $auditLog,
+        NotificationService $notifications,
+    ): RedirectResponse {
         $this->authorize('verify', $document);
 
         $before = $document->only(['status', 'remarks']);
         $decision = $request->validated('decision');
 
         $document->update([
-            'status' => $decision,
-            'remarks' => $decision === 'rejected' ? $request->validated('remarks') : null,
+            'status'      => $decision,
+            'remarks'     => $decision === 'rejected' ? $request->validated('remarks') : null,
             'verified_by' => $request->user()->id,
             'verified_at' => now(),
         ]);
@@ -206,6 +213,38 @@ class DocumentController extends Controller
             $document->fresh()->only(['status', 'remarks']),
             $request->user()->id,
         );
+
+        // If the verified document is the AAP, notify MES Officers who belong
+        // to this asset so they know the AAP has been confirmed.
+        if (
+            $decision === 'verified' &&
+            $document->document_type === DocumentType::AapDocument
+        ) {
+            $asset = $document->attachable;
+
+            if ($asset instanceof Asset) {
+                // Reset the review-requested flag so MES can re-notify if needed
+                $asset->update(['aap_review_requested' => false]);
+
+                $mesOfficers = User::role('MES Officer')->where('is_active', true)->get();
+
+                foreach ($mesOfficers as $officer) {
+                    $notifications->notify(
+                        user: $officer,
+                        title: 'AAP Document Verified',
+                        message: sprintf(
+                            'The AAP Scanned Document for Asset %s (AAP No. %s) has been verified by %s.',
+                            $asset->asset_code,
+                            $asset->aap_number ?? 'N/A',
+                            $request->user()->name,
+                        ),
+                        link: route('assets.show', $asset),
+                        type: 'document_verified',
+                        assetId: $asset->id,
+                    );
+                }
+            }
+        }
 
         return back()->with('success', $decision === 'verified'
             ? 'Document marked as verified.'
