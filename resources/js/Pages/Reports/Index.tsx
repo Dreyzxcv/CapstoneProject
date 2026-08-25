@@ -102,15 +102,12 @@ function GradientDefs() {
     return (
         <defs>
             <linearGradient id="grad-log" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#34d399" stopOpacity={0.95} />
                 <stop offset="100%" stopColor="#047857" stopOpacity={1} />
             </linearGradient>
             <linearGradient id="grad-equipment" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#fcd34d" stopOpacity={0.95} />
                 <stop offset="100%" stopColor="#d97706" stopOpacity={1} />
             </linearGradient>
             <linearGradient id="grad-vehicle" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#93c5fd" stopOpacity={0.95} />
                 <stop offset="100%" stopColor="#2563eb" stopOpacity={1} />
             </linearGradient>
             {MUNI_SHADES.map((color, i) => (
