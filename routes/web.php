@@ -67,6 +67,8 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::get('/users/create', [\App\Http\Controllers\UsersController::class, 'create'])->name('users.create');
     Route::post('/users', [\App\Http\Controllers\UsersController::class, 'store'])->name('users.store');
     Route::put('/users/{user}', [\App\Http\Controllers\UsersController::class, 'update'])->name('users.update');
+    Route::patch('/users/{user}/toggle-active', [\App\Http\Controllers\UsersController::class, 'toggleActive'])->name('users.toggle-active');
+    Route::post('/users/{user}/send-reset', [\App\Http\Controllers\UsersController::class, 'sendPasswordReset'])->name('users.send-reset');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/inventory.csv', [ReportController::class, 'inventory'])->name('reports.inventory');
@@ -76,6 +78,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::get('/reports/donations', [ReportController::class, 'donations'])->name('reports.donations');
     Route::get('/reports/attribute-table/export.csv', [ReportController::class, 'attributeTableExport'])->name('reports.attribute-table.export');
     Route::get('/audit-logs', [ReportController::class, 'auditLogs'])->name('audit-logs.index');
+    Route::get('/audit-logs/export.csv', [ReportController::class, 'auditLogsExport'])->name('audit-logs.export');
 
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::get('/settings/market-prices', [MarketPriceController::class, 'index'])->name('market-prices.index');

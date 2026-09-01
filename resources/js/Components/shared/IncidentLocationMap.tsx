@@ -14,7 +14,7 @@ function parseCoordinates(value?: string | null): { lat: number; lng: number } |
     const match = value.match(/(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)/);
     if (!match) return null;
     const lat = parseFloat(match[1]);
-    const lng = parseFloat(match[3]);
+    const lng = parseFloat(match[3]);   
     if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
     return { lat, lng };
 }

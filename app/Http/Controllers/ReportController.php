@@ -236,14 +236,101 @@ class ReportController extends Controller
     public function auditLogs(Request $request): Response
     {
         $this->authorize('viewAny', AuditLog::class);
-
-        $logs = AuditLog::query()
+ 
+        $search   = trim((string) $request->input('search', ''));
+        $dateFrom = $request->input('date_from');
+        $dateTo   = $request->input('date_to');
+ 
+        $query = AuditLog::query()
             ->with('user')
-            ->latest('created_at')
-            ->paginate(25);
-
+            ->latest('created_at');
+ 
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('action', 'like', "%{$search}%")
+                  ->orWhere('ip_address', 'like', "%{$search}%")
+                  ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%"))
+                  ->orWhere('model_type', 'like', "%{$search}%");
+            });
+        }
+ 
+        if ($dateFrom) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+ 
+        if ($dateTo) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+ 
+        $logs = $query->paginate(25)->withQueryString();
+ 
         return Inertia::render('Reports/AuditLogs', [
-            'logs' => $logs,
+            'logs'    => $logs,
+            'filters' => [
+                'search'    => $search,
+                'date_from' => $dateFrom ?? '',
+                'date_to'   => $dateTo   ?? '',
+            ],
+        ]);
+    }
+
+    public function auditLogsExport(Request $request): StreamedResponse
+    {
+        $this->authorize('viewAny', AuditLog::class);
+ 
+        $search   = trim((string) $request->input('search', ''));
+        $dateFrom = $request->input('date_from');
+        $dateTo   = $request->input('date_to');
+ 
+        $query = AuditLog::query()
+            ->with('user')
+            ->latest('created_at');
+ 
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('action', 'like', "%{$search}%")
+                  ->orWhere('ip_address', 'like', "%{$search}%")
+                  ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%"))
+                  ->orWhere('model_type', 'like', "%{$search}%");
+            });
+        }
+ 
+        if ($dateFrom) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+ 
+        if ($dateTo) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+ 
+        $filename = 'audit-logs-' . now()->format('Y-m-d') . '.csv';
+ 
+        return HttpResponse::stream(function () use ($query) {
+            $handle = fopen('php://output', 'w');
+ 
+            fputcsv($handle, ['Date/Time', 'User', 'Action', 'Model', 'Model ID', 'IP Address']);
+ 
+            $query->chunk(500, function ($logs) use ($handle) {
+                foreach ($logs as $log) {
+                    $shortModel = $log->model_type
+                        ? (class_basename($log->model_type))
+                        : '';
+ 
+                    fputcsv($handle, [
+                        $log->created_at->toDateTimeString(),
+                        $log->user?->name ?? 'System',
+                        $log->action,
+                        $shortModel,
+                        $log->model_id ?? '',
+                        $log->ip_address ?? '',
+                    ]);
+                }
+            });
+ 
+            fclose($handle);
+        }, 200, [
+            'Content-Type'        => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ]);
     }
 

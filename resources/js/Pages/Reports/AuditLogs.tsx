@@ -10,10 +10,9 @@ import {
     TableHeader,
     TableRow,
 } from '@/Components/ui/table';
-import { Head, Link, usePoll } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
-import { History, Inbox, Search } from 'lucide-react';
-
+import { Head, Link, router, usePoll } from '@inertiajs/react';
+import { useEffect, useRef, useState } from 'react';
+import { Download, History, Inbox, Search } from 'lucide-react';
 
 interface AuditLogEntry {
     id: number;
@@ -39,36 +38,72 @@ interface AuditLogsProps {
         to?: number;
         total?: number;
     };
+    filters: {
+        search: string;
+        date_from: string;
+        date_to: string;
+    };
 }
 
-type ActionCategory = 'created' | 'processed' | 'signed' | 'scanned' | 'changed' | 'other';
+type ActionCategory = 'created' | 'processed' | 'verified' | 'scanned' | 'changed' | 'other';
 
 const CATEGORY_STYLES: Record<ActionCategory, string> = {
-    created: 'bg-emerald-100 text-emerald-800',
+    created:   'bg-emerald-100 text-emerald-800',
     processed: 'bg-blue-100 text-blue-800',
-    signed: 'bg-violet-100 text-violet-700',
-    scanned: 'bg-amber-100 text-amber-800',
-    changed: 'bg-gray-200 text-gray-700',
-    other: 'bg-gray-100 text-gray-600',
+    verified:  'bg-green-100 text-green-800',
+    scanned:   'bg-amber-100 text-amber-800',
+    changed:   'bg-gray-200 text-gray-700',
+    other:     'bg-gray-100 text-gray-600',
 };
 
-const AVATAR_COLORS = ['bg-blue-600', 'bg-emerald-600', 'bg-violet-600', 'bg-amber-600', 'bg-rose-600', 'bg-cyan-600'];
+const CATEGORY_CHIP_STYLES: Record<ActionCategory | 'all', string> = {
+    all:       'bg-gray-800 text-white',
+    created:   'bg-emerald-600 text-white',
+    processed: 'bg-blue-600 text-white',
+    verified:  'bg-green-600 text-white',
+    scanned:   'bg-amber-500 text-white',
+    changed:   'bg-gray-500 text-white',
+    other:     'bg-gray-400 text-white',
+};
+
+const CATEGORY_CHIP_INACTIVE: Record<ActionCategory | 'all', string> = {
+    all:       'bg-gray-100 text-gray-600 hover:bg-gray-200',
+    created:   'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
+    processed: 'bg-blue-50 text-blue-700 hover:bg-blue-100',
+    verified:  'bg-green-50 text-green-700 hover:bg-green-100',
+    scanned:   'bg-amber-50 text-amber-700 hover:bg-amber-100',
+    changed:   'bg-gray-100 text-gray-600 hover:bg-gray-200',
+    other:     'bg-gray-100 text-gray-500 hover:bg-gray-200',
+};
+
+const AVATAR_COLORS = [
+    'bg-blue-600', 'bg-emerald-600', 'bg-violet-600',
+    'bg-amber-600', 'bg-rose-600', 'bg-cyan-600',
+];
+
+const CATEGORY_LABELS: Record<ActionCategory | 'all', string> = {
+    all:       'All',
+    created:   'Created',
+    processed: 'Processed',
+    verified:  'Verified',
+    scanned:   'Scanned',
+    changed:   'Changed',
+    other:     'Other',
+};
 
 function categorize(action: string): ActionCategory {
-    if (/created|intake/.test(action)) return 'created';
-    if (/processed|issued|uploaded|released/.test(action)) return 'processed';
-    if (/signed/.test(action)) return 'signed';
-    if (/scanned/.test(action)) return 'scanned';
-    if (/status_changed|case_resolved|updated/.test(action)) return 'changed';
+    if (/created|intake/.test(action))                        return 'created';
+    if (/processed|issued|uploaded|released/.test(action))    return 'processed';
+    if (/verified/.test(action))                              return 'verified';
+    if (/scanned/.test(action))                               return 'scanned';
+    if (/status_changed|case_resolved|updated/.test(action))  return 'changed';
     return 'other';
 }
 
 function formatAction(action: string): string {
     const parts = action.split('.');
-    const verb = parts[parts.length - 1] ?? action;
-    return verb
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, (c) => c.toUpperCase());
+    const verb  = parts[parts.length - 1] ?? action;
+    return verb.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatModel(modelType: string | null, modelId: number | null): string {
@@ -77,19 +112,24 @@ function formatModel(modelType: string | null, modelId: number | null): string {
     return modelId ? `${shortName} #${modelId}` : shortName;
 }
 
+function formatAbsoluteTime(dateString: string): string {
+    return new Date(dateString).toLocaleString('en-PH', {
+        month:  'short',
+        day:    'numeric',
+        hour:   '2-digit',
+        minute: '2-digit',
+    });
+}
+
 function relativeTime(dateString: string): string {
-    const date = new Date(dateString);
-    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    const seconds = Math.floor((Date.now() - new Date(dateString).getTime()) / 1000);
     const units: Array<[string, number]> = [
-        ['year', 31536000],
-        ['month', 2592000],
-        ['day', 86400],
-        ['hour', 3600],
-        ['minute', 60],
+        ['year', 31536000], ['month', 2592000],
+        ['day', 86400], ['hour', 3600], ['minute', 60],
     ];
-    for (const [label, secondsInUnit] of units) {
-        const value = Math.floor(seconds / secondsInUnit);
-        if (value >= 1) return `${value} ${label}${value > 1 ? 's' : ''} ago`;
+    for (const [label, s] of units) {
+        const v = Math.floor(seconds / s);
+        if (v >= 1) return `${v} ${label}${v > 1 ? 's' : ''} ago`;
     }
     return 'just now';
 }
@@ -98,26 +138,89 @@ function avatarColor(name: string) {
     return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
-export default function AuditLogs({ logs }: AuditLogsProps) {
+function ModelCell({ modelType, modelId }: { modelType: string | null; modelId: number | null }) {
+    const label     = formatModel(modelType, modelId);
+    const shortName = modelType?.split('\\').pop();
+
+    if (shortName === 'Asset' && modelId) {
+        return (
+            <Link
+                href={route('assets.show', modelId)}
+                className="font-mono text-xs text-emerald-700 hover:underline"
+            >
+                {label}
+            </Link>
+        );
+    }
+    return <span className="font-mono text-xs text-gray-600">{label}</span>;
+}
+
+// Flash new rows that appeared after a poll
+function useNewRowIds(data: AuditLogEntry[]) {
+    const prevIdsRef  = useRef<Set<number>>(new Set());
+    const [newIds, setNewIds] = useState<Set<number>>(new Set());
+
+    useEffect(() => {
+        const currentIds = new Set(data.map((l) => l.id));
+        const incoming   = new Set<number>();
+
+        if (prevIdsRef.current.size > 0) {
+            for (const id of currentIds) {
+                if (!prevIdsRef.current.has(id)) incoming.add(id);
+            }
+        }
+
+        prevIdsRef.current = currentIds;
+
+        if (incoming.size > 0) {
+            setNewIds(incoming);
+            const timer = setTimeout(() => setNewIds(new Set()), 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [data]);
+
+    return newIds;
+}
+
+export default function AuditLogs({ logs, filters }: AuditLogsProps) {
     usePoll(6000, { only: ['logs'] });
-    const [search, setSearch] = useState('');
 
-    const filtered = useMemo(() => {
-        const query = search.trim().toLowerCase();
-        if (!query) return logs.data;
+    const [search,   setSearch]   = useState(filters.search   ?? '');
+    const [dateFrom, setDateFrom] = useState(filters.date_from ?? '');
+    const [dateTo,   setDateTo]   = useState(filters.date_to   ?? '');
+    const [category, setCategory] = useState<ActionCategory | 'all'>('all');
 
-        return logs.data.filter((log) => {
-            const haystack = [
-                log.action,
-                log.user?.name ?? 'system',
-                formatModel(log.model_type, log.model_id),
-                log.ip_address ?? '',
-            ]
-                .join(' ')
-                .toLowerCase();
-            return haystack.includes(query);
-        });
-    }, [logs.data, search]);
+    const newIds = useNewRowIds(logs.data);
+
+    // Debounced server-side filter (search + dates)
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            router.get(
+                route('audit-logs.index'),
+                { search: search || undefined, date_from: dateFrom || undefined, date_to: dateTo || undefined },
+                { preserveState: true, replace: true, only: ['logs', 'filters'] },
+            );
+        }, 400);
+        return () => clearTimeout(timeout);
+    }, [search, dateFrom, dateTo]);
+
+    // Client-side category filter (applied on top of server results)
+    const filtered = category === 'all'
+        ? logs.data
+        : logs.data.filter((log) => categorize(log.action) === category);
+
+    const exportUrl = (() => {
+        const params = new URLSearchParams();
+        if (search)   params.set('search',    search);
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo)   params.set('date_to',   dateTo);
+        const qs = params.toString();
+        return route('audit-logs.export') + (qs ? `?${qs}` : '');
+    })();
+
+    const categories: Array<ActionCategory | 'all'> = [
+        'all', 'created', 'processed', 'verified', 'scanned', 'changed', 'other',
+    ];
 
     return (
         <AuthenticatedLayout
@@ -137,18 +240,71 @@ export default function AuditLogs({ logs }: AuditLogsProps) {
 
             <div className="mx-auto max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
                 <Card>
-                    <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
-                        <CardTitle className="text-base">Activity Feed</CardTitle>
-                        <div className="relative w-full sm:w-72">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                            <Input
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Search by user, action, model, IP..."
-                                className="pl-9"
-                            />
+                    <CardHeader className="space-y-3 pb-3">
+                        {/* Top row: title + search + dates + export */}
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <CardTitle className="text-base">Activity Feed</CardTitle>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                                {/* Search */}
+                                <div className="relative w-full sm:w-60">
+                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                    <Input
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        placeholder="Search user, action, IP…"
+                                        className="pl-9"
+                                    />
+                                </div>
+
+                                {/* Date range */}
+                                <Input
+                                    type="date"
+                                    value={dateFrom}
+                                    onChange={(e) => setDateFrom(e.target.value)}
+                                    className="w-36 text-sm"
+                                    title="From date"
+                                />
+                                <span className="text-xs text-gray-400">to</span>
+                                <Input
+                                    type="date"
+                                    value={dateTo}
+                                    onChange={(e) => setDateTo(e.target.value)}
+                                    className="w-36 text-sm"
+                                    title="To date"
+                                />
+
+                                {/* Export */}
+                                <a
+                                    href={exportUrl}
+                                    className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                                    title="Export current view as CSV"
+                                >
+                                    <Download className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Export CSV</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        {/* Category filter chips */}
+                        <div className="flex flex-wrap gap-1.5">
+                            {categories.map((cat) => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setCategory(cat)}
+                                    className={
+                                        'rounded-full px-3 py-1 text-xs font-medium transition-colors ' +
+                                        (category === cat
+                                            ? CATEGORY_CHIP_STYLES[cat]
+                                            : CATEGORY_CHIP_INACTIVE[cat])
+                                    }
+                                >
+                                    {CATEGORY_LABELS[cat]}
+                                </button>
+                            ))}
                         </div>
                     </CardHeader>
+
                     <CardContent className="p-0">
                         {filtered.length === 0 ? (
                             <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
@@ -157,11 +313,11 @@ export default function AuditLogs({ logs }: AuditLogsProps) {
                                 </span>
                                 <div>
                                     <p className="font-medium text-gray-700">
-                                        {search ? 'No matching entries' : 'No activity yet'}
+                                        {search || category !== 'all' ? 'No matching entries' : 'No activity yet'}
                                     </p>
                                     <p className="text-sm text-gray-500">
-                                        {search
-                                            ? 'Try a different search term.'
+                                        {search || category !== 'all'
+                                            ? 'Try a different search term or filter.'
                                             : 'Tracked actions will appear here as they happen.'}
                                     </p>
                                 </div>
@@ -171,19 +327,26 @@ export default function AuditLogs({ logs }: AuditLogsProps) {
                                 {/* Mobile: stacked cards */}
                                 <div className="divide-y divide-gray-100 sm:hidden">
                                     {filtered.map((log) => {
-                                        const category = categorize(log.action);
+                                        const cat      = categorize(log.action);
                                         const userName = log.user?.name ?? 'System';
+                                        const isNew    = newIds.has(log.id);
                                         return (
-                                            <div key={log.id} className="space-y-2 px-4 py-4">
+                                            <div
+                                                key={log.id}
+                                                className={
+                                                    'space-y-2 px-4 py-4 transition-colors duration-[1500ms] ' +
+                                                    (isNew ? 'bg-emerald-50' : '')
+                                                }
+                                            >
                                                 <div className="flex items-center justify-between gap-2">
-                                                    <Badge className={CATEGORY_STYLES[category]}>
+                                                    <Badge className={CATEGORY_STYLES[cat]}>
                                                         {formatAction(log.action)}
                                                     </Badge>
                                                     <span
                                                         className="text-xs text-gray-500"
-                                                        title={new Date(log.created_at).toLocaleString()}
+                                                        title={relativeTime(log.created_at)}
                                                     >
-                                                        {relativeTime(log.created_at)}
+                                                        {formatAbsoluteTime(log.created_at)}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2 text-sm text-gray-700">
@@ -195,8 +358,10 @@ export default function AuditLogs({ logs }: AuditLogsProps) {
                                                     {userName}
                                                 </div>
                                                 <p className="font-mono text-xs text-gray-500">
-                                                    {formatModel(log.model_type, log.model_id)}
-                                                    {log.ip_address && <span className="ml-2 text-gray-400">{log.ip_address}</span>}
+                                                    <ModelCell modelType={log.model_type} modelId={log.model_id} />
+                                                    {log.ip_address && (
+                                                        <span className="ml-2 text-gray-400">{log.ip_address}</span>
+                                                    )}
                                                 </p>
                                             </div>
                                         );
@@ -217,15 +382,22 @@ export default function AuditLogs({ logs }: AuditLogsProps) {
                                         </TableHeader>
                                         <TableBody>
                                             {filtered.map((log) => {
-                                                const category = categorize(log.action);
+                                                const cat      = categorize(log.action);
                                                 const userName = log.user?.name ?? 'System';
+                                                const isNew    = newIds.has(log.id);
                                                 return (
-                                                    <TableRow key={log.id}>
+                                                    <TableRow
+                                                        key={log.id}
+                                                        className={
+                                                            'transition-colors duration-[1500ms] hover:bg-gray-50 ' +
+                                                            (isNew ? 'bg-emerald-50' : '')
+                                                        }
+                                                    >
                                                         <TableCell
-                                                            className="whitespace-nowrap text-sm text-gray-500"
-                                                            title={new Date(log.created_at).toLocaleString()}
+                                                            className="whitespace-nowrap text-sm text-gray-600"
+                                                            title={relativeTime(log.created_at)}
                                                         >
-                                                            {relativeTime(log.created_at)}
+                                                            {formatAbsoluteTime(log.created_at)}
                                                         </TableCell>
                                                         <TableCell>
                                                             <div className="flex items-center gap-2">
@@ -234,16 +406,21 @@ export default function AuditLogs({ logs }: AuditLogsProps) {
                                                                 >
                                                                     {userName.charAt(0).toUpperCase()}
                                                                 </span>
-                                                                <span className="text-sm font-medium text-gray-800">{userName}</span>
+                                                                <span className="text-sm font-medium text-gray-800">
+                                                                    {userName}
+                                                                </span>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
-                                                            <Badge className={CATEGORY_STYLES[category]}>
+                                                            <Badge className={CATEGORY_STYLES[cat]}>
                                                                 {formatAction(log.action)}
                                                             </Badge>
                                                         </TableCell>
-                                                        <TableCell className="font-mono text-xs text-gray-600">
-                                                            {formatModel(log.model_type, log.model_id)}
+                                                        <TableCell>
+                                                            <ModelCell
+                                                                modelType={log.model_type}
+                                                                modelId={log.model_id}
+                                                            />
                                                         </TableCell>
                                                         <TableCell className="font-mono text-xs text-gray-500">
                                                             {log.ip_address ?? '—'}

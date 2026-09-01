@@ -654,7 +654,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
     }
 
     // ── Render ───────────────────────────────────────────────────────────────
-
+    
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">MES Apprehension Intake</h2>}>
             <Head title="New Apprehension Intake" />
