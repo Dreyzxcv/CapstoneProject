@@ -270,53 +270,44 @@ class AssetController extends Controller
 
     public function update(UpdateAssetRequest $request, Asset $asset, \App\Services\AuditLogService $auditLog): RedirectResponse
     {
-        $fields = [
-            'species', 'vehicle_type', 'equipment_type', 'description', 'quantity', 'quantity_unit',
-            'length', 'width', 'height', 'volume_bd_ft', 'volume_cu_m',
-            'estimated_value', 'plate_number', 'location_apprehended',
-            'apprehending_agency', 'mode', 'has_ongoing_case', 'has_confiscation_order',
+        $assetFields = [
+            'location_apprehended', 'apprehending_agency', 'mode',
+            'has_ongoing_case', 'has_confiscation_order',
         ];
 
-        $before = $asset->only($fields);
+        $before = $asset->only($assetFields);
 
-        $asset->update($request->validated());
+        $asset->update($request->only($assetFields));
 
-        // Sync piece-level fields down to all pieces so the piece detail
-        // modal stays consistent with asset-level edits. Only sync fields
-        // that were actually submitted (not null/empty).
-        $pieceSync = [];
+        if ($asset->incident_id) {
+            $incidentFields = [
+                'date_of_apprehension', 'place_of_apprehension',
+                'area', 'coordinates', 'apprehending_party',
+            ];
 
-        if ($asset->type === \App\Enums\AssetType::Log) {
-            if ($request->filled('species'))      $pieceSync['species']      = $request->species;
-            if ($request->has('length'))          $pieceSync['length']       = $request->length;
-            if ($request->has('width'))           $pieceSync['width']        = $request->width;
-            if ($request->has('height'))          $pieceSync['height']       = $request->height;
-            if ($request->has('volume_bd_ft'))    $pieceSync['volume_bd_ft'] = $request->volume_bd_ft;
-            if ($request->has('volume_cu_m'))     $pieceSync['volume_cu_m']  = $request->volume_cu_m;
-        }
+            $incidentData = array_filter(
+                $request->only($incidentFields),
+                fn ($v) => $v !== null,
+            );
 
-        if ($asset->type === \App\Enums\AssetType::Vehicle) {
-            if ($request->filled('vehicle_type')) $pieceSync['vehicle_type'] = $request->vehicle_type;
-            if ($request->filled('plate_number')) $pieceSync['plate_number'] = $request->plate_number;
-        }
+            if ($request->has('has_claimant')) {
+                $hasClaimant = (bool) $request->has_claimant;
+                $incidentData['is_abandoned'] = ! $hasClaimant;
+                $incidentData['claimant_offender_name'] = $hasClaimant
+                    ? $request->claimant_offender_name
+                    : null;
+            }
 
-        if ($asset->type === \App\Enums\AssetType::Equipment) {
-            if ($request->filled('equipment_type')) $pieceSync['equipment_type'] = $request->equipment_type;
-        }
-
-        // Common to all types
-        if ($request->filled('description'))    $pieceSync['description']    = $request->description;
-        if ($request->has('estimated_value'))   $pieceSync['estimated_value'] = $request->estimated_value;
-
-        if (!empty($pieceSync)) {
-            $asset->pieces()->update($pieceSync);
+            if (! empty($incidentData)) {
+                $asset->incident()->update($incidentData);
+            }
         }
 
         $auditLog->log(
             'asset.updated',
             $asset,
             $before,
-            $asset->fresh()->only($fields),
+            $asset->fresh()->only($assetFields),
             $request->user()->id,
         );
 

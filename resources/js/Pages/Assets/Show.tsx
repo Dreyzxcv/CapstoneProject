@@ -85,24 +85,18 @@ export default function AssetsShow({
     const [showEditModal, setShowEditModal] = useState(false);
 
     const editForm = useForm({
-        species: asset.species ?? "",
-        vehicle_type: (asset as any).vehicle_type ?? "",
-        equipment_type: (asset as any).equipment_type ?? "",
-        description: asset.description ?? "",
-        quantity: asset.quantity != null ? String(asset.quantity) : "",
-        quantity_unit: asset.quantity_unit ?? "",
-        length: asset.length != null ? String(asset.length) : "",
-        width: asset.width != null ? String(asset.width) : "",
-        height: asset.height != null ? String(asset.height) : "",
-        volume_bd_ft:
-            asset.volume_bd_ft != null ? String(asset.volume_bd_ft) : "",
-        volume_cu_m: asset.volume_cu_m != null ? String(asset.volume_cu_m) : "",
-        estimated_value:
-            asset.estimated_value != null ? String(asset.estimated_value) : "",
-        plate_number: asset.plate_number ?? "",
         location_apprehended: asset.location_apprehended ?? "",
         apprehending_agency: asset.apprehending_agency ?? "",
         mode: asset.mode ?? "",
+        date_of_apprehension: asset.incident?.date_of_apprehension
+            ? asset.incident.date_of_apprehension.slice(0, 10)
+            : "",
+        place_of_apprehension: asset.incident?.place_of_apprehension ?? "",
+        area: asset.incident?.area ?? "",
+        coordinates: asset.incident?.coordinates ?? "",
+        has_claimant: !(asset.incident?.is_abandoned ?? true) as boolean,
+        claimant_offender_name: asset.incident?.claimant_offender_name ?? "",
+        apprehending_party: asset.incident?.apprehending_party ?? "",
         has_ongoing_case: asset.has_ongoing_case ?? false,
         has_confiscation_order: asset.has_confiscation_order ?? false,
     });
@@ -319,34 +313,6 @@ export default function AssetsShow({
             d.disposal_jev &&
             !d.disposal_jev.uploaded_at,
     );
-
-    const BD_FT_TO_CU_M = 0.002359737;
-
-    function calculateBdFtFromDimensions(length: string, width: string, height: string): string {
-        const l = parseFloat(length);
-        const w = parseFloat(width);
-        const h = parseFloat(height);
-        if ([l, w, h].some((v) => Number.isNaN(v) || v <= 0)) return '';
-        return ((l * w * h) / 12).toFixed(2);
-    }
-
-    function convertBdFtToCuM(bdFt: string): string {
-        const value = parseFloat(bdFt);
-        if (Number.isNaN(value) || value <= 0) return '';
-        return (value * BD_FT_TO_CU_M).toFixed(4);
-    }
-
-    function handleEditDimensionChange(field: 'length' | 'width' | 'height', value: string) {
-        const updated = { ...editForm.data, [field]: value };
-        const bdFt = calculateBdFtFromDimensions(updated.length, updated.width, updated.height);
-        const cuM = convertBdFtToCuM(bdFt);
-        editForm.setData({
-            ...updated,
-            [field]: value,
-            volume_bd_ft: bdFt,
-            volume_cu_m: cuM,
-        });
-    }
 
     const donationsWithJevOut = disposals.filter(
         (d) =>
@@ -2379,313 +2345,190 @@ export default function AssetsShow({
                         Edit Asset
                     </h2>
 
-                    {/* Species / Type / Description */}
-                    <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
-                        {asset.type === "log" && (
-                            <div className="space-y-1">
-                                <Label htmlFor="edit-species">Species</Label>
-                                <select
-                                    id="edit-species"
-                                    value={editForm.data.species}
-                                    onChange={(e) =>
-                                        editForm.setData(
-                                            "species",
-                                            e.target.value,
-                                        )
-                                    }
-                                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                >
-                                    <option value="">— Select species —</option>
-                                    {speciesOptions.map((s) => (
-                                        <option key={s} value={s}>
-                                            {s}
-                                        </option>
-                                    ))}
-                                </select>
-                                {editForm.data.species === "Others" && (
-                                    <Input
-                                        placeholder="Specify species"
-                                        value={
-                                            editForm.data.species === "Others"
-                                                ? ""
-                                                : editForm.data.species
-                                        }
-                                        onChange={(e) =>
-                                            editForm.setData(
-                                                "species",
-                                                e.target.value,
-                                            )
-                                        }
-                                        className="mt-1"
-                                    />
-                                )}
-                                <InputError message={editForm.errors.species} />
-                            </div>
-                        )}
-                        {asset.type === "vehicle" && (
-                            <div className="space-y-1">
-                                <Label htmlFor="edit-vehicle-type">
-                                    Conveyance / Vehicle Type
-                                </Label>
-                                <Input
-                                    id="edit-vehicle-type"
-                                    placeholder="e.g. Motorcycle, Tricycle, Pump Boat"
-                                    value={editForm.data.vehicle_type}
-                                    onChange={(e) =>
-                                        editForm.setData(
-                                            "vehicle_type",
-                                            e.target.value,
-                                        )
-                                    }
-                                />
-                                <InputError
-                                    message={
-                                        (editForm.errors as any).vehicle_type
-                                    }
-                                />
-                            </div>
-                        )}
-                        {asset.type === "equipment" && (
-                            <div className="space-y-1">
-                                <Label htmlFor="edit-equipment-type">
-                                    Equipment Type
-                                </Label>
-                                <select
-                                    id="edit-equipment-type"
-                                    value={editForm.data.equipment_type}
-                                    onChange={(e) =>
-                                        editForm.setData(
-                                            "equipment_type",
-                                            e.target.value,
-                                        )
-                                    }
-                                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                >
-                                    <option value="">— Select type —</option>
-                                    {equipmentOptions.map((o) => (
-                                        <option key={o} value={o}>
-                                            {o}
-                                        </option>
-                                    ))}
-                                </select>
-                                <InputError
-                                    message={
-                                        (editForm.errors as any).equipment_type
-                                    }
-                                />
-                            </div>
-                        )}
-                        <div className="space-y-1">
-                            <Label htmlFor="edit-mode">Mode</Label>
-                            <select
-                                id="edit-mode"
-                                value={editForm.data.mode}
-                                onChange={(e) =>
-                                    editForm.setData("mode", e.target.value)
-                                }
-                                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            >
-                                {modes.map((m) => (
-                                    <option key={m.value} value={m.value}>
-                                        {m.label}
-                                    </option>
-                                ))}
-                            </select>
-                            <InputError message={editForm.errors.mode} />
-                        </div>
-                    </div>
-
+                    {/* Mode */}
                     <div className="space-y-1">
-                        <Label htmlFor="edit-description">Description</Label>
-                        <textarea
-                            id="edit-description"
-                            rows={3}
-                            value={editForm.data.description}
+                        <Label htmlFor="edit-mode">Mode</Label>
+                        <select
+                            id="edit-mode"
+                            value={editForm.data.mode}
                             onChange={(e) =>
-                                editForm.setData("description", e.target.value)
+                                editForm.setData("mode", e.target.value)
                             }
                             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                        <InputError message={editForm.errors.description} />
-                    </div>
-
-                    {/* Quantity */}
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-1">
-                            <Label htmlFor="edit-quantity">Quantity</Label>
-                            <Input
-                                id="edit-quantity"
-                                type="number"
-                                min={1}
-                                value={editForm.data.quantity}
-                                onChange={(e) =>
-                                    editForm.setData("quantity", e.target.value)
-                                }
-                            />
-                            <InputError message={editForm.errors.quantity} />
-                        </div>
-                        <div className="space-y-1">
-                            <Label htmlFor="edit-quantity-unit">Unit</Label>
-                            <Input
-                                id="edit-quantity-unit"
-                                placeholder="e.g. pcs, bd.ft"
-                                value={editForm.data.quantity_unit}
-                                onChange={(e) =>
-                                    editForm.setData(
-                                        "quantity_unit",
-                                        e.target.value,
-                                    )
-                                }
-                            />
-                            <InputError
-                                message={editForm.errors.quantity_unit}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Dimensions — only for logs */}
-                    {asset.type === "log" && (
-                        <div className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                Dimensions
-                            </p>
-                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-                               {(["length", "width", "height"] as const).map(
-                                    (dim) => (
-                                        <div key={dim} className="space-y-1">
-                                            <Label htmlFor={`edit-${dim}`}>
-                                                {dim.charAt(0).toUpperCase() + dim.slice(1)}
-                                            </Label>
-                                            <Input
-                                                id={`edit-${dim}`}
-                                                type="number"
-                                                min={0}
-                                                step="0.01"
-                                                value={(editForm.data as any)[dim]}
-                                                onChange={(e) =>
-                                                    handleEditDimensionChange(dim, e.target.value)
-                                                }
-                                            />
-                                            <InputError
-                                                message={(editForm.errors as any)[dim]}
-                                            />
-                                        </div>
-                                    ),
-                                )}
-                            </div>
-                            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                                <div className="space-y-1">
-                                    <Label htmlFor="edit-volume-bd">Volume (bd.ft)</Label>
-                                    <Input
-                                        id="edit-volume-bd"
-                                        type="number"
-                                        min={0}
-                                        step="0.01"
-                                        value={editForm.data.volume_bd_ft}
-                                        disabled
-                                        className="bg-gray-100"
-                                    />
-                                    <p className="text-xs text-gray-400">Auto-computed from dimensions</p>
-                                    <InputError message={editForm.errors.volume_bd_ft} />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label htmlFor="edit-volume-cu">Volume (cu.m)</Label>
-                                    <Input
-                                        id="edit-volume-cu"
-                                        type="number"
-                                        min={0}
-                                        step="0.0001"
-                                        value={editForm.data.volume_cu_m}
-                                        disabled
-                                        className="bg-gray-100"
-                                    />
-                                    <p className="text-xs text-gray-400">Auto-converted from bd.ft</p>
-                                    <InputError message={editForm.errors.volume_cu_m} />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Vehicle plate */}
-                    {asset.type === "vehicle" && (
-                        <div className="space-y-1">
-                            <Label htmlFor="edit-plate">
-                                Plate / Conveyance No.
-                            </Label>
-                            <Input
-                                id="edit-plate"
-                                value={editForm.data.plate_number}
-                                onChange={(e) =>
-                                    editForm.setData(
-                                        "plate_number",
-                                        e.target.value,
-                                    )
-                                }
-                            />
-                            <InputError
-                                message={editForm.errors.plate_number}
-                            />
-                        </div>
-                    )}
-
-                    {/* Estimated Value */}
-                    <div className="space-y-1">
-                        <Label htmlFor="edit-value">Estimated Value (₱)</Label>
-                        <Input
-                            id="edit-value"
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={editForm.data.estimated_value}
-                            onChange={(e) =>
-                                editForm.setData(
-                                    "estimated_value",
-                                    e.target.value,
-                                )
-                            }
-                        />
-                        <InputError message={editForm.errors.estimated_value} />
+                        >
+                            {modes.map((m) => (
+                                <option key={m.value} value={m.value}>
+                                    {m.label}
+                                </option>
+                            ))}
+                        </select>
+                        <InputError message={editForm.errors.mode} />
                     </div>
 
                     {/* Location / Agency */}
                     <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
                         <div className="space-y-1">
-                            <Label htmlFor="edit-location">
-                                Location Apprehended
-                            </Label>
+                            <Label htmlFor="edit-location">Location</Label>
                             <Input
                                 id="edit-location"
                                 value={editForm.data.location_apprehended}
                                 onChange={(e) =>
-                                    editForm.setData(
-                                        "location_apprehended",
-                                        e.target.value,
-                                    )
+                                    editForm.setData("location_apprehended", e.target.value)
                                 }
                             />
-                            <InputError
-                                message={editForm.errors.location_apprehended}
-                            />
+                            <InputError message={editForm.errors.location_apprehended} />
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="edit-agency">
-                                Apprehending Agency
-                            </Label>
+                            <Label htmlFor="edit-agency">Agency</Label>
                             <Input
                                 id="edit-agency"
                                 value={editForm.data.apprehending_agency}
                                 onChange={(e) =>
-                                    editForm.setData(
-                                        "apprehending_agency",
-                                        e.target.value,
-                                    )
+                                    editForm.setData("apprehending_agency", e.target.value)
                                 }
                             />
-                            <InputError
-                                message={editForm.errors.apprehending_agency}
-                            />
+                            <InputError message={editForm.errors.apprehending_agency} />
                         </div>
                     </div>
+
+                    {/* From Incident Report */}
+                    {asset.incident && (
+                        <>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 pt-1">
+                                From Incident Report
+                            </p>
+
+                            {/* Date / Place */}
+                            <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
+                                <div className="space-y-1">
+                                    <Label htmlFor="edit-date-apprehension">Date of Apprehension</Label>
+                                    <Input
+                                        id="edit-date-apprehension"
+                                        type="date"
+                                        value={editForm.data.date_of_apprehension}
+                                        onChange={(e) =>
+                                            editForm.setData("date_of_apprehension", e.target.value)
+                                        }
+                                    />
+                                    <InputError message={(editForm.errors as any).date_of_apprehension} />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="edit-place-apprehension">Place of Apprehension</Label>
+                                    <Input
+                                        id="edit-place-apprehension"
+                                        value={editForm.data.place_of_apprehension}
+                                        onChange={(e) =>
+                                            editForm.setData("place_of_apprehension", e.target.value)
+                                        }
+                                    />
+                                    <InputError message={(editForm.errors as any).place_of_apprehension} />
+                                </div>
+                            </div>
+
+                            {/* Area */}
+                            <div className="space-y-1">
+                                <Label htmlFor="edit-area">Area</Label>
+                                <Input
+                                    id="edit-area"
+                                    placeholder="e.g. Protected, Alienable & Disposable"
+                                    value={editForm.data.area}
+                                    onChange={(e) =>
+                                        editForm.setData("area", e.target.value)
+                                    }
+                                />
+                                <InputError message={(editForm.errors as any).area} />
+                            </div>
+
+                            {/* Coordinates — single string "lat, lng" */}
+                            <div className="space-y-1">
+                                <Label htmlFor="edit-coordinates">Coordinates</Label>
+                                <Input
+                                    id="edit-coordinates"
+                                    placeholder="e.g. 13.5739, 124.2076"
+                                    value={editForm.data.coordinates}
+                                    onChange={(e) =>
+                                        editForm.setData("coordinates", e.target.value)
+                                    }
+                                />
+                                <p className="text-xs text-gray-400">Format: latitude, longitude</p>
+                                <InputError message={(editForm.errors as any).coordinates} />
+                            </div>
+
+                            {/* Apprehending Party */}
+                            <div className="space-y-1">
+                                <Label htmlFor="edit-apprehending-party">Apprehending Party</Label>
+                                <Input
+                                    id="edit-apprehending-party"
+                                    value={editForm.data.apprehending_party}
+                                    onChange={(e) =>
+                                        editForm.setData("apprehending_party", e.target.value)
+                                    }
+                                />
+                                <InputError message={(editForm.errors as any).apprehending_party} />
+                            </div>
+
+                            {/* Claimant Status */}
+                            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+                                <Label className="block">Claimant Status</Label>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            editForm.setData((prev: any) => ({
+                                                ...prev,
+                                                has_claimant: true,
+                                            }))
+                                        }
+                                        className={
+                                            "flex-1 rounded-md border px-4 py-2 text-sm font-medium transition " +
+                                            (editForm.data.has_claimant
+                                                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                                                : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50")
+                                        }
+                                    >
+                                        With Claimant
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            editForm.setData((prev: any) => ({
+                                                ...prev,
+                                                has_claimant: false,
+                                                claimant_offender_name: "",
+                                            }))
+                                        }
+                                        className={
+                                            "flex-1 rounded-md border px-4 py-2 text-sm font-medium transition " +
+                                            (!editForm.data.has_claimant
+                                                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                                                : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50")
+                                        }
+                                    >
+                                        Without Claimant
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                    {editForm.data.has_claimant
+                                        ? "A claimant/offender has come forward regarding this apprehension."
+                                        : "No claimant — proceeds toward automatic confiscation per DAO 97-32."}
+                                </p>
+
+                                {editForm.data.has_claimant && (
+                                    <div className="space-y-1">
+                                        <Label htmlFor="edit-claimant-name">Claimant / Offender Name</Label>
+                                        <Input
+                                            id="edit-claimant-name"
+                                            value={editForm.data.claimant_offender_name}
+                                            onChange={(e) =>
+                                                editForm.setData("claimant_offender_name", e.target.value)
+                                            }
+                                        />
+                                        <InputError message={(editForm.errors as any).claimant_offender_name} />
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
 
                     {/* Case Flags */}
                     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-6">
@@ -2694,10 +2537,7 @@ export default function AssetsShow({
                                 type="checkbox"
                                 checked={editForm.data.has_ongoing_case}
                                 onChange={(e) =>
-                                    editForm.setData(
-                                        "has_ongoing_case",
-                                        e.target.checked,
-                                    )
+                                    editForm.setData("has_ongoing_case", e.target.checked)
                                 }
                                 className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                             />
@@ -2708,10 +2548,7 @@ export default function AssetsShow({
                                 type="checkbox"
                                 checked={editForm.data.has_confiscation_order}
                                 onChange={(e) =>
-                                    editForm.setData(
-                                        "has_confiscation_order",
-                                        e.target.checked,
-                                    )
+                                    editForm.setData("has_confiscation_order", e.target.checked)
                                 }
                                 className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                             />
@@ -2719,7 +2556,7 @@ export default function AssetsShow({
                         </label>
                     </div>
 
-                    {/* Footer buttons */}
+                    {/* Footer */}
                     <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 border-t border-gray-100 pt-4">
                         <Button
                             type="button"
