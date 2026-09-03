@@ -40,6 +40,9 @@ export function IncidentLocationMap({ coordinates, placeName, areaName }: Incide
                     zoom: 15,
                     scrollWheelZoom: true,
                     dragging: true,
+                    minZoom: 9,
+                    maxBounds: [[13.35, 124.00], [14.15, 124.50]],
+                    maxBoundsViscosity: 1.0,
                 });
 
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

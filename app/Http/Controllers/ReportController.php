@@ -63,14 +63,14 @@ class ReportController extends Controller
             ->withCount('assets')
             ->latest('date_of_apprehension')
             ->limit(300)
-            ->get(['id', 'incident_code', 'coordinates', 'place_of_apprehension', 'date_of_apprehension', 'is_abandoned'])
+            ->get(['id', 'incident_code', 'coordinates', 'place_of_apprehension', 'date_of_apprehension', 'has_claimant'])
             ->map(fn (Incident $incident) => [
                 'id'                    => $incident->id,
                 'incident_code'         => $incident->incident_code,
                 'coordinates'           => $incident->coordinates,
                 'place_of_apprehension' => $incident->place_of_apprehension,
                 'date_of_apprehension'  => $incident->date_of_apprehension?->toDateString(),
-                'is_abandoned'          => $incident->is_abandoned,
+                'is_abandoned'          => !$incident->has_claimant,
                 'asset_count'           => $incident->assets_count,
                 'asset_ids'             => $incident->assets->pluck('id'),
                 'asset_types'           => $incident->assets->pluck('type')->map(fn ($t) => $t->value)->unique()->values(),

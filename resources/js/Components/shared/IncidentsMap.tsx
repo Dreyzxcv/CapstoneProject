@@ -231,7 +231,7 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
                     document
                         .getElementById(viewButtonId)
                         ?.addEventListener('click', () => {
-                            router.visit(route('assets.show', primaryAssetId));
+                            router.visit(route('assets.index', { incident_id: incident.id }));
                         });
                 });
             }

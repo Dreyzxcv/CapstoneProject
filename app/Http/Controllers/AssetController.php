@@ -40,6 +40,7 @@ class AssetController extends Controller
                         ->orWhere('municipality_of_origin', 'like', "%{$search}%");
                 });
             })
+            ->when($request->filled('incident_id'), fn ($q) => $q->where('incident_id', $request->integer('incident_id')))
             ->latest()
             ->get(['id', 'asset_code', 'type', 'municipality_of_origin', 'current_status', 'created_at']);
 
@@ -71,7 +72,7 @@ class AssetController extends Controller
 
         return Inertia::render('Assets/Index', [
             'assets' => $paginated,
-            'filters' => $request->only(['status', 'type', 'search']),
+            'filters' => $request->only(['status', 'type', 'search', 'incident_id']),
             'statuses' => collect(AssetStatus::cases())->map(fn ($s) => ['value' => $s->value, 'label' => $s->label()]),
             'types' => collect(AssetType::cases())->map(fn ($t) => ['value' => $t->value, 'label' => $t->label()]),
         ]);
