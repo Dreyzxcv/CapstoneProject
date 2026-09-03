@@ -61,6 +61,7 @@ const OPERATORS_BY_TYPE: Record<string, Array<{ value: string; label: string }>>
     ],
     date: [
         { value: 'eq', label: 'is' },
+        { value: 'between', label: 'is between' },
         { value: 'gt', label: 'after' },
         { value: 'lt', label: 'before' },
         { value: 'gte', label: 'on or after' },
@@ -138,9 +139,6 @@ export default function AttributeTableModal({ show, onClose }: AttributeTableMod
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [show]);
 
-    // Prevent the page behind the fullscreen modal from scrolling, and
-    // allow Escape to close it — matches the Confiscation Locations
-    // fullscreen map behavior.
     useEffect(() => {
         if (!show) return;
 
@@ -236,6 +234,32 @@ export default function AttributeTableModal({ show, onClose }: AttributeTableMod
             );
         }
 
+        // Date range (between): two date pickers stored as "from|to"
+        if (col.type === 'date' && clause.operator === 'between') {
+            const [fromVal, toVal] = clause.value.split('|');
+            return (
+                <div className="flex items-center gap-1.5">
+                    <Input
+                        type="date"
+                        value={fromVal ?? ''}
+                        onChange={(e) =>
+                            updateClause(index, { value: `${e.target.value}|${toVal ?? ''}` })
+                        }
+                        className="h-9 w-36"
+                    />
+                    <span className="text-sm text-gray-500">to</span>
+                    <Input
+                        type="date"
+                        value={toVal ?? ''}
+                        onChange={(e) =>
+                            updateClause(index, { value: `${fromVal ?? ''}|${e.target.value}` })
+                        }
+                        className="h-9 w-36"
+                    />
+                </div>
+            );
+        }
+
         return (
             <Input
                 type={col.type === 'number' ? 'number' : col.type === 'date' ? 'date' : 'text'}
@@ -251,7 +275,6 @@ export default function AttributeTableModal({ show, onClose }: AttributeTableMod
 
     return (
         <>
-            {/* Backdrop — same treatment as the Confiscation Locations fullscreen map */}
             <div className="fixed inset-0 z-[9998] bg-gray-900/60 backdrop-blur-sm" onClick={onClose} />
 
             <Transition
