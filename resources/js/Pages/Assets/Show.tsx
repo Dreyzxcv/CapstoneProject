@@ -21,6 +21,7 @@ import { FileText, MapPin, Pencil, Upload } from "lucide-react";
 import { IncidentLocationMap } from "@/Components/shared/IncidentLocationMap";
 import { PdfBadge } from "@/Components/shared/PdfBadge";
 import RequiredDocumentsModal from "@/Components/shared/RequiredDocumentsModal";
+import CoordinatesPickerModal from "@/Components/shared/CoordinatesPickerModal";
 
 interface ShowProps {
     asset: Asset & {
@@ -83,6 +84,7 @@ export default function AssetsShow({
         null,
     );
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
 
     const editForm = useForm({
         location_apprehended: asset.location_apprehended ?? "",
@@ -94,8 +96,12 @@ export default function AssetsShow({
         place_of_apprehension: asset.incident?.place_of_apprehension ?? "",
         area: asset.incident?.area ?? "",
         coordinates: asset.incident?.coordinates ?? "",
-        has_claimant: !(asset.incident?.is_abandoned ?? true) as boolean,
+        has_claimant: asset.incident?.is_abandoned === false,
         claimant_offender_name: asset.incident?.claimant_offender_name ?? "",
+        claimant_address: asset.incident?.claimant_address ?? "",
+        claimant_contact_number: asset.incident?.claimant_contact_number ?? "",
+        claimant_id_type: asset.incident?.claimant_id_type ?? "",
+        claimant_id_number: asset.incident?.claimant_id_number ?? "",
         apprehending_party: asset.incident?.apprehending_party ?? "",
         has_ongoing_case: asset.has_ongoing_case ?? false,
         has_confiscation_order: asset.has_confiscation_order ?? false,
@@ -2439,18 +2445,24 @@ export default function AssetsShow({
                                 <InputError message={(editForm.errors as any).area} />
                             </div>
 
-                            {/* Coordinates — single string "lat, lng" */}
+                            {/* Coordinates */}
                             <div className="space-y-1">
                                 <Label htmlFor="edit-coordinates">Coordinates</Label>
-                                <Input
-                                    id="edit-coordinates"
-                                    placeholder="e.g. 13.5739, 124.2076"
-                                    value={editForm.data.coordinates}
-                                    onChange={(e) =>
-                                        editForm.setData("coordinates", e.target.value)
-                                    }
-                                />
-                                <p className="text-xs text-gray-400">Format: latitude, longitude</p>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="edit-coordinates"
+                                        placeholder="e.g. 13.5739, 124.2076"
+                                        value={editForm.data.coordinates}
+                                        disabled
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setShowCoordinatesPicker(true)}
+                                    >
+                                        Pick on Map
+                                    </Button>
+                                </div>
                                 <InputError message={(editForm.errors as any).coordinates} />
                             </div>
 
@@ -2495,6 +2507,10 @@ export default function AssetsShow({
                                                 ...prev,
                                                 has_claimant: false,
                                                 claimant_offender_name: "",
+                                                claimant_address: "",
+                                                claimant_contact_number: "",
+                                                claimant_id_type: "",
+                                                claimant_id_number: "",
                                             }))
                                         }
                                         className={
@@ -2514,16 +2530,65 @@ export default function AssetsShow({
                                 </p>
 
                                 {editForm.data.has_claimant && (
-                                    <div className="space-y-1">
-                                        <Label htmlFor="edit-claimant-name">Claimant / Offender Name</Label>
-                                        <Input
-                                            id="edit-claimant-name"
-                                            value={editForm.data.claimant_offender_name}
-                                            onChange={(e) =>
-                                                editForm.setData("claimant_offender_name", e.target.value)
-                                            }
-                                        />
-                                        <InputError message={(editForm.errors as any).claimant_offender_name} />
+                                    <div className="space-y-3">
+                                        <div className="space-y-1">
+                                            <Label htmlFor="edit-claimant-name">Claimant / Offender Name</Label>
+                                            <Input
+                                                id="edit-claimant-name"
+                                                value={editForm.data.claimant_offender_name}
+                                                onChange={(e) =>
+                                                    editForm.setData("claimant_offender_name", e.target.value)
+                                                }
+                                            />
+                                            <InputError message={(editForm.errors as any).claimant_offender_name} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label htmlFor="edit-claimant-address">Address</Label>
+                                            <Input
+                                                id="edit-claimant-address"
+                                                value={editForm.data.claimant_address}
+                                                onChange={(e) =>
+                                                    editForm.setData("claimant_address", e.target.value)
+                                                }
+                                            />
+                                            <InputError message={(editForm.errors as any).claimant_address} />
+                                        </div>
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            <div className="space-y-1">
+                                                <Label htmlFor="edit-claimant-contact">Contact Number</Label>
+                                                <Input
+                                                    id="edit-claimant-contact"
+                                                    value={editForm.data.claimant_contact_number}
+                                                    onChange={(e) =>
+                                                        editForm.setData("claimant_contact_number", e.target.value)
+                                                    }
+                                                />
+                                                <InputError message={(editForm.errors as any).claimant_contact_number} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor="edit-claimant-id-type">ID Type</Label>
+                                                <Input
+                                                    id="edit-claimant-id-type"
+                                                    placeholder="e.g. Driver's License, UMID"
+                                                    value={editForm.data.claimant_id_type}
+                                                    onChange={(e) =>
+                                                        editForm.setData("claimant_id_type", e.target.value)
+                                                    }
+                                                />
+                                                <InputError message={(editForm.errors as any).claimant_id_type} />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label htmlFor="edit-claimant-id-number">ID Number</Label>
+                                            <Input
+                                                id="edit-claimant-id-number"
+                                                value={editForm.data.claimant_id_number}
+                                                onChange={(e) =>
+                                                    editForm.setData("claimant_id_number", e.target.value)
+                                                }
+                                            />
+                                            <InputError message={(editForm.errors as any).claimant_id_number} />
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -2571,6 +2636,12 @@ export default function AssetsShow({
                     </div>
                 </form>
             </Modal>
+            <CoordinatesPickerModal
+                show={showCoordinatesPicker}
+                onClose={() => setShowCoordinatesPicker(false)}
+                onSelect={(coords) => editForm.setData("coordinates", coords)}
+                initialCoordinates={editForm.data.coordinates}
+            />
         </AuthenticatedLayout>
     );
 }

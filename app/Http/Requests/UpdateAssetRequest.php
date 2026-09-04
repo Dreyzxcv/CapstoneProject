@@ -31,6 +31,10 @@ class UpdateAssetRequest extends FormRequest
             'apprehending_party'     => ['nullable', 'string', 'max:500'],
             'has_claimant'           => ['boolean'],
             'claimant_offender_name' => ['nullable', 'string', 'max:255'],
+            'claimant_address'        => ['nullable', 'string', 'max:500'],
+            'claimant_contact_number' => ['nullable', 'string', 'max:50'],
+            'claimant_id_type'        => ['nullable', 'string', 'max:100'],
+            'claimant_id_number'      => ['nullable', 'string', 'max:100'],
         ];
     }
 }

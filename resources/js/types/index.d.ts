@@ -27,6 +27,10 @@ export interface Incident {
     area: string | null;
     coordinates: string | null;
     claimant_offender_name: string | null;
+    claimant_address: string | null;
+    claimant_contact_number: string | null;
+    claimant_id_type: string | null;
+    claimant_id_number: string | null;
     is_abandoned: boolean;
     apprehending_party: string;
     date_report_submitted: string | null;

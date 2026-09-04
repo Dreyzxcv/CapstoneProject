@@ -296,6 +296,18 @@ class AssetController extends Controller
                 $incidentData['claimant_offender_name'] = $hasClaimant
                     ? $request->claimant_offender_name
                     : null;
+                $incidentData['claimant_address'] = $hasClaimant
+                    ? $request->claimant_address
+                    : null;
+                $incidentData['claimant_contact_number'] = $hasClaimant
+                    ? $request->claimant_contact_number
+                    : null;
+                $incidentData['claimant_id_type'] = $hasClaimant
+                    ? $request->claimant_id_type
+                    : null;
+                $incidentData['claimant_id_number'] = $hasClaimant
+                    ? $request->claimant_id_number
+                    : null;
             }
 
             if (! empty($incidentData)) {
