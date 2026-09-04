@@ -11,6 +11,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\MarketPriceController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\AssetPieceController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -34,6 +35,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
 
     Route::post('/assets/{asset}/jev', [JevController::class, 'store'])->name('assets.jev.store');
     Route::post('/assets/{asset}/jev/upload', [JevController::class, 'upload'])->name('assets.jev.upload');
+    Route::put('/asset-pieces/{piece}', [\App\Http\Controllers\AssetPieceController::class, 'update'])->name('asset-pieces.update');
 
     Route::get('/incidents/create', [\App\Http\Controllers\IncidentController::class, 'create'])->name('incidents.create');
     Route::post('/incidents', [\App\Http\Controllers\IncidentController::class, 'store'])->name('incidents.store');

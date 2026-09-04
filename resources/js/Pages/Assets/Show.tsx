@@ -30,7 +30,8 @@ interface ShowProps {
         custody_review_remarks: string | null;
     };
     hasAllRequiredDocuments: boolean;
-    aapDocumentUploaded: boolean; 
+    aapDocumentUploaded: boolean;
+
     qrPayload: string | null;
     qrSvg: string | null;
     requiredDocumentTypes: Array<{ value: string; label: string }>;
@@ -58,6 +59,439 @@ interface ShowProps {
         uploadJevOut: boolean;
     };
 }
+
+// ─── Piece Detail / Edit Modal ────────────────────────────────────────────────
+
+function PieceModal({
+    piece,
+    asset,
+    qrSvg,
+    canEdit,
+    onClose,
+}: {
+    piece: import("@/types").AssetPiece;
+    asset: Asset;
+    qrSvg: string | null;
+    canEdit: boolean;
+    onClose: () => void;
+}) {
+    const [editing, setEditing] = useState(false);
+    const [qrLightbox, setQrLightbox] = useState(false);
+
+    const form = useForm({
+        species: piece.species ?? "",
+        vehicle_type: piece.vehicle_type ?? "",
+        plate_number: piece.plate_number ?? "",
+        equipment_type: piece.equipment_type ?? "",
+        serial_number: piece.serial_number ?? "",
+        description: piece.description ?? "",
+        length: piece.length != null ? String(piece.length) : "",
+        width: piece.width != null ? String(piece.width) : "",
+        height: piece.height != null ? String(piece.height) : "",
+    });
+
+    function submitPieceEdit(e: FormEvent) {
+        e.preventDefault();
+        form.put(route("asset-pieces.update", piece.id), {
+            preserveScroll: true,
+            onSuccess: () => setEditing(false),
+        });
+    }
+
+    function cancelEdit() {
+        form.reset();
+        form.clearErrors();
+        setEditing(false);
+    }
+
+    // ── Table rows ──────────────────────────────────────────────────────────
+
+    type Row = { label: string; value: React.ReactNode; editField?: React.ReactNode };
+
+    const identityRows: Row[] = [];
+    const dimensionRows: Row[] = [];
+    const valuationRows: Row[] = [];
+
+    if (asset.type === "log" || asset.type === "wildlife") {
+        identityRows.push({
+            label: "Species",
+            value: piece.species ?? "—",
+            editField: (
+                <div>
+                    <Input
+                        value={form.data.species}
+                        onChange={(e) => form.setData("species", e.target.value)}
+                        className="h-8 text-sm"
+                    />
+                    <InputError message={form.errors.species} className="mt-1" />
+                </div>
+            ),
+        });
+    }
+
+    if (asset.type === "vehicle") {
+        identityRows.push(
+            {
+                label: "Vehicle Type",
+                value: piece.vehicle_type ?? "—",
+                editField: (
+                    <div>
+                        <Input
+                            value={form.data.vehicle_type}
+                            onChange={(e) => form.setData("vehicle_type", e.target.value)}
+                            className="h-8 text-sm"
+                        />
+                        <InputError message={(form.errors as any).vehicle_type} className="mt-1" />
+                    </div>
+                ),
+            },
+            {
+                label: "Plate / Conveyance No.",
+                value: piece.plate_number ?? "—",
+                editField: (
+                    <div>
+                        <Input
+                            value={form.data.plate_number}
+                            onChange={(e) => form.setData("plate_number", e.target.value)}
+                            className="h-8 text-sm"
+                        />
+                        <InputError message={(form.errors as any).plate_number} className="mt-1" />
+                    </div>
+                ),
+            },
+        );
+    }
+
+    if (asset.type === "equipment") {
+        identityRows.push(
+            {
+                label: "Equipment Type",
+                value: piece.equipment_type ?? "—",
+                editField: (
+                    <div>
+                        <Input
+                            value={form.data.equipment_type}
+                            onChange={(e) => form.setData("equipment_type", e.target.value)}
+                            className="h-8 text-sm"
+                        />
+                        <InputError message={(form.errors as any).equipment_type} className="mt-1" />
+                    </div>
+                ),
+            },
+            {
+                label: "Serial Number",
+                value: (
+                    <span className="font-mono tracking-wide">
+                        {piece.serial_number ?? "—"}
+                    </span>
+                ),
+                editField: (
+                    <div>
+                        <Input
+                            value={form.data.serial_number}
+                            onChange={(e) => form.setData("serial_number", e.target.value)}
+                            className="h-8 text-sm font-mono"
+                        />
+                        <InputError message={(form.errors as any).serial_number} className="mt-1" />
+                    </div>
+                ),
+            },
+        );
+    }
+
+    identityRows.push({
+        label: "Description",
+        value: piece.description || <span className="text-gray-300">—</span>,
+        editField: (
+            <div>
+                <Input
+                    value={form.data.description}
+                    onChange={(e) => form.setData("description", e.target.value)}
+                    className="h-8 text-sm"
+                />
+                <InputError message={(form.errors as any).description} className="mt-1" />
+            </div>
+        ),
+    });
+
+    if (asset.type === "log") {
+        dimensionRows.push(
+            {
+                label: "Length (in)",
+                value: piece.length ?? "—",
+                editField: (
+                    <div>
+                        <Input
+                            type="number"
+                            value={form.data.length}
+                            onChange={(e) => form.setData("length", e.target.value)}
+                            className="h-8 text-sm"
+                            step="0.01"
+                            min="0"
+                        />
+                        <InputError message={(form.errors as any).length} className="mt-1" />
+                    </div>
+                ),
+            },
+            {
+                label: "Width (in)",
+                value: piece.width ?? "—",
+                editField: (
+                    <div>
+                        <Input
+                            type="number"
+                            value={form.data.width}
+                            onChange={(e) => form.setData("width", e.target.value)}
+                            className="h-8 text-sm"
+                            step="0.01"
+                            min="0"
+                        />
+                        <InputError message={(form.errors as any).width} className="mt-1" />
+                    </div>
+                ),
+            },
+            {
+                label: "Height (in)",
+                value: piece.height ?? "—",
+                editField: (
+                    <div>
+                        <Input
+                            type="number"
+                            value={form.data.height}
+                            onChange={(e) => form.setData("height", e.target.value)}
+                            className="h-8 text-sm"
+                            step="0.01"
+                            min="0"
+                        />
+                        <InputError message={(form.errors as any).height} className="mt-1" />
+                    </div>
+                ),
+            },
+            {
+                label: "Volume (bd.ft)",
+                value: piece.volume_bd_ft ?? "—",
+                // computed — no edit field
+            },
+            {
+                label: "Volume (cu.m)",
+                value: piece.volume_cu_m ?? "—",
+            },
+        );
+
+        valuationRows.push({
+            label: "Estimated Value",
+            value:
+                piece.estimated_value != null
+                    ? `₱ ${Number(piece.estimated_value).toLocaleString()}`
+                    : "—",
+        });
+    }
+
+    if (asset.type === "equipment") {
+        valuationRows.push({
+            label: "Estimated Value",
+            value:
+                piece.estimated_value != null
+                    ? `₱ ${Number(piece.estimated_value).toLocaleString()}`
+                    : "—",
+        });
+    }
+
+    function TableSection({
+        title,
+        rows,
+    }: {
+        title?: string;
+        rows: Row[];
+    }) {
+        if (rows.length === 0) return null;
+        return (
+            <>
+                {title && (
+                    <tr>
+                        <td
+                            colSpan={2}
+                            className="bg-gray-50 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400"
+                        >
+                            {title}
+                        </td>
+                    </tr>
+                )}
+                {rows.map((row, i) => (
+                    <tr
+                        key={row.label}
+                        className={i % 2 === 0 ? "bg-white" : "bg-gray-50/60"}
+                    >
+                        <td className="w-2/5 px-4 py-2.5 text-sm text-gray-500 align-top">
+                            {row.label}
+                        </td>
+                        <td className="px-4 py-2.5 text-sm font-medium text-gray-900 text-right align-top">
+                            {editing && row.editField ? row.editField : row.value}
+                        </td>
+                    </tr>
+                ))}
+            </>
+        );
+    }
+
+    const hasSections =
+        dimensionRows.length > 0 || valuationRows.length > 0;
+
+    return (
+        <div className="overflow-hidden">
+            {/* ── Header ─────────────────────────────────────────────────── */}
+            <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-4">
+                <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-600 mb-0.5">
+                        {asset.asset_code}
+                    </p>
+                    <h2 className="text-2xl font-bold text-gray-900 leading-tight">
+                        Piece {piece.piece_number}
+                    </h2>
+                    <p className="mt-0.5 text-xs text-gray-400">
+                        Encoded{" "}
+                        {new Date(piece.created_at).toLocaleString("en-PH", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                        })}
+                    </p>
+                </div>
+
+                <div className="flex items-start gap-3 shrink-0">
+                    {qrSvg ? (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => setQrLightbox(true)}
+                                className="h-16 w-16 rounded-lg border border-gray-200 p-1 bg-white shadow-sm overflow-hidden hover:ring-2 hover:ring-emerald-400 transition-all cursor-zoom-in"
+                                title="Click to enlarge QR"
+                                dangerouslySetInnerHTML={{ __html: qrSvg }}
+                            />
+                            {/* QR Lightbox */}
+                            {qrLightbox && (
+                                <div
+                                    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+                                    onClick={() => setQrLightbox(false)}
+                                >
+                                    <div
+                                        className="relative flex flex-col items-center gap-3"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <div
+                                            className="h-72 w-72 rounded-2xl bg-white p-4 shadow-2xl"
+                                            dangerouslySetInnerHTML={{ __html: qrSvg }}
+                                        />
+                                        <p className="text-sm font-semibold text-white tracking-wide">
+                                            {asset.asset_code} — Piece {piece.piece_number}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setQrLightbox(false)}
+                                            className="mt-1 text-xs text-white/60 hover:text-white transition-colors"
+                                        >
+                                            Click anywhere to close
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="h-16 w-16 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-[9px] text-gray-400 text-center leading-tight p-1">
+                            No QR
+                        </div>
+                    )}
+
+                    {/* Close */}
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="mt-0.5 text-gray-300 hover:text-gray-500 transition-colors text-lg leading-none"
+                        aria-label="Close"
+                    >
+                        ✕
+                    </button>
+                </div>
+            </div>
+
+            <div className="h-px bg-gray-100" />
+
+            {/* ── Table ──────────────────────────────────────────────────── */}
+            <form onSubmit={submitPieceEdit}>
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                        <tbody>
+                            <TableSection
+                                title={hasSections ? "Identity" : undefined}
+                                rows={identityRows}
+                            />
+                            {dimensionRows.length > 0 && (
+                                <TableSection title="Dimensions" rows={dimensionRows} />
+                            )}
+                            {valuationRows.length > 0 && (
+                                <TableSection title="Valuation" rows={valuationRows} />
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* ── Footer ─────────────────────────────────────────────── */}
+                <div className="h-px bg-gray-100 mt-1" />
+                <div className="flex items-center justify-between px-6 py-4">
+                    {canEdit ? (
+                        editing ? (
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="submit"
+                                    size="sm"
+                                    disabled={form.processing}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                >
+                                    {form.processing ? "Saving…" : "Save Changes"}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={cancelEdit}
+                                    disabled={form.processing}
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
+                        ) : (
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setEditing(true)}
+                                className="gap-1.5 text-gray-600"
+                            >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit Piece
+                            </Button>
+                        )
+                    ) : (
+                        <span />
+                    )}
+
+                    {!editing && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={onClose}
+                            className="text-gray-500"
+                        >
+                            Close
+                        </Button>
+                    )}
+                </div>
+            </form>
+        </div>
+    );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AssetsShow({
     asset,
@@ -766,7 +1200,7 @@ export default function AssetsShow({
                                                             </th>
                                                         </>
                                                     )}
-                                                    
+
                                                     <th className="px-3 py-2 text-left font-medium text-gray-500"></th>
                                                 </tr>
                                             </thead>
@@ -1009,8 +1443,7 @@ export default function AssetsShow({
                         </CardContent>
                     </Card>
 
-                    {/* Sidebar — map only. Evidence/Actions/JEV moved to the
-                        dedicated three-column row below. */}
+                    {/* Sidebar */}
                     <div className="space-y-6">
                         {asset.incident?.coordinates && (
                             <Card>
@@ -1033,7 +1466,7 @@ export default function AssetsShow({
                     </div>
                 </div>
 
-                {/* Evidence, Actions, JEV — side by side on desktop, stacked on mobile */}
+                {/* Evidence, Actions, JEV */}
                 <div className="grid items-start gap-6 lg:grid-cols-3">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -1052,7 +1485,6 @@ export default function AssetsShow({
                             </Button>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {/* Required documents checklist */}
                             {requiredDocumentTypes.length > 0 && (() => {
                                 const docs = asset.documents ?? [];
                                 const latestFor = (type: string) =>
@@ -1097,7 +1529,6 @@ export default function AssetsShow({
                                 );
                             })()}
 
-                            {/* Additional evidence thumbnails */}
                             {(() => {
                                 const evidenceDocs = (asset.documents ?? []).filter((d) => !d.document_type);
                                 if (evidenceDocs.length === 0) return null;
@@ -1155,7 +1586,6 @@ export default function AssetsShow({
                                 </p>
                             )}
 
-                            {/* Custody review */}
                             {can.submitForCustodyReview && (
                                 <div className="border-t pt-4 space-y-2">
                                     {!hasAllRequiredDocuments ? (
@@ -1290,9 +1720,6 @@ export default function AssetsShow({
                         </CardContent>
                     </Card>
 
-                    {/* Journal Entry Voucher — JEV In (asset-level) and JEV Out
-                        (donation disposal-level) merged into a single card so
-                        the accounting handoff reads as one continuous story. */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-base">
@@ -1300,7 +1727,6 @@ export default function AssetsShow({
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {/* JEV In: not yet created */}
                             {can.createJev &&
                                 asset.current_status ===
                                     "cleared_for_accounting" &&
@@ -1334,7 +1760,6 @@ export default function AssetsShow({
                                     </p>
                                 )}
 
-                            {/* JEV In: created, not yet uploaded/confirmed by MES */}
                             {asset.jev && !asset.jev.uploaded_at && (
                                 <div>
                                     <p className="text-sm text-gray-500">
@@ -1358,7 +1783,6 @@ export default function AssetsShow({
                                 </div>
                             )}
 
-                            {/* JEV In: uploaded/confirmed */}
                             {asset.jev && asset.jev.uploaded_at && (
                                 <p className="text-sm text-gray-600">
                                     JEV (IN):{" "}
@@ -1382,7 +1806,6 @@ export default function AssetsShow({
                                     </p>
                                 )}
 
-                            {/* JEV Out: donation disposal awaiting its own JEV */}
                             {donationAwaitingJevOut && (
                                 <div className="border-t border-gray-100 pt-4">
                                     <p className="text-sm font-semibold text-gray-700">
@@ -2231,113 +2654,21 @@ export default function AssetsShow({
                     </CardContent>
                 </Card>
             </div>
-            {/* Piece detail modal */}
+
+            {/* ── Piece detail modal ──────────────────────────────────────── */}
             <Modal
                 show={selectedPiece !== null}
                 onClose={() => setSelectedPiece(null)}
                 maxWidth="md"
             >
                 {selectedPiece && (
-                    <div className="p-6">
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <p className="text-xs text-gray-400 uppercase tracking-widest mb-0.5">
-                                    {asset.asset_code}
-                                </p>
-                                <h2 className="text-2xl font-bold text-gray-900 leading-none">
-                                    Piece {selectedPiece.piece_number}
-                                </h2>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setSelectedPiece(null)}
-                                className="text-gray-300 hover:text-gray-500 transition-colors text-xl leading-none"
-                            >
-                                ✕
-                            </button>
-                        </div>
-
-                        {/* Divider */}
-                        <div className="h-px bg-gray-100 mb-6" />
-
-                        {/* Fields */}
-                        <dl className="space-y-4 text-sm">
-                            {asset.type === "log" && (
-                                <div className="flex justify-between">
-                                    <dt className="text-gray-400">Species</dt>
-                                    <dd className="font-medium text-gray-900">{selectedPiece.species ?? "—"}</dd>
-                                </div>
-                            )}
-                            {asset.type === "vehicle" && (
-                                <>
-                                    <div className="flex justify-between">
-                                        <dt className="text-gray-400">Vehicle Type</dt>
-                                        <dd className="font-medium text-gray-900">{selectedPiece.vehicle_type ?? "—"}</dd>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <dt className="text-gray-400">Plate / Conveyance No.</dt>
-                                        <dd className="font-medium text-gray-900">{selectedPiece.plate_number ?? "—"}</dd>
-                                    </div>
-                                </>
-                            )}
-                            {asset.type === "equipment" && (
-                                <>
-                                    <div className="flex justify-between">
-                                        <dt className="text-gray-400">Equipment Type</dt>
-                                        <dd className="font-medium text-gray-900">{selectedPiece.equipment_type ?? "—"}</dd>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <dt className="text-gray-400">Serial Number</dt>
-                                        <dd className="font-medium text-gray-900 font-mono tracking-wide">
-                                            {selectedPiece.serial_number ?? "—"}
-                                        </dd>
-                                    </div>
-                                </>
-                            )}
-
-                            {selectedPiece.description && (
-                                <div className="flex justify-between gap-4">
-                                    <dt className="text-gray-400 shrink-0">Description</dt>
-                                    <dd className="font-medium text-gray-900 text-right">{selectedPiece.description}</dd>
-                                </div>
-                            )}
-
-                            {asset.type === "log" && (
-                                <>
-                                    <div className="h-px bg-gray-100" />
-                                    <div className="flex justify-between">
-                                        <dt className="text-gray-400">Dimensions (L × W × H)</dt>
-                                        <dd className="font-medium text-gray-900 tabular-nums">
-                                            {selectedPiece.length ?? "—"} × {selectedPiece.width ?? "—"} × {selectedPiece.height ?? "—"}
-                                        </dd>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <dt className="text-gray-400">Volume (bd.ft)</dt>
-                                        <dd className="font-medium text-gray-900 tabular-nums">{selectedPiece.volume_bd_ft ?? "—"}</dd>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <dt className="text-gray-400">Volume (cu.m)</dt>
-                                        <dd className="font-medium text-gray-900 tabular-nums">{selectedPiece.volume_cu_m ?? "—"}</dd>
-                                    </div>
-                                    <div className="h-px bg-gray-100" />
-                                    <div className="flex justify-between">
-                                        <dt className="text-gray-400">Estimated Value</dt>
-                                        <dd className="font-medium text-gray-900 tabular-nums">
-                                            {selectedPiece.estimated_value != null
-                                                ? `₱ ${Number(selectedPiece.estimated_value).toLocaleString()}`
-                                                : "—"}
-                                        </dd>
-                                    </div>
-                                </>
-                            )}
-                        </dl>
-
-                        {/* Footer */}
-                        <p className="mt-6 text-xs text-gray-300">
-                            Encoded {new Date(selectedPiece.created_at).toLocaleString()}
-                        </p>
-                    </div>
+                    <PieceModal
+                        piece={selectedPiece}
+                        asset={asset}
+                        qrSvg={qrSvg}
+                        canEdit={can.edit}
+                        onClose={() => setSelectedPiece(null)}
+                    />
                 )}
             </Modal>
 
@@ -2404,7 +2735,6 @@ export default function AssetsShow({
                                 From Incident Report
                             </p>
 
-                            {/* Date / Place */}
                             <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
                                 <div className="space-y-1">
                                     <Label htmlFor="edit-date-apprehension">Date of Apprehension</Label>
@@ -2431,7 +2761,6 @@ export default function AssetsShow({
                                 </div>
                             </div>
 
-                            {/* Area */}
                             <div className="space-y-1">
                                 <Label htmlFor="edit-area">Area</Label>
                                 <Input
@@ -2445,7 +2774,6 @@ export default function AssetsShow({
                                 <InputError message={(editForm.errors as any).area} />
                             </div>
 
-                            {/* Coordinates */}
                             <div className="space-y-1">
                                 <Label htmlFor="edit-coordinates">Coordinates</Label>
                                 <div className="flex gap-2">
@@ -2466,7 +2794,6 @@ export default function AssetsShow({
                                 <InputError message={(editForm.errors as any).coordinates} />
                             </div>
 
-                            {/* Apprehending Party */}
                             <div className="space-y-1">
                                 <Label htmlFor="edit-apprehending-party">Apprehending Party</Label>
                                 <Input
@@ -2479,7 +2806,6 @@ export default function AssetsShow({
                                 <InputError message={(editForm.errors as any).apprehending_party} />
                             </div>
 
-                            {/* Claimant Status */}
                             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
                                 <Label className="block">Claimant Status</Label>
                                 <div className="flex gap-2">
