@@ -96,7 +96,7 @@ export default function AssetsShow({
         place_of_apprehension: asset.incident?.place_of_apprehension ?? "",
         area: asset.incident?.area ?? "",
         coordinates: asset.incident?.coordinates ?? "",
-        has_claimant: asset.incident?.is_abandoned === false,
+        has_claimant: asset.incident?.is_abandoned === false && !!asset.incident?.claimant_offender_name,
         claimant_offender_name: asset.incident?.claimant_offender_name ?? "",
         claimant_address: asset.incident?.claimant_address ?? "",
         claimant_contact_number: asset.incident?.claimant_contact_number ?? "",
