@@ -114,9 +114,6 @@ export default function DashboardIndex({
                                 </Button>
                             </Link>
                         )}
-                        <Link href={primaryAction.href}>
-                            <Button variant="outline">{primaryAction.label}</Button>
-                        </Link>
                     </div>
                 </div>
             }
