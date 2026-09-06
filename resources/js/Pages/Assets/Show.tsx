@@ -1406,7 +1406,7 @@ export default function AssetsShow({
                                     {asset.incident.area && (
                                         <p>
                                             <span className="font-medium">
-                                                Area:
+                                                Land Class:
                                             </span>{" "}
                                             {asset.incident.area}
                                         </p>
