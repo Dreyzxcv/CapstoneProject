@@ -788,14 +788,19 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             <InputError message={errors.place_of_apprehension} />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="area">Area<span className="text-red-500">*</span></Label>
-                                            <Input
+                                            <Label htmlFor="area">Land Class<span className="text-red-500">*</span></Label>
+                                            <select
                                                 id="area"
-                                                placeholder="Forest area / compartment"
                                                 value={data.area}
                                                 onChange={(e) => setData('area', e.target.value)}
+                                                className={selectClass}
                                                 required
-                                            />
+                                            >
+                                                <option value="" disabled>Select land class…</option>
+                                                <option value="Timberland">Timberland</option>
+                                                <option value="Protected Area">Protected Area</option>
+                                                <option value="Alienable & Disposable">Alienable &amp; Disposable</option>
+                                            </select>
                                             <InputError message={errors.area} />
                                         </div>
                                     </div>
@@ -1130,7 +1135,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt className="text-gray-500">Area</dt>
+                                    <dt className="text-gray-500">Land Class</dt>
                                     <dd className="font-medium text-gray-900">{data.area || '—'}</dd>
                                 </div>
                                 <div className="md:col-span-2">
