@@ -29,6 +29,7 @@ interface ShowProps {
         custody_review_submitted_at: string | null;
         custody_review_remarks: string | null;
     };
+    relatedAssets: Asset[];
     hasAllRequiredDocuments: boolean;
     aapDocumentUploaded: boolean;
 
@@ -495,6 +496,7 @@ function PieceModal({
 
 export default function AssetsShow({
     asset,
+    relatedAssets,
     qrPayload,
     qrSvg,
     requiredDocumentTypes,
@@ -513,6 +515,8 @@ export default function AssetsShow({
     const [selectedPiece, setSelectedPiece] = useState<
         import("@/types").AssetPiece | null
     >(null);
+    const [selectedSibling, setSelectedSibling] = useState<Asset | null>(null);
+    const [selectedSiblingPiece, setSelectedSiblingPiece] = useState<import("@/types").AssetPiece | null>(null);
     const [showRequiredDocsModal, setShowRequiredDocsModal] = useState(false);
     const [viewingDisposal, setViewingDisposal] = useState<Disposal | null>(
         null,
@@ -880,7 +884,10 @@ export default function AssetsShow({
                         <CardContent className="grid gap-3 text-sm md:grid-cols-2 break-words">
                             <p>
                                 <span className="font-medium">Types:</span>{" "}
-                                {asset.type}
+                                {[asset, ...relatedAssets]
+                                    .map((i) => i.type)
+                                    .filter((v, i, a) => a.indexOf(v) === i)
+                                    .join(", ")}
                             </p>
                             <p>
                                 <span className="font-medium">Mode:</span>{" "}
@@ -971,333 +978,69 @@ export default function AssetsShow({
                                     </p>
                                 </div>
                             )}
-                            {/* Pieces breakdown */}
-                            {asset.pieces && asset.pieces.length > 0 && (
-                                <div className="md:col-span-2 mt-2 border-t border-b border-gray-100 pt-4 pb-4">
-                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                        Pieces ({asset.pieces.length})
-                                    </p>
+                            {/* All items under this AAP */}
+                            {(() => {
+                                const allItems = [asset, ...relatedAssets];
+                                return (
+                                    <div className="md:col-span-2 mt-2 border-t border-b border-gray-100 pt-4 pb-4">
+                                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                            Items ({allItems.length})
+                                        </p>
 
-                                    {/* Mobile: stacked cards */}
-                                    <div className="space-y-2 sm:hidden">
-                                        {asset.pieces.map((piece) => (
-                                            <button
-                                                key={piece.id}
-                                                type="button"
-                                                onClick={() =>
-                                                    setSelectedPiece(piece)
-                                                }
-                                                className="w-full rounded-md border border-gray-200 p-3 text-left active:bg-gray-50"
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-sm font-medium text-gray-900">
-                                                        Piece{" "}
-                                                        {piece.piece_number}
-                                                        {asset.type === "log" &&
-                                                            ` — ${piece.species ?? "—"}`}
-                                                        {asset.type ===
-                                                            "vehicle" &&
-                                                            ` — ${piece.plate_number ?? "—"}`}
-                                                        {asset.type ===
-                                                            "equipment" &&
-                                                        piece.equipment_type
-                                                            ? ` — ${piece.equipment_type}`
-                                                            : asset.type ===
-                                                                "equipment"
-                                                              ? piece.description
-                                                                  ? ` — ${piece.description}`
-                                                                  : ""
-                                                              : ""}
-                                                    </span>
-                                                    <span className="text-xs font-medium text-emerald-700">
-                                                        View
-                                                    </span>
-                                                </div>
+                                        {/* Mobile */}
+                                        <div className="space-y-2 sm:hidden">
+                                            {allItems.map((item) => (
+                                                <button
+                                                    key={item.id}
+                                                    type="button"
+                                                    onClick={() => setSelectedSibling(item)}
+                                                    className="w-full rounded-md border border-gray-200 p-3 text-left active:bg-gray-50"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-sm font-medium text-gray-900 capitalize">
+                                                            {item.type}
+                                                        </span>
+                                                        <span className="text-xs font-medium text-emerald-700">View</span>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
 
-                                                {asset.type === "log" && (
-                                                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
-                                                        <div>
-                                                            <dt className="text-gray-400">
-                                                                Dimensions
-                                                            </dt>
-                                                            <dd>
-                                                                {piece.length ??
-                                                                    "—"}{" "}
-                                                                ×{" "}
-                                                                {piece.width ??
-                                                                    "—"}{" "}
-                                                                ×{" "}
-                                                                {piece.height ??
-                                                                    "—"}
-                                                            </dd>
-                                                        </div>
-                                                        <div>
-                                                            <dt className="text-gray-400">
-                                                                Vol. (bd.ft)
-                                                            </dt>
-                                                            <dd>
-                                                                {piece.volume_bd_ft ??
-                                                                    "—"}
-                                                            </dd>
-                                                        </div>
-                                                        <div>
-                                                            <dt className="text-gray-400">
-                                                                Vol. (cu.m)
-                                                            </dt>
-                                                            <dd>
-                                                                {piece.volume_cu_m ??
-                                                                    "—"}
-                                                            </dd>
-                                                        </div>
-                                                        <div>
-                                                            <dt className="text-gray-400">
-                                                                Est. Value (₱)
-                                                            </dt>
-                                                            <dd>
-                                                                {piece.estimated_value !=
-                                                                null
-                                                                    ? Number(
-                                                                          piece.estimated_value,
-                                                                      ).toLocaleString()
-                                                                    : "—"}
-                                                            </dd>
-                                                        </div>
-                                                    </dl>
-                                                )}
-
-                                                {asset.type === "vehicle" && (
-                                                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
-                                                        <div>
-                                                            <dt className="text-gray-400">
-                                                                Plate No.
-                                                            </dt>
-                                                            <dd>
-                                                                {piece.plate_number ??
-                                                                    "—"}
-                                                            </dd>
-                                                        </div>
-                                                        {piece.description && (
-                                                            <div className="col-span-2">
-                                                                <dt className="text-gray-400">
-                                                                    Description
-                                                                </dt>
-                                                                <dd>
-                                                                    {piece.description}
-                                                                </dd>
-                                                            </div>
-                                                        )}
-                                                    </dl>
-                                                )}
-
-                                                {asset.type === "equipment" && (
-                                                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
-                                                        {piece.equipment_type && (
-                                                            <div className="col-span-2">
-                                                                <dt className="text-gray-400">
-                                                                    Type
-                                                                </dt>
-                                                                <dd>
-                                                                    {
-                                                                        piece.equipment_type
-                                                                    }
-                                                                </dd>
-                                                            </div>
-                                                        )}
-                                                        {piece.description && (
-                                                            <div className="col-span-2">
-                                                                <dt className="text-gray-400">
-                                                                    Description
-                                                                </dt>
-                                                                <dd>
-                                                                    {
-                                                                        piece.description
-                                                                    }
-                                                                </dd>
-                                                            </div>
-                                                        )}
-                                                        <div>
-                                                            <dt className="text-gray-400">
-                                                                Est. Value (₱)
-                                                            </dt>
-                                                            <dd>
-                                                                {piece.estimated_value !=
-                                                                null
-                                                                    ? Number(
-                                                                          piece.estimated_value,
-                                                                      ).toLocaleString()
-                                                                    : "—"}
-                                                            </dd>
-                                                        </div>
-                                                    </dl>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {/* Desktop: table */}
-                                    <div className="hidden overflow-x-auto rounded-md border border-gray-200 sm:block">
-                                        <table className="min-w-full divide-y divide-gray-200 text-sm">
-                                            <thead className="bg-gray-50">
-                                                <tr>
-                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                        #
-                                                    </th>
-                                                    {(asset.type === "log" ||
-                                                        asset.type ===
-                                                            "wildlife") && (
-                                                        <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                            Species
-                                                        </th>
-                                                    )}
-                                                    {asset.type === "log" && (
-                                                        <>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Dimensions
-                                                                (L×W×H)
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Vol. (bd.ft)
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Vol. (cu.m)
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Action
-                                                            </th>
-                                                        </>
-                                                    )}
-                                                    {asset.type ===
-                                                        "vehicle" && (
-                                                        <>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Type
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Plate No.
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Description
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Action
-                                                            </th>
-                                                        </>
-                                                    )}
-                                                    {asset.type ===
-                                                        "equipment" && (
-                                                        <>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Type
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Description
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Serial No.
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Action
-                                                            </th>
-                                                        </>
-                                                    )}
-
-                                                    <th className="px-3 py-2 text-left font-medium text-gray-500"></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100 bg-white">
-                                                {asset.pieces.map((piece) => (
-                                                    <tr
-                                                        key={piece.id}
-                                                        className="hover:bg-gray-50"
-                                                    >
-                                                        <td className="px-3 py-2 text-gray-600">
-                                                            {piece.piece_number}
-                                                        </td>
-                                                        {(asset.type ===
-                                                            "log" ||
-                                                            asset.type ===
-                                                                "wildlife") && (
-                                                            <td className="px-3 py-2 text-gray-900">
-                                                                {piece.species ??
-                                                                    "—"}
-                                                            </td>
-                                                        )}
-                                                        {asset.type ===
-                                                            "log" && (
-                                                            <>
-                                                                <td className="px-3 py-2 text-gray-900">
-                                                                    {piece.length ??
-                                                                        "—"}{" "}
-                                                                    ×{" "}
-                                                                    {piece.width ??
-                                                                        "—"}{" "}
-                                                                    ×{" "}
-                                                                    {piece.height ??
-                                                                        "—"}
-                                                                </td>
-                                                                <td className="px-3 py-2 text-gray-900">
-                                                                    {piece.volume_bd_ft ??
-                                                                        "—"}
-                                                                </td>
-                                                                <td className="px-3 py-2 text-gray-900">
-                                                                    {piece.volume_cu_m ??
-                                                                        "—"}
-                                                                </td>
-                                                            </>
-                                                        )}
-                                                        {asset.type ===
-                                                            "vehicle" && (
-                                                            <>
-                                                                <td className="px-3 py-2 text-gray-900">
-                                                                    {piece.vehicle_type ??
-                                                                        "—"}
-                                                                </td>
-                                                                <td className="px-3 py-2 text-gray-900">
-                                                                    {piece.plate_number ??
-                                                                        "—"}
-                                                                </td>
-                                                                <td className="px-3 py-2 text-gray-900">
-                                                                    {piece.description ??
-                                                                        "—"}
-                                                                </td>
-                                                            </>
-                                                        )}
-                                                        {asset.type ===
-                                                            "equipment" && (
-                                                            <>
-                                                                <td className="px-3 py-2 text-gray-900">
-                                                                    {piece.equipment_type ??
-                                                                        "—"}
-                                                                </td>
-                                                                <td className="px-3 py-2 text-gray-900">
-                                                                    {piece.description ??
-                                                                        "—"}
-                                                                </td>
-                                                                <td className="px-3 py-2 text-gray-900">
-                                                                    {piece.serial_number ?? "—"}
-                                                                </td>
-                                                            </>
-                                                        )}
-                                                        <td className="px-3 py-2">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    setSelectedPiece(
-                                                                        piece,
-                                                                    )
-                                                                }
-                                                                className="text-xs font-medium text-emerald-700 hover:underline"
-                                                            >
-                                                                View
-                                                            </button>
-                                                        </td>
+                                        {/* Desktop */}
+                                        <div className="hidden overflow-x-auto rounded-md border border-gray-200 sm:block">
+                                            <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                                <thead className="bg-gray-50">
+                                                    <tr>
+                                                        <th className="px-3 py-2 text-left font-medium text-gray-500">Item</th>
+                                                        <th className="px-3 py-2 text-left font-medium text-gray-500">Action</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100 bg-white">
+                                                    {allItems.map((item) => (
+                                                        <tr
+                                                            key={item.id}
+                                                            className="hover:bg-gray-50"
+                                                        >
+                                                            <td className="px-3 py-2 text-gray-900 capitalize">
+                                                                {item.type}
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSelectedSibling(item)}
+                                                                    className="text-xs font-medium text-emerald-700 hover:underline"
+                                                                >
+                                                                    View
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                );
+                            })()}
                             <p>
                                 <span className="font-medium">Location:</span>{" "}
                                 {asset.location_apprehended}
@@ -2669,6 +2412,159 @@ export default function AssetsShow({
                         canEdit={can.edit}
                         onClose={() => setSelectedPiece(null)}
                     />
+                )}
+            </Modal>
+
+            {/* ── Sibling asset pieces modal ───────────────────────────────── */}
+            <Modal
+                show={selectedSibling !== null}
+                onClose={() => setSelectedSibling(null)}
+                maxWidth="4xl"
+            >
+                {selectedSibling && (
+                    <div className="max-h-[85vh] overflow-y-auto">
+                        {selectedSiblingPiece ? (
+                            // ── Piece detail view ──────────────────────────────────────
+                            <div>
+                                <div className="flex items-center gap-2 px-6 pt-4 pb-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedSiblingPiece(null)}
+                                        className="text-xs font-medium text-emerald-700 hover:underline flex items-center gap-1"
+                                    >
+                                        ← Back to {selectedSibling.type}
+                                    </button>
+                                </div>
+                                <PieceModal
+                                    piece={selectedSiblingPiece}
+                                    asset={selectedSibling}
+                                    qrSvg={null}
+                                    canEdit={false}
+                                    onClose={() => setSelectedSiblingPiece(null)}
+                                />
+                            </div>
+                        ) : (
+                            // ── Pieces table view ──────────────────────────────────────
+                            <div className="p-6">
+                                {/* Header */}
+                                <div className="flex items-start justify-between gap-4 mb-4">
+                                    <div>
+                                        <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-600">
+                                            {selectedSibling.asset_code}
+                                        </p>
+                                        <h2 className="text-lg font-bold text-gray-900 capitalize">
+                                            {selectedSibling.type}
+                                        </h2>
+                                        <p className="text-xs text-gray-400">
+                                            {(selectedSibling.pieces?.length ?? 0)} piece(s) · {selectedSibling.municipality_of_origin}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        <AssetStatusBadge
+                                            status={selectedSibling.current_status}
+                                            label={selectedSibling.current_status.replace(/_/g, " ")}
+                                            disposedQuantity={selectedSibling.disposed_quantity}
+                                            quantity={selectedSibling.quantity}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedSibling(null)}
+                                            className="text-gray-300 hover:text-gray-500 text-lg leading-none"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="h-px bg-gray-100 mb-4" />
+
+                                {selectedSibling.pieces && selectedSibling.pieces.length > 0 ? (
+                                            <div className="overflow-x-auto rounded-md border border-gray-200">
+                                                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                                    <thead className="bg-gray-50">
+                                                        <tr>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">#</th>
+                                                            {(selectedSibling.type === "log" || selectedSibling.type === "wildlife") && (
+                                                                <th className="px-3 py-2 text-left font-medium text-gray-500">Species</th>
+                                                            )}
+                                                            {selectedSibling.type === "log" && (
+                                                                <>
+                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Dimensions (L×W×H)</th>
+                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Vol. (bd.ft)</th>
+                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Vol. (cu.m)</th>
+                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Est. Value</th>
+                                                                </>
+                                                            )}
+                                                            {selectedSibling.type === "vehicle" && (
+                                                                <>
+                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Vehicle Type</th>
+                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Plate / Conveyance No.</th>
+                                                                </>
+                                                            )}
+                                                            {selectedSibling.type === "equipment" && (
+                                                                <>
+                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Equipment Type</th>
+                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Serial No.</th>
+                                                                </>
+                                                            )}
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">Action</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100 bg-white">
+                                                        {selectedSibling.pieces.map((piece) => (
+                                                            <tr key={piece.id} className="hover:bg-gray-50">
+                                                                <td className="px-3 py-2 text-gray-500">{piece.piece_number}</td>
+                                                                {(selectedSibling.type === "log" || selectedSibling.type === "wildlife") && (
+                                                                    <td className="px-3 py-2 text-gray-900">{piece.species ?? "—"}</td>
+                                                                )}
+                                                                {selectedSibling.type === "log" && (
+                                                                    <>
+                                                                        <td className="px-3 py-2 text-gray-900">
+                                                                            {[piece.length, piece.width, piece.height]
+                                                                                .map((v) => v != null ? `${v}` : "—")
+                                                                                .join(" × ")}
+                                                                        </td>
+                                                                        <td className="px-3 py-2 text-gray-900">{piece.volume_bd_ft ?? "—"}</td>
+                                                                        <td className="px-3 py-2 text-gray-900">{piece.volume_cu_m ?? "—"}</td>
+                                                                        <td className="px-3 py-2 text-gray-900">
+                                                                            {piece.estimated_value != null
+                                                                                ? `₱${Number(piece.estimated_value).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`
+                                                                                : "—"}
+                                                                        </td>
+                                                                    </>
+                                                                )}
+                                                                {selectedSibling.type === "vehicle" && (
+                                                                    <>
+                                                                        <td className="px-3 py-2 text-gray-900 capitalize">{piece.vehicle_type ?? "—"}</td>
+                                                                        <td className="px-3 py-2 text-gray-900">{piece.plate_number ?? "—"}</td>
+                                                                    </>
+                                                                )}
+                                                                {selectedSibling.type === "equipment" && (
+                                                                    <>
+                                                                        <td className="px-3 py-2 text-gray-900 capitalize">{piece.equipment_type ?? "—"}</td>
+                                                                        <td className="px-3 py-2 text-gray-900 font-mono">{piece.serial_number ?? "—"}</td>
+                                                                    </>
+                                                                )}
+                                                                <td className="px-3 py-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setSelectedSiblingPiece(piece)}
+                                                                        className="text-xs font-medium text-emerald-700 hover:underline"
+                                                                    >
+                                                                        View
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                                        ) : (
+                                    <p className="text-sm italic text-gray-400">No pieces recorded yet.</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 )}
             </Modal>
 

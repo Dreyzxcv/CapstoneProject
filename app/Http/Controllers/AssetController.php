@@ -49,6 +49,7 @@ class AssetController extends Controller
 
             return [
                 'asset_code' => $first->asset_code,
+                'first_asset_id' => $first->id,
                 'item_count' => $group->count(),
                 'types' => $group->pluck('type')->map(fn ($t) => $t->value)->unique()->values(),
                 'municipality_of_origin' => $first->municipality_of_origin,
@@ -135,7 +136,7 @@ class AssetController extends Controller
 
         $relatedAssets = Asset::where('asset_code', $asset->asset_code)
             ->where('id', '!=', $asset->id)
-            ->with(['acknowledgementReceipt', 'statusHistory'])
+            ->with(['acknowledgementReceipt', 'statusHistory', 'pieces'])
             ->get();
 
         $qrPayload = null;
@@ -161,6 +162,7 @@ class AssetController extends Controller
             ]),
             'qrPayload' => $qrPayload,
             'qrSvg' => $qrSvg,
+            'relatedAssets' => $relatedAssets,
             'requiredDocumentTypes' => collect($asset->requiredDocumentTypes())->map(fn ($t) => [
                 'value' => $t->value,
                 'label' => $t->label(),
