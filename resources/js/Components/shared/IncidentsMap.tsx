@@ -46,7 +46,7 @@ function parseCoordinates(value: string): { lat: number; lng: number } | null {
     return { lat, lng };
 }
 
-export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
+export function IncidentsMap({ incidents, height = '384px' }: { incidents: IncidentLocation[]; height?: string }) {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<LeafletMap | null>(null);
     const normalLayerRef = useRef<TileLayer | null>(null);
@@ -520,8 +520,9 @@ export function IncidentsMap({ incidents }: { incidents: IncidentLocation[] }) {
                     'incident-map-shell isolate ' +
                     (isFullscreen
                         ? 'fixed inset-4 z-[9999] overflow-hidden rounded-xl border border-gray-200 shadow-2xl sm:inset-8'
-                        : 'relative h-96 w-full overflow-hidden rounded-xl border border-gray-200 shadow-sm')
+                        : 'relative w-full overflow-hidden rounded-xl border border-gray-200 shadow-sm')
                 }
+                style={isFullscreen ? undefined : { height }}
             >
                 {isLoading && (
                     <div className="absolute inset-0 z-[500] flex items-center justify-center gap-2 bg-gray-900 text-sm text-gray-300">
