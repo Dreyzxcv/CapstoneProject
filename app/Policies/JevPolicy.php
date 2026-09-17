@@ -16,4 +16,9 @@ class JevPolicy
     {
         return $user->can('jev.upload');
     }
+
+    public function viewAny(User $user): bool
+    {
+        return $user->hasPermissionTo('jev.view');
+    }
 }

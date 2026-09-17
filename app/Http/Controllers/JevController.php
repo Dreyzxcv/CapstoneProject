@@ -12,9 +12,23 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Facades\Gate;
 
 class JevController extends Controller
 {
+    public function index(Request $request): Response
+    {
+        $this->authorize('viewAny', Jev::class);
+
+        $jevs = Jev::with(['asset.incident'])
+            ->latest()
+            ->paginate(25);
+
+        return Inertia::render('Jev/Index', [
+            'jevs' => $jevs,
+        ]);
+    }
+
     public function store(StoreJevRequest $request, Asset $asset, IssueJev $issueJev): RedirectResponse
     {
         $this->authorize('create', Jev::class);

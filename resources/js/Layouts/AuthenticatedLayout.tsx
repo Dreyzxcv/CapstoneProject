@@ -22,6 +22,7 @@ import {
     UserRoundCog,
     Settings,
     Info,
+    Receipt,
 } from 'lucide-react';
 
 function hasPermission(permissions: string[], permission: string): boolean {
@@ -107,6 +108,13 @@ export default function Authenticated({
                     active: route().current('scan.*'),
                     show: hasPermission(permissions, 'assets.scan'),
                     icon: <QrCode className={iconClass} />,
+                },
+                {
+                    href: route('jev.index'),
+                    label: 'JEV',
+                    active: route().current('jev.*') || route().current('assets.jev.*'),
+                    show: hasPermission(permissions, 'jev.view'),
+                    icon: <Receipt className={iconClass} />,
                 },
                 {
                     href: route('disposals.index'),
