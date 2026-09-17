@@ -132,21 +132,17 @@ export interface JevLineItem {
 
 export interface Jev {
     id: number;
-    jev_number: string;
-    funding_source_code: string | null;
-    funding_source_label: string | null;
-    transaction_type: string | null;
-    transaction_code: string | null;
-    responsibility_center: string | null;
-    document_no: string | null;
+    asset_id: number;
+    jev_number: string | null;
+    jev_date: string | null;    
     particulars: string | null;
-    prepared_by_name: string | null;
-    approved_by_name: string | null;
-    line_items: JevLineItem[] | null;
-    pdf_path: string | null;
+    amount: string | null;   
+    issued_at: string | null;
+    issued_by_name: string | null;
     uploaded_at: string | null;
-    created_by_accounting?: User;
-    uploaded_by_mes?: User;
+    file_path: string | null;
+    appeal_window_open: boolean;
+    appeal_deadline: string | null; 
 }
 
 export interface Donation {

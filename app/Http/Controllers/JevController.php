@@ -7,13 +7,17 @@ use App\Actions\UploadJev;
 use App\Http\Requests\StoreJevRequest;
 use App\Http\Requests\UploadJevRequest;
 use App\Models\Asset;
+use App\Models\Jev;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class JevController extends Controller
 {
     public function store(StoreJevRequest $request, Asset $asset, IssueJev $issueJev): RedirectResponse
     {
-        $this->authorize('create', \App\Models\Jev::class);
+        $this->authorize('create', Jev::class);
 
         $issueJev->execute($asset, $request->validated(), $request->user());
 
@@ -31,5 +35,26 @@ class JevController extends Controller
         $uploadJev->execute($asset, $asset->jev, $request->user());
 
         return back()->with('success', 'JEV uploaded. Asset moved to disposal processing.');
+    }
+
+    public function show(Request $request, Asset $asset): Response
+    {
+        $this->authorize('view', $asset);
+
+        $asset->load(['incident']);
+
+        $jev = $asset->jev;
+
+        return Inertia::render('Jev/Show', [
+            'asset'              => $asset,
+            'jev'                => $jev,
+            'appeal_window_open' => $jev?->appeal_window_open ?? false,
+            'appeal_deadline'    => $jev?->appeal_deadline?->toDateString(),
+            'can'                => [
+                'issue_jev'  => $request->user()->can('issue', [Jev::class, $asset]),
+                'upload_jev' => $jev && $request->user()->can('upload', $jev),
+                'store_jev'  => $jev && $request->user()->can('store', $jev),
+            ],
+        ]);
     }
 }

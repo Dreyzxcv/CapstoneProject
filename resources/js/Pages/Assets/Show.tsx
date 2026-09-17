@@ -49,8 +49,6 @@ interface ShowProps {
         updateAap: boolean;
         generateQr: boolean;
         edit: boolean;
-        createJev: boolean;
-        uploadJev: boolean;
         releaseDonation: boolean;
         processDisposal: boolean;
         resolveCase: boolean;
@@ -503,7 +501,6 @@ export default function AssetsShow({
 
     const { auth } = usePage<PageProps>().props;
     const [confirmAction, setConfirmAction] = useState<string | null>(null);
-    const [showJevModal, setShowJevModal] = useState(false);
     const [selectedPiece, setSelectedPiece] = useState<
         import("@/types").AssetPiece | null
     >(null);
@@ -544,10 +541,6 @@ export default function AssetsShow({
             onSuccess: () => setShowEditModal(false),
         });
     }
-
-    const jevForm = useForm({
-        jev_number: "",
-    });
 
     const caseForm = useForm({
         case_number: asset.case_number ?? "",
@@ -629,16 +622,6 @@ export default function AssetsShow({
         }
     }
 
-    function handleUploadJev() {
-        if (
-            confirm(
-                "Confirm the JEV has been uploaded? This will move the asset to disposal processing.",
-            )
-        ) {
-            router.post(route("assets.jev.upload", asset.id));
-        }
-    }
-
     function handleUploadJevOut(disposalId: number) {
         if (
             confirm(
@@ -660,16 +643,6 @@ export default function AssetsShow({
         }
     }
 
-    function submitJev(e: FormEvent) {
-        e.preventDefault();
-        jevForm.post(route("assets.jev.store", asset.id), {
-            onSuccess: () => {
-                jevForm.reset();
-                setShowJevModal(false);
-            },
-        });
-    }
-
     const releaseForm = useForm<{ photo: File | null }>({ photo: null });
 
     function submitRelease(e: FormEvent) {
@@ -686,11 +659,6 @@ export default function AssetsShow({
         );
     }
 
-    function closeJevModal() {
-        setShowJevModal(false);
-        jevForm.clearErrors();
-        jevForm.reset();
-    }
     const receiptUrl = documentUrl(asset.acknowledgement_receipt?.pdf_path);
     const disposals = asset.disposals ?? [];
     const totalDisposed = disposals.reduce((sum, d) => sum + d.quantity, 0);
@@ -1424,313 +1392,7 @@ export default function AssetsShow({
                             )}
                         </CardContent>
                     </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">
-                                Journal Entry Voucher
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {can.createJev &&
-                                asset.current_status ===
-                                    "cleared_for_accounting" &&
-                                !asset.jev && (
-                                    <div>
-                                        <p className="text-sm text-gray-500">
-                                            This asset is cleared for accounting
-                                            and needs a Journal Entry Voucher
-                                            before it can move to disposal
-                                            processing.
-                                        </p>
-                                        <div className="mt-3">
-                                            <Button
-                                                onClick={() =>
-                                                    setShowJevModal(true)
-                                                }
-                                            >
-                                                Fill Out JEV Form
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
-
-                            {!can.createJev &&
-                                asset.current_status ===
-                                    "cleared_for_accounting" &&
-                                !asset.jev && (
-                                    <p className="text-sm text-gray-500">
-                                        Cleared for accounting — awaiting JEV
-                                        creation by Accounting.
-                                    </p>
-                                )}
-
-                            {asset.jev && !asset.jev.uploaded_at && (
-                                <div>
-                                    <p className="text-sm text-gray-500">
-                                        Accounting issued this JEV. Confirm the
-                                        upload to move the asset to disposal
-                                        processing.
-                                    </p>
-                                    <p className="mt-2 text-sm">
-                                        <span className="font-medium">
-                                            JEV Number:
-                                        </span>{" "}
-                                        {asset.jev.jev_number}
-                                    </p>
-                                    {can.uploadJev && (
-                                        <div className="mt-3">
-                                            <Button onClick={handleUploadJev}>
-                                                Confirm JEV Upload
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {asset.jev && asset.jev.uploaded_at && (
-                                <p className="text-sm text-gray-600">
-                                    JEV (IN):{" "}
-                                    <span className="font-medium">
-                                        {asset.jev.jev_number}
-                                    </span>{" "}
-                                    issued by{" "}
-                                    {asset.jev.created_by_accounting?.name ??
-                                        "Accounting"}{" "}
-                                    and uploaded by{" "}
-                                    {asset.jev.uploaded_by_mes?.name ?? "MES"}.
-                                </p>
-                            )}
-
-                            {asset.current_status !==
-                                "cleared_for_accounting" &&
-                                !asset.jev && (
-                                    <p className="text-sm text-gray-500">
-                                        No JEV has been issued for this asset
-                                        yet.
-                                    </p>
-                                )}
-
-                            {donationAwaitingJevOut && (
-                                <div className="border-t border-gray-100 pt-4">
-                                    <p className="text-sm font-semibold text-gray-700">
-                                        Donation — Awaiting JEV Out
-                                    </p>
-                                    <p className="mt-1 text-sm text-gray-500">
-                                        Deed of Donation is on file. Issue JEV
-                                        Out to generate the Release Order and
-                                        Waybill.
-                                    </p>
-
-                                    {documentUrl(
-                                        donationAwaitingJevOut.donation
-                                            ?.deed_of_donation_path,
-                                    ) && (
-                                        <a
-                                            href={
-                                                documentUrl(
-                                                    donationAwaitingJevOut
-                                                        .donation
-                                                        ?.deed_of_donation_path,
-                                                ) ?? "#"
-                                            }
-                                            className="mt-2 block text-sm text-emerald-700 hover:underline"
-                                        >
-                                            Download Deed of Donation
-                                        </a>
-                                    )}
-
-                                    {can.issueJevOut ? (
-                                        <form
-                                            onSubmit={(e) =>
-                                                submitJevOut(
-                                                    e,
-                                                    donationAwaitingJevOut.id,
-                                                )
-                                            }
-                                            className="mt-3 space-y-3"
-                                        >
-                                            <div className="space-y-2">
-                                                <Label htmlFor="jev_out_number">
-                                                    JEV Out Number
-                                                </Label>
-                                                <Input
-                                                    id="jev_out_number"
-                                                    placeholder="2026-05-000930"
-                                                    value={
-                                                        jevOutForm.data
-                                                            .jev_number
-                                                    }
-                                                    onChange={(e) =>
-                                                        jevOutForm.setData(
-                                                            "jev_number",
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    required
-                                                />
-                                                <InputError
-                                                    message={
-                                                        jevOutForm.errors
-                                                            .jev_number
-                                                    }
-                                                />
-                                            </div>
-                                            <Button
-                                                type="submit"
-                                                disabled={jevOutForm.processing}
-                                            >
-                                                Issue JEV Out
-                                            </Button>
-                                        </form>
-                                    ) : (
-                                        <p className="mt-3 text-sm text-gray-500">
-                                            Awaiting Accounting to issue JEV Out
-                                            for this donation.
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-
-                            {donationAwaitingJevOutUpload && (
-                                <div className="border-t border-gray-100 pt-4">
-                                    <p className="text-sm font-semibold text-gray-700">
-                                        Donation — JEV Out Issued, Awaiting MES
-                                        Upload
-                                    </p>
-                                    <p className="mt-1 text-sm text-gray-500">
-                                        Accounting recorded the JEV Out number.
-                                        Confirm the upload to generate the
-                                        Release Order and Waybill.
-                                    </p>
-                                    <p className="mt-2 text-sm">
-                                        <span className="font-medium">
-                                            JEV Out Number:
-                                        </span>{" "}
-                                        {
-                                            donationAwaitingJevOutUpload
-                                                .disposal_jev!.jev_number
-                                        }
-                                    </p>
-                                    {can.uploadJevOut ? (
-                                        <div className="mt-3">
-                                            <Button
-                                                onClick={() =>
-                                                    handleUploadJevOut(
-                                                        donationAwaitingJevOutUpload.id,
-                                                    )
-                                                }
-                                            >
-                                                Confirm JEV Out Upload
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <p className="mt-3 text-sm text-gray-500">
-                                            Awaiting MES to confirm JEV Out
-                                            upload.
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-
-                            {donationsWithJevOut.map((d) => (
-                                <div
-                                    key={d.id}
-                                    className="border-t border-gray-100 pt-4"
-                                >
-                                    <p className="text-sm text-gray-600">
-                                        JEV (OUT):{" "}
-                                        <span className="font-medium">
-                                            {d.disposal_jev!.jev_number}
-                                        </span>{" "}
-                                        issued by{" "}
-                                        {d.disposal_jev!.issued_by_accounting
-                                            ?.name ?? "Accounting"}
-                                        {d.disposal_jev!.uploaded_by_mes && (
-                                            <>
-                                                {" "}
-                                                and uploaded by{" "}
-                                                {
-                                                    d.disposal_jev!
-                                                        .uploaded_by_mes.name
-                                                }
-                                            </>
-                                        )}
-                                        .
-                                    </p>
-                                    {d.donation && (
-                                        <p className="text-xs text-gray-500">
-                                            {d.quantity} unit(s) to{" "}
-                                            {d.donation.requester_name}
-                                        </p>
-                                    )}
-                                    {documentUrl(d.disposal_jev!.pdf_path) && (
-                                        <a
-                                            href={
-                                                documentUrl(
-                                                    d.disposal_jev!.pdf_path,
-                                                ) ?? "#"
-                                            }
-                                            className="mt-1 block text-sm text-emerald-700 hover:underline"
-                                        >
-                                            Download JEV Out
-                                        </a>
-                                    )}
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
                 </div>
-
-                <Modal
-                    show={showJevModal}
-                    onClose={closeJevModal}
-                    maxWidth="md"
-                >
-                    <form onSubmit={submitJev} className="p-6">
-                        <h2 className="text-lg font-medium text-gray-900">
-                            Journal Entry Voucher
-                        </h2>
-                        <p className="mt-1 text-sm text-gray-600">
-                            Enter the JEV number issued by Accounting for{" "}
-                            <span className="font-medium">
-                                {asset.asset_code}
-                            </span>
-                            .
-                        </p>
-
-                        <div className="mt-6 space-y-2">
-                            <Label htmlFor="jev_number">JEV Number</Label>
-                            <Input
-                                id="jev_number"
-                                placeholder="2026-05-000928"
-                                value={jevForm.data.jev_number}
-                                onChange={(e) =>
-                                    jevForm.setData(
-                                        "jev_number",
-                                        e.target.value,
-                                    )
-                                }
-                                required
-                                autoFocus
-                            />
-                            <InputError message={jevForm.errors.jev_number} />
-                        </div>
-
-                        <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={closeJevModal}
-                            >
-                                Cancel
-                            </Button>
-                            <Button type="submit" disabled={jevForm.processing}>
-                                Issue JEV
-                            </Button>
-                        </div>
-                    </form>
-                </Modal>
 
                 <Modal
                     show={viewingDisposal !== null}

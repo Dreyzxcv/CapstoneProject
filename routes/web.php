@@ -33,6 +33,8 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/assets/{asset}/submit-aap-review', [AssetController::class, 'submitAapForReview'])
         ->name('assets.submit-aap-review');
 
+    Route::get('/assets/{asset}/jev', [JevController::class, 'show'])
+        ->name('assets.jev.show');
     Route::post('/assets/{asset}/jev', [JevController::class, 'store'])->name('assets.jev.store');
     Route::post('/assets/{asset}/jev/upload', [JevController::class, 'upload'])->name('assets.jev.upload');
     Route::put('/asset-pieces/{piece}', [\App\Http\Controllers\AssetPieceController::class, 'update'])->name('asset-pieces.update');
