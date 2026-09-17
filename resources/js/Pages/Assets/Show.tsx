@@ -999,7 +999,7 @@ export default function AssetsShow({
                                                 <thead className="bg-gray-50">
                                                     <tr>
                                                         <th className="px-3 py-2 text-left font-medium text-gray-500">Item</th>
-                                                        <th className="px-3 py-2 text-left font-medium text-gray-500">Action</th>
+                                                        <th className="px-3 py-2 text-right font-medium text-gray-500">Action</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-100 bg-white">
@@ -1011,7 +1011,7 @@ export default function AssetsShow({
                                                             <td className="px-3 py-2 text-gray-900 capitalize">
                                                                 {item.type}
                                                             </td>
-                                                            <td className="px-3 py-2">
+                                                            <td className="px-3 py-2 text-right">
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setSelectedSibling(item)}
@@ -1403,10 +1403,21 @@ export default function AssetsShow({
                                         this stage.
                                     </p>
                                 )}
+                            {qrSvg && (
+                                <a
+                                    href={route("assets.stickers.pdf", asset.id)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    <Button variant="outline" className="w-full">
+                                        Print Stickers
+                                    </Button>
+                                </a>
+                            )}
                             {receiptUrl && (
                                 <a
                                     href={receiptUrl}
-                                    className="block text-center text-sm text-emerald-700 hover:underline"
+                                    className="block mt-3 text-center text-sm text-emerald-700 hover:underline"
                                 >
                                     Download Acknowledgement Receipt
                                 </a>
@@ -1904,7 +1915,7 @@ export default function AssetsShow({
                 />
 
                 {/* QR + Donation */}
-                {(qrSvg || donationReadyForRelease) && (
+                {donationReadyForRelease && (
                     <div className="grid items-start gap-6 lg:grid-cols-3">
                         {donationReadyForRelease &&
                             pendingDonationDisposal?.donation && (
@@ -2035,42 +2046,6 @@ export default function AssetsShow({
                                     </CardContent>
                                 </Card>
                             )}
-
-                        {qrSvg && (
-                            <Card
-                                className={
-                                    donationReadyForRelease
-                                        ? ""
-                                        : "lg:col-span-3"
-                                }
-                            >
-                                <CardHeader>
-                                    <CardTitle className="text-base">
-                                        Asset Tag Stickers
-                                    </CardTitle>
-                                    <p className="text-sm text-gray-500">
-                                        {stickerPcs} label
-                                        {stickerPcs === 1 ? "" : "s"} — one per
-                                        physical piece, sized for sticker
-                                        sheets.
-                                    </p>
-                                </CardHeader>
-                                <CardContent>
-                                    <a
-                                        href={route(
-                                            "assets.stickers.pdf",
-                                            asset.id,
-                                        )}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        <Button variant="outline">
-                                            Print Stickers
-                                        </Button>
-                                    </a>
-                                </CardContent>
-                            </Card>
-                        )}
                     </div>
                 )}
 

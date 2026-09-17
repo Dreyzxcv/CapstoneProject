@@ -42,21 +42,23 @@ class AssetController extends Controller
             })
             ->when($request->filled('incident_id'), fn ($q) => $q->where('incident_id', $request->integer('incident_id')))
             ->latest()
-            ->get(['id', 'asset_code', 'type', 'municipality_of_origin', 'current_status', 'created_at']);
+            ->get(['id', 'asset_code', 'aap_number', 'type', 'municipality_of_origin', 'current_status', 'created_at']);
 
         $grouped = $allAssets->groupBy('asset_code')->map(function ($group) {
-            $first = $group->first();
+
+            $first = $group->sortBy('id')->first();
 
             return [
-                'asset_code' => $first->asset_code,
-                'first_asset_id' => $first->id,
-                'item_count' => $group->count(),
-                'types' => $group->pluck('type')->map(fn ($t) => $t->value)->unique()->values(),
-                'municipality_of_origin' => $first->municipality_of_origin,
-                'status_summary' => $group->groupBy(fn ($a) => $a->current_status->value)
-                    ->map(fn ($g, $status) => ['status' => $status, 'count' => $g->count()])
-                    ->values(),
-                'created_at' => $first->created_at,
+                'asset_code'            => $first->asset_code,
+                'first_asset_id'        => $first->id,
+                'aap_number'            => $group->firstWhere(fn ($a) => $a->aap_number)?->aap_number,
+                'item_count'            => $group->count(),
+                'types'                 => $group->pluck('type')->map(fn ($t) => $t->value)->unique()->values(),
+                'municipality_of_origin'=> $first->municipality_of_origin,
+                'status_summary'        => $group->groupBy(fn ($a) => $a->current_status->value)
+                                                ->map(fn ($g, $status) => ['status' => $status, 'count' => $g->count()])
+                                                ->values(),
+                'created_at'            => $first->created_at,
             ];
         })->sortByDesc('created_at')->values();
 
@@ -243,7 +245,8 @@ class AssetController extends Controller
 
         $before = $asset->only('aap_number');
 
-        $asset->update(['aap_number' => $request->validated('aap_number')]);
+        Asset::where('asset_code', $asset->asset_code)
+            ->update(['aap_number' => $request->validated('aap_number')]);
 
         $auditLog->log('asset.aap_number_updated', $asset, $before, $asset->fresh()->only('aap_number'), $request->user()->id);
 

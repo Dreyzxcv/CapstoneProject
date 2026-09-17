@@ -28,7 +28,14 @@ class ResolveCustodyReview
         ]);
 
         if ($decision === 'approved') {
-            $this->lifecycle->transition(...);
+            // Transition to "Document Verified" (receipt_signed)
+            $this->lifecycle->transition(
+                $asset,
+                AssetStatus::ReceiptSigned,
+                $actor,
+                'Custody review approved by Property Custodian. Documents verified.',
+                'asset.custody_review_approved',
+            );
 
             // Sync review fields to siblings
             \App\Models\Asset::where('asset_code', $asset->asset_code)
