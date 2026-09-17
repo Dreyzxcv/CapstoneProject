@@ -108,39 +108,65 @@ class PdfDocumentService
 
     public function generateAssetTagStickers(Asset $asset): string
     {
-        $totalPieces = max(1, (int) ($asset->quantity ?? 1));
+        // Load ALL sibling assets under the same asset_code (including self)
+        $allAssets = Asset::where('asset_code', $asset->asset_code)
+            ->with('incident')
+            ->get()
+            ->keyBy('id');
 
-        $existing = AssetPiece::query()
-            ->where('asset_id', $asset->id)
-            ->orderBy('piece_number')
-            ->get();
 
-        if ($existing->count() < $totalPieces) {
-            for ($i = 1; $i <= $totalPieces; $i++) {
-                AssetPiece::firstOrCreate(
-                    ['asset_id' => $asset->id, 'piece_number' => $i],
-                    ['qr_code_token' => $this->qrCodeService->generateToken()]
-                );
-            }
+        $sharedAapNumber = $allAssets->pluck('aap_number')->filter()->first();
+        // For each sibling, ensure pieces exist, then collect them all
+        $allPieces = collect();
 
-            // reload
-            $existing = AssetPiece::query()
-                ->where('asset_id', $asset->id)
+        foreach ($allAssets as $sibling) {
+            $totalPieces = max(1, (int) ($sibling->quantity ?? 1));
+
+            $existing = AssetPiece::where('asset_id', $sibling->id)
                 ->orderBy('piece_number')
                 ->get();
+
+            if ($existing->count() < $totalPieces) {
+                for ($i = 1; $i <= $totalPieces; $i++) {
+                    AssetPiece::firstOrCreate(
+                        ['asset_id' => $sibling->id, 'piece_number' => $i],
+                        ['qr_code_token' => $this->qrCodeService->generateToken()]
+                    );
+                }
+
+                $existing = AssetPiece::where('asset_id', $sibling->id)
+                    ->orderBy('piece_number')
+                    ->get();
+            }
+
+            // Tag each piece with its parent asset so the blade can use it
+            foreach ($existing as $piece) {
+                $piece->setRelation('asset', $sibling);
+            }
+
+            $allPieces = $allPieces->concat($existing);
         }
 
-        $qrPngDataUris = [];
-        foreach ($existing as $pieceRow) {
+        // Re-number pieces globally across all siblings (1, 2, 3...)
+        $totalPieces = $allPieces->count();
+
+        $pieces = [];
+        foreach ($allPieces as $index => $pieceRow) {
+            $globalNumber = $index + 1;
             $payload = $this->qrCodeService->buildScanUrl($pieceRow->qr_code_token);
-            $qrPngDataUris[$pieceRow->piece_number] = $this->qrCodeService->generatePngDataUri($payload);
+            $pieces[] = [
+                'piece'           => $pieceRow,
+                'asset'           => $allAssets[$pieceRow->asset_id],
+                'aap_number'      => $allAssets[$pieceRow->asset_id]->aap_number ?: $sharedAapNumber,
+                'global_number'   => $globalNumber,
+                'qr_png_data_uri' => $this->qrCodeService->generatePngDataUri($payload),
+            ];
         }
 
         $pdf = Pdf::loadView('pdf.asset-tag-stickers', [
-            'asset' => $asset->loadMissing('incident'),
-            'pieces' => $existing,
-            'qrPngDataUris' => $qrPngDataUris,
-            'totalPieces' => $totalPieces,
+            'asset'       => $asset->loadMissing('incident'),
+            'pieces'      => $pieces,
+            'totalPieces' => count($pieces),
         ]);
 
         return $this->storePdf($pdf->output(), 'stickers', 'stickers-'.$asset->asset_code);

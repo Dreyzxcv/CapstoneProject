@@ -20,14 +20,14 @@
         .org-subtitle { font-size: 6.5pt; margin: 1pt 0 0; color: #333; }
         .piece-badge { border: 1.5pt solid #000; text-align: center; padding: 5pt 0; font-size: 16pt; font-weight: bold; letter-spacing: 0.5pt; margin: 6pt 0; }
         .service-line { text-align: center; font-weight: bold; font-size: 10pt; text-transform: uppercase; border-top: 1pt solid #000; border-bottom: 1pt solid #000; padding: 3pt 0; margin: 0 0 6pt; }
-        .item-table th, .item-table td { border: 1pt solid #000; padding: 3pt 4pt; font-size: 7.5pt; text-align: left; }
+        .item-table th, .item-table td { border: 1pt solid #000; padding: 5pt 6pt; font-size: 8pt; text-align: left; }
         .item-table th { width: 34%; background: #f2f2f2; }
         .item-table { margin-bottom: 6pt; }
-        .qr-footer { border-top: 1pt solid #000; padding-top: 6pt; margin-top: 4pt; }
-        .qr-cell { width: 0.95in; text-align: center; vertical-align: top; }
-        .qr-cell img { width: 0.85in; height: 0.85in; }
-        .doc-cell { vertical-align: top; padding-left: 6pt; font-size: 7pt; }
-        .doc-cell p { margin: 1pt 0; }
+        .qr-footer { border-top: 1pt solid #000; padding-top: 10pt; margin-top: 10pt; }
+        .qr-cell { width: 1.4in; text-align: center; vertical-align: middle; }
+        .qr-cell img { width: 1.3in; height: 1.3in; }
+        .doc-cell { vertical-align: middle; padding-left: 8pt; font-size: 8pt; }
+        .doc-cell p { margin: 3pt 0; }
         .footer-note { text-align: center; font-size: 6pt; color: #555; margin-top: 5pt; font-style: italic; }
     </style>
 </head>
@@ -39,8 +39,13 @@
     );
 @endphp
 
-@foreach ($pieces as $pieceIndex => $pieceRecord)
-@php $pieceNumber = $pieceIndex + 1; @endphp
+@foreach ($pieces as $entry)
+@php
+    $pieceRecord = $entry['piece'];
+    $pieceAsset  = $entry['asset'];
+    $pieceNumber = $entry['global_number'];
+    $qrDataUri   = $entry['qr_png_data_uri'];
+@endphp
 <div class="label-page">
     <table class="header-row">
         <tr>
@@ -56,30 +61,42 @@
     <div class="service-line">Asset Tag</div>
 
     <table class="item-table">
-        <tr><th>Asset ID</th><td>{{ $asset->asset_code }}</td></tr>
-        <tr><th>AAP No.</th><td>{{ $asset->aap_number ?: '—' }}</td></tr>
-        <tr><th>Species</th><td>{{ $pieceRecord->species ?: ($asset->species ?: '—') }}</td></tr>
-        <tr>
-            <th>Dimension</th>
-            <td>
-                @if($asset->type->value === 'log' && $pieceRecord->length && $pieceRecord->width && $pieceRecord->height)
-                    {{ $pieceRecord->length }} &times; {{ $pieceRecord->width }} &times; {{ $pieceRecord->height }}
-                @elseif($pieceRecord->volume_bd_ft)
-                    {{ $pieceRecord->volume_bd_ft }} bd.ft
-                @else
-                    —
-                @endif
-            </td>
-        </tr>
+        <tr><th>Asset ID</th><td>{{ $pieceAsset->asset_code }}</td></tr>
+        <tr><th>AAP No.</th><td>{{ $entry['aap_number'] ?: '—' }}</td></tr>
+        <tr><th>Type</th><td>{{ ucfirst($pieceAsset->type->value) }}</td></tr>
+
+        @if($pieceAsset->type->value === 'log')
+            <tr><th>Species</th><td>{{ $pieceRecord->species ?: ($pieceAsset->species ?: '—') }}</td></tr>
+            <tr>
+                <th>Dimension</th>
+                <td>
+                    @if($pieceRecord->length && $pieceRecord->width && $pieceRecord->height)
+                        {{ $pieceRecord->length }} &times; {{ $pieceRecord->width }} &times; {{ $pieceRecord->height }}
+                    @elseif($pieceRecord->volume_bd_ft)
+                        {{ $pieceRecord->volume_bd_ft }} bd.ft
+                    @else
+                        —
+                    @endif
+                </td>
+            </tr>
+
+        @elseif($pieceAsset->type->value === 'equipment')
+            <tr><th>Equipment</th><td>{{ $pieceRecord->equipment_type ?: ($pieceAsset->equipment_type ?? '—') }}</td></tr>
+            <tr><th>Serial No.</th><td>{{ $pieceRecord->serial_number ?: '—' }}</td></tr>
+
+        @elseif($pieceAsset->type->value === 'vehicle')
+            <tr><th>Plate No.</th><td>{{ $pieceRecord->plate_number ?: '—' }}</td></tr>
+
+        @endif
     </table>
 
     <table class="qr-footer">
         <tr>
-            <td class="qr-cell"><img src="{{ $qrPngDataUris[$pieceNumber] ?? '' }}" alt="QR code"></td>
+            <td class="qr-cell"><img src="{{ $qrDataUri }}" alt="QR code"></td>
             <td class="doc-cell">
-                <p><strong>Date Apprehended:</strong> {{ $asset->incident?->date_of_apprehension?->format('M d, Y') ?? '—' }}</p>
-                <p><strong>Place:</strong> {{ $asset->incident?->place_of_apprehension ?? $asset->location_apprehended ?? '—' }}</p>
-                <p><strong>Municipality:</strong> {{ $asset->municipality_of_origin }}</p>
+                <p><strong>Date Apprehended:</strong> {{ $pieceAsset->incident?->date_of_apprehension?->format('M d, Y') ?? '—' }}</p>
+                <p><strong>Place:</strong> {{ $pieceAsset->incident?->place_of_apprehension ?? $pieceAsset->location_apprehended ?? '—' }}</p>
+                <p><strong>Municipality:</strong> {{ $pieceAsset->municipality_of_origin }}</p>
             </td>
         </tr>
     </table>

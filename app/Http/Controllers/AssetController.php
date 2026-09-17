@@ -147,6 +147,23 @@ class AssetController extends Controller
             $qrSvg = $qrCodeService->generateSvg($qrPayload);
         }
 
+        $pieceQrSvgs = [];
+        foreach ($asset->pieces as $piece) {
+            if ($piece->qr_code_token) {
+                $payload = $qrCodeService->buildScanUrl($piece->qr_code_token);
+                $pieceQrSvgs[$piece->id] = $qrCodeService->generateSvg($payload);
+            }
+        }
+
+        foreach ($relatedAssets as $sibling) {
+            foreach ($sibling->pieces as $piece) {
+                if ($piece->qr_code_token) {
+                    $payload = $qrCodeService->buildScanUrl($piece->qr_code_token);
+                    $pieceQrSvgs[$piece->id] = $qrCodeService->generateSvg($payload);
+                }
+            }
+        }
+
         return Inertia::render('Assets/Show', [
             'asset' => $asset->load([
                 'pieces',
@@ -162,6 +179,7 @@ class AssetController extends Controller
             ]),
             'qrPayload' => $qrPayload,
             'qrSvg' => $qrSvg,
+            'pieceQrSvgs' => $pieceQrSvgs, 
             'relatedAssets' => $relatedAssets,
             'requiredDocumentTypes' => collect($asset->requiredDocumentTypes())->map(fn ($t) => [
                 'value' => $t->value,

@@ -28,21 +28,25 @@ class ResolveCustodyReview
         ]);
 
         if ($decision === 'approved') {
-            // Use lifecycle so a history row is written automatically
-            $this->lifecycle->transition(
-                $asset,
-                AssetStatus::ReceiptSigned,
-                $actor,
-                'Custody review approved by Property Custodian'
-                    . ($remarks ? ": {$remarks}" : '.'),
-                'asset.custody_review_approved',
-            );
+            $this->lifecycle->transition(...);
+
+            // Sync review fields to siblings
+            \App\Models\Asset::where('asset_code', $asset->asset_code)
+                ->where('id', '!=', $asset->id)
+                ->update([
+                    'custody_review_status'  => $decision,
+                    'custody_review_remarks' => $remarks,
+                ]);
         }
 
         if ($decision === 'returned') {
-            // Write a history note without changing the status
-            // (MES stays on DocumentsUploaded so they can re-submit)
-            $asset->update(['current_status' => AssetStatus::DocumentsUploaded]);
+            // Sync all siblings back to DocumentsUploaded
+            \App\Models\Asset::where('asset_code', $asset->asset_code)
+                ->update([
+                    'current_status'         => AssetStatus::DocumentsUploaded,
+                    'custody_review_status'  => $decision,
+                    'custody_review_remarks' => $remarks,
+                ]);
 
             AssetCaseStatusHistory::create([
                 'asset_id'   => $asset->id,

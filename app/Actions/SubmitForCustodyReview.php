@@ -13,7 +13,6 @@ class SubmitForCustodyReview
 
     public function execute(Asset $asset): void
     {
-        // Mark asset as pending review
         $asset->update([
             'custody_review_status'       => 'pending',
             'custody_review_submitted_at' => now(),
@@ -22,13 +21,23 @@ class SubmitForCustodyReview
             'current_status'              => \App\Enums\AssetStatus::PendingCustodyReview,
         ]);
 
+        \App\Models\Asset::where('asset_code', $asset->asset_code)
+            ->where('id', '!=', $asset->id)
+            ->update([
+                'current_status'              => \App\Enums\AssetStatus::PendingCustodyReview,
+                'custody_review_status'       => 'pending',
+                'custody_review_submitted_at' => now(),
+                'custody_review_submitted_by' => Auth::id(),
+                'custody_review_remarks'      => null,
+            ]);
+
         \App\Models\AssetCaseStatusHistory::create([
-            'asset_id'   => $asset->id,
-            'status'     => \App\Enums\AssetStatus::PendingCustodyReview,
-            'changed_by' => Auth::id(),
-            'notes'      => 'Submitted for custody review.',
-            'changed_at' => now(),
-        ]);
+                'asset_id'   => $asset->id,
+                'status'     => \App\Enums\AssetStatus::PendingCustodyReview,
+                'changed_by' => Auth::id(),
+                'notes'      => 'Submitted for custody review.',
+                'changed_at' => now(),
+            ]);    
 
         // Notify all custodians
         $custodians = User::role('Property Custodian')->where('is_active', true)->get();

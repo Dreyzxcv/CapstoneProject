@@ -435,6 +435,67 @@ export default function ReportsIndex({
                     })}
                 </div>
 
+                {/* ── Incident map ── */}
+                <Card>
+                    <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <CardTitle className="text-base font-semibold text-gray-900">Confiscation Locations</CardTitle>
+                            <p className="text-xs text-gray-400">
+                                {filteredIncidentLocations.length === incidentLocations.length
+                                    ? `${incidentLocations.length} incident${incidentLocations.length === 1 ? '' : 's'} with coordinates`
+                                    : `${filteredIncidentLocations.length} of ${incidentLocations.length} incidents`}
+                                {hasMapFilter && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setMapMonth('all'); setMapYear('all'); }}
+                                        className="ml-2 font-medium text-emerald-600 hover:underline"
+                                    >
+                                        Clear filter
+                                    </button>
+                                )}
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <select
+                                value={mapMonth}
+                                onChange={(e) => setMapMonth(e.target.value)}
+                                className="h-8 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                            >
+                                <option value="all">All Months</option>
+                                {MONTH_NAMES.map((name, index) => (
+                                    <option key={name} value={index}>{name}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={mapYear}
+                                onChange={(e) => setMapYear(e.target.value)}
+                                className="h-8 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                            >
+                                <option value="all">All Years</option>
+                                {availableYears.map((year) => (
+                                    <option key={year} value={year}>{year}</option>
+                                ))}
+                            </select>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={handleExportKml}
+                                disabled={filteredIncidentLocations.length === 0}
+                            >
+                                <Download className="mr-1.5 h-3.5 w-3.5" />
+                                Export KML
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                        <IncidentsMap
+                            incidents={filteredIncidentLocations}
+                            height="calc(100svh - 400px)"
+                        />
+                    </CardContent>
+                </Card>
+
                 {/* ── Trend chart ── */}
                 <Card>
                     <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
@@ -672,64 +733,6 @@ export default function ReportsIndex({
                         </Card>
                     </div>
                 </div>
-
-                {/* ── Incident map ── */}
-                <Card>
-                    <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <CardTitle className="text-base font-semibold text-gray-900">Confiscation Locations</CardTitle>
-                            <p className="text-xs text-gray-400">
-                                {filteredIncidentLocations.length === incidentLocations.length
-                                    ? `${incidentLocations.length} incident${incidentLocations.length === 1 ? '' : 's'} with coordinates`
-                                    : `${filteredIncidentLocations.length} of ${incidentLocations.length} incidents`}
-                                {hasMapFilter && (
-                                    <button
-                                        type="button"
-                                        onClick={() => { setMapMonth('all'); setMapYear('all'); }}
-                                        className="ml-2 font-medium text-emerald-600 hover:underline"
-                                    >
-                                        Clear filter
-                                    </button>
-                                )}
-                            </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <select
-                                value={mapMonth}
-                                onChange={(e) => setMapMonth(e.target.value)}
-                                className="h-8 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                            >
-                                <option value="all">All Months</option>
-                                {MONTH_NAMES.map((name, index) => (
-                                    <option key={name} value={index}>{name}</option>
-                                ))}
-                            </select>
-                            <select
-                                value={mapYear}
-                                onChange={(e) => setMapYear(e.target.value)}
-                                className="h-8 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                            >
-                                <option value="all">All Years</option>
-                                {availableYears.map((year) => (
-                                    <option key={year} value={year}>{year}</option>
-                                ))}
-                            </select>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={handleExportKml}
-                                disabled={filteredIncidentLocations.length === 0}
-                            >
-                                <Download className="mr-1.5 h-3.5 w-3.5" />
-                                Export KML
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                        <IncidentsMap incidents={filteredIncidentLocations} />
-                    </CardContent>
-                </Card>
 
                 {/* ── Recent Activity ── */}
                 <Card>

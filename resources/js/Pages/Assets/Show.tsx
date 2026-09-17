@@ -35,6 +35,7 @@ interface ShowProps {
 
     qrPayload: string | null;
     qrSvg: string | null;
+    pieceQrSvgs: Record<number, string>;
     requiredDocumentTypes: Array<{ value: string; label: string }>;
     modes: Array<{ value: string; label: string }>;
     speciesOptions: string[];
@@ -401,16 +402,6 @@ function PieceModal({
                             No QR
                         </div>
                     )}
-
-                    {/* Close */}
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="mt-0.5 text-gray-300 hover:text-gray-500 transition-colors text-lg leading-none"
-                        aria-label="Close"
-                    >
-                        ✕
-                    </button>
                 </div>
             </div>
 
@@ -499,6 +490,7 @@ export default function AssetsShow({
     relatedAssets,
     qrPayload,
     qrSvg,
+    pieceQrSvgs,
     requiredDocumentTypes,
     speciesOptions,
     equipmentOptions,
@@ -835,11 +827,6 @@ export default function AssetsShow({
                         </h2>
                         <p className="text-sm text-gray-500">
                             {asset.asset_code}
-                            {asset.incident && (
-                                <span className="ml-1 text-gray-400">
-                                    — Item {asset.item_number}
-                                </span>
-                            )}
                         </p>
                     </div>
                     <AssetStatusBadge
@@ -1049,43 +1036,7 @@ export default function AssetsShow({
                                 <span className="font-medium">Agency:</span>{" "}
                                 {asset.apprehending_agency}
                             </p>
-                            {asset.type === "log" && (
-                                <>
-                                    <p>
-                                        <span className="font-medium">
-                                            Estimated Value (php):
-                                        </span>{" "}
-                                        {asset.estimated_value != null
-                                            ? Number(
-                                                asset.estimated_value,
-                                            ).toLocaleString("en-PH", {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2,
-                                            })
-                                            : "—"}
-                                    </p>
-                                    <p>
-                                        <span className="font-medium">
-                                            Volume (bd.ft):
-                                        </span>{" "}
-                                        {asset.volume_bd_ft ?? "—"}
-                                    </p>
-                                    <p>
-                                        <span className="font-medium">
-                                            Volume (cu.m):
-                                        </span>{" "}
-                                        {asset.volume_cu_m ?? "—"}
-                                    </p>
-                                </>
-                            )}
-                            {asset.type === "vehicle" && (
-                                <p>
-                                    <span className="font-medium">
-                                        Plate / Conveyance No.:
-                                    </span>{" "}
-                                    {asset.plate_number ?? "—"}
-                                </p>
-                            )}
+
                             <p>
                                 <span className="font-medium">
                                     Ongoing case:
@@ -2399,16 +2350,12 @@ export default function AssetsShow({
             </div>
 
             {/* ── Piece detail modal ──────────────────────────────────────── */}
-            <Modal
-                show={selectedPiece !== null}
-                onClose={() => setSelectedPiece(null)}
-                maxWidth="md"
-            >
+            <Modal show={selectedPiece !== null} onClose={() => setSelectedPiece(null)} maxWidth="md">
                 {selectedPiece && (
                     <PieceModal
                         piece={selectedPiece}
                         asset={asset}
-                        qrSvg={qrSvg}
+                        qrSvg={pieceQrSvgs[selectedPiece.id] ?? null}
                         canEdit={can.edit}
                         onClose={() => setSelectedPiece(null)}
                     />
@@ -2426,19 +2373,10 @@ export default function AssetsShow({
                         {selectedSiblingPiece ? (
                             // ── Piece detail view ──────────────────────────────────────
                             <div>
-                                <div className="flex items-center gap-2 px-6 pt-4 pb-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedSiblingPiece(null)}
-                                        className="text-xs font-medium text-emerald-700 hover:underline flex items-center gap-1"
-                                    >
-                                        ← Back to {selectedSibling.type}
-                                    </button>
-                                </div>
                                 <PieceModal
                                     piece={selectedSiblingPiece}
                                     asset={selectedSibling}
-                                    qrSvg={null}
+                                    qrSvg={pieceQrSvgs[selectedSiblingPiece.id] ?? null}
                                     canEdit={false}
                                     onClose={() => setSelectedSiblingPiece(null)}
                                 />

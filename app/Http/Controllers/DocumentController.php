@@ -143,32 +143,43 @@ class DocumentController extends Controller
 
         $path = $file->store("documents/required/{$asset->id}", 'local');
 
-        Document::create([
-            'attachable_type' => Asset::class,
-            'attachable_id' => $asset->id,
-            'document_type' => $type,
-            'file_path' => $path,
-            'original_name' => $file->getClientOriginalName(),
-            'mime_type' => $file->getClientMimeType(),
-            'status' => DocumentStatus::Pending,
-            'uploaded_by' => $request->user()->id,
-            'uploaded_at' => now(),
-        ]);
+        $siblingIds = Asset::where('asset_code', $asset->asset_code)->pluck('id');
 
-        // Auto-transition to DocumentsUploaded when all required docs are present
-        $asset->refresh();
-        if (
-            $asset->current_status === AssetStatus::Stored &&
-            $asset->hasAllRequiredDocuments()
-        ) {
-            $lifecycleService->transition(
-                $asset,
-                AssetStatus::DocumentsUploaded,
-                $request->user(),
-                'All required documents uploaded by MES.',
-                'asset.documents_uploaded',
-            );
+        foreach ($siblingIds as $siblingId) {
+            Document::create([
+                'attachable_type' => Asset::class,
+                'attachable_id'   => $siblingId,
+                'document_type'   => $type,
+                'file_path'       => $path,
+                'original_name'   => $file->getClientOriginalName(),
+                'mime_type'       => $file->getClientMimeType(),
+                'status'          => DocumentStatus::Pending,
+                'uploaded_by'     => $request->user()->id,
+                'uploaded_at'     => now(),
+            ]);
         }
+
+        Asset::where('asset_code', $asset->asset_code)
+            ->whereIn('current_status', [
+                AssetStatus::Stored->value,
+            ])
+            ->get()
+            ->each(function ($sibling) use ($lifecycleService, $request) {
+                $sibling->refresh();
+                // Guard: only transition if still in Stored status after refresh
+                if (
+                    $sibling->current_status === AssetStatus::Stored &&
+                    $sibling->hasAllRequiredDocuments()
+                ) {
+                    $lifecycleService->transition(
+                        $sibling,
+                        AssetStatus::DocumentsUploaded,
+                        $request->user(),
+                        'All required documents uploaded by MES.',
+                        'asset.documents_uploaded',
+                    );
+                }
+            });
 
         return back()->with('success', "{$type->label()} uploaded for review.");
     }
@@ -205,6 +216,15 @@ class DocumentController extends Controller
             'verified_by' => $request->user()->id,
             'verified_at' => now(),
         ]);
+
+        Document::where('file_path', $document->file_path)
+            ->where('id', '!=', $document->id)
+            ->update([
+                'status'      => $decision,
+                'remarks'     => $decision === 'rejected' ? $request->validated('remarks') : null,
+                'verified_by' => $request->user()->id,
+                'verified_at' => now(),
+            ]);
 
         $auditLog->log(
             $decision === 'verified' ? 'document.verified' : 'document.rejected',

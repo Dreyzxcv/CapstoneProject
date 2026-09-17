@@ -76,6 +76,7 @@ class AssetLifecycleService
         User $user,
         ?string $notes = null,
         ?string $auditAction = null,
+        bool $syncSiblings = true,  // add this
     ): Asset {
         if (! $this->canTransition($asset, $to)) {
             throw new DomainException(
@@ -83,18 +84,36 @@ class AssetLifecycleService
             );
         }
 
-        return DB::transaction(function () use ($asset, $to, $user, $notes, $auditAction) {
+        return DB::transaction(function () use ($asset, $to, $user, $notes, $auditAction, $syncSiblings) {
             $oldStatus = $asset->current_status;
 
             $asset->update(['current_status' => $to]);
 
             AssetCaseStatusHistory::create([
-                'asset_id' => $asset->id,
-                'status' => $to,
+                'asset_id'   => $asset->id,
+                'status'     => $to,
                 'changed_by' => $user->id,
-                'notes' => $notes,
+                'notes'      => $notes,
                 'changed_at' => now(),
             ]);
+
+            if ($syncSiblings) {
+                $siblings = Asset::where('asset_code', $asset->asset_code)
+                    ->where('id', '!=', $asset->id)
+                    ->get();
+
+                foreach ($siblings as $sibling) {
+                    $sibling->update(['current_status' => $to]);
+
+                    AssetCaseStatusHistory::create([
+                        'asset_id'   => $sibling->id,
+                        'status'     => $to,
+                        'changed_by' => $user->id,
+                        'notes'      => $notes,
+                        'changed_at' => now(),
+                    ]);
+                }
+            }
 
             $this->auditLogService->log(
                 $auditAction ?? 'asset.status_changed',

@@ -101,6 +101,7 @@ class CreateAsset
                 $user,
                 'Intake encoded by MES; asset placed in storage.',
                 'asset.created',
+                syncSiblings: false,
             );
 
             $this->auditLogService->log('asset.intake_created', $asset, null, $asset->toArray(), $user->id);
