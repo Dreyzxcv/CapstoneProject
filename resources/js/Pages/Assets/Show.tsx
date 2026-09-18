@@ -1351,7 +1351,7 @@ export default function AssetsShow({
                                         )}
                                     >
                                         <Button
-                                            className="w-full"
+                                            className="w-full mb-2"
                                             variant="outline"
                                         >
                                             Process Disposal

@@ -24,8 +24,17 @@ class JevController extends Controller
             ->latest()
             ->paginate(25);
 
+        $pendingAssets = Asset::with('incident')
+            ->where('current_status', \App\Enums\AssetStatus::ClearedForAccounting)
+            ->whereDoesntHave('jev')
+            ->latest()
+            ->get(['id', 'asset_code', 'aap_number', 'current_status'])
+            ->unique('asset_code')
+            ->values();
+
         return Inertia::render('Jev/Index', [
-            'jevs' => $jevs,
+            'jevs'          => $jevs,
+            'pendingAssets' => $pendingAssets,
         ]);
     }
 

@@ -46,10 +46,10 @@ function StatusBadge({ jev }: { jev: Jev | null }) {
 export default function JevShow({ asset, jev, can, appeal_window_open, appeal_deadline }: Props) {
 
     // ── Issue JEV form ────────────────────────────────────────────────────────
-    const issueForm = useForm({});
+    const issueForm = useForm({ jev_number: '' });
     const handleIssue: FormEventHandler = (e) => {
         e.preventDefault();
-        issueForm.post(route('assets.jev.issue', asset.id), {
+        issueForm.post(route('assets.jev.store', asset.id), {
             preserveScroll: true,
         });
     };
@@ -137,10 +137,22 @@ export default function JevShow({ asset, jev, can, appeal_window_open, appeal_de
                         <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
                             <h3 className="mb-3 text-base font-semibold text-gray-700">Issue JEV</h3>
                             <p className="mb-4 text-sm text-gray-500">
-                                No JEV has been issued for this asset yet. Issue one to begin the voucher process.
+                                No JEV has been issued for this asset yet. Enter the JEV number to begin.
                             </p>
-                            <form onSubmit={handleIssue}>
-                                <PrimaryButton disabled={issueForm.processing}>
+                            <form onSubmit={handleIssue} className="space-y-4">
+                                <div>
+                                    <InputLabel htmlFor="jev_number" value="JEV Number" />
+                                    <input
+                                        id="jev_number"
+                                        type="text"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                        value={issueForm.data.jev_number}
+                                        onChange={(e) => issueForm.setData('jev_number', e.target.value)}
+                                        placeholder="e.g. JEV-2026-00001"
+                                    />
+                                    <InputError message={issueForm.errors.jev_number} className="mt-1" />
+                                </div>
+                                <PrimaryButton disabled={issueForm.processing || !issueForm.data.jev_number.trim()}>
                                     {issueForm.processing ? 'Issuing…' : 'Issue JEV'}
                                 </PrimaryButton>
                             </form>
