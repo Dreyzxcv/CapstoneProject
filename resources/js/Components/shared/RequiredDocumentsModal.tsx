@@ -33,10 +33,13 @@ export default function RequiredDocumentsModal({
     canUpload,
     canVerify,
 }: RequiredDocumentsModalProps) {
-    const uploadForm = useForm<{ document_type: string; file: File | null }>({
+    const uploadForm = useForm<{ document_type: string; file: File | null; aap_number: string }>({
         document_type: '',
         file: null,
+        aap_number: '',
     });
+
+const [aapNumber, setAapNumber] = useState('');
 
     const verifyForm = useForm<{ decision: string; remarks: string }>({
         decision: '',
@@ -77,7 +80,11 @@ export default function RequiredDocumentsModal({
 
     function confirmUpload() {
         if (!pendingUpload) return;
-        uploadForm.setData({ document_type: pendingUpload.type, file: pendingUpload.file });
+        uploadForm.setData({
+            document_type: pendingUpload.type,
+            file: pendingUpload.file,
+            aap_number: pendingUpload.type === 'aap_document' ? aapNumber : '',
+        });
         uploadForm.post(route('assets.required-documents.store', assetId), {
             forceFormData: true,
             preserveScroll: true,
@@ -85,6 +92,7 @@ export default function RequiredDocumentsModal({
                 uploadForm.reset();
                 URL.revokeObjectURL(pendingUpload.previewUrl);
                 setPendingUpload(null);
+                setAapNumber('');
             },
         });
     }
@@ -270,8 +278,36 @@ export default function RequiredDocumentsModal({
                                                 )}
                                                 <p className="min-w-0 flex-1 truncate text-xs text-gray-700">{pendingUpload.file.name}</p>
                                             </div>
+
+                                            {/* AAP number input -- only for aap_document */}
+                                            {pendingUpload.type === 'aap_document' && (
+                                                <div className="mt-3">
+                                                    <label className="block text-xs font-medium text-emerald-800 mb-1">
+                                                        AAP Number <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={aapNumber}
+                                                        onChange={(e) => setAapNumber(e.target.value)}
+                                                        placeholder="e.g. AAP-FV-2026-00001"
+                                                        className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                                    />
+                                                    {uploadForm.errors.aap_number && (
+                                                        <p className="mt-1 text-xs text-red-600">{uploadForm.errors.aap_number}</p>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             <div className="mt-3 flex gap-2">
-                                                <Button type="button" size="sm" onClick={confirmUpload} disabled={uploadForm.processing}>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    onClick={confirmUpload}
+                                                    disabled={
+                                                        uploadForm.processing ||
+                                                        (pendingUpload.type === 'aap_document' && !aapNumber.trim())
+                                                    }
+                                                >
                                                     {uploadForm.processing ? 'Uploading…' : 'Confirm Upload'}
                                                 </Button>
                                                 <Button type="button" size="sm" variant="outline" onClick={cancelUpload}>

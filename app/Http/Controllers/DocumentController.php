@@ -145,6 +145,12 @@ class DocumentController extends Controller
 
         $siblingIds = Asset::where('asset_code', $asset->asset_code)->pluck('id');
 
+        if ($type === DocumentType::AapDocument) {
+            $aapNumber = $request->validated('aap_number');
+            Asset::where('asset_code', $asset->asset_code)
+                ->update(['aap_number' => $aapNumber]);
+        }
+
         foreach ($siblingIds as $siblingId) {
             Document::create([
                 'attachable_type' => Asset::class,

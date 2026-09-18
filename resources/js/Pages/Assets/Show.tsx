@@ -58,6 +58,13 @@ interface ShowProps {
         verifyDocuments: boolean;
         uploadJevOut: boolean;
     };
+    documentReviewStatus: {
+        all_verified: boolean;
+        any_rejected: boolean;
+        can_approve: boolean;
+        can_return: boolean;
+        show_panel: boolean;
+    };
 }
 
 // ─── Piece Detail / Edit Modal ────────────────────────────────────────────────
@@ -496,6 +503,7 @@ export default function AssetsShow({
     can,
     hasAllRequiredDocuments,
     aapDocumentUploaded,
+    documentReviewStatus,
 }: ShowProps) {
     usePoll(6000, { only: ["asset"] });
 
@@ -726,7 +734,13 @@ export default function AssetsShow({
             d.disposal_jev.uploaded_at,
     );
 
-    function CustodianReviewPanel({ asset }: { asset: ShowProps["asset"] }) {
+    function CustodianReviewPanel({
+        asset,
+        documentReviewStatus,
+    }: {
+        asset: ShowProps["asset"];
+        documentReviewStatus: ShowProps["documentReviewStatus"];
+    }) {
         const [remarks, setRemarks] = useState("");
 
         function submit(decision: "approved" | "returned") {
@@ -734,14 +748,11 @@ export default function AssetsShow({
                 alert("Please provide remarks when returning for revision.");
                 return;
             }
-            if (
-                !confirm(
-                    decision === "approved"
-                        ? "Approve custody review?"
-                        : "Return for revision?",
-                )
-            )
-                return;
+            if (!confirm(
+                decision === "approved"
+                    ? "Approve custody review?"
+                    : "Return for revision?",
+            )) return;
             router.post(route("assets.resolve-custody-review", asset.id), {
                 decision,
                 remarks,
@@ -754,32 +765,41 @@ export default function AssetsShow({
                     Action Required — Custody Review
                 </p>
                 <p className="text-xs text-blue-700">
-                    This asset was submitted for custody review. Check the uploaded
-                    documents, then approve or return.
+                    {documentReviewStatus.all_verified
+                        ? "All required documents are verified. You may now approve this asset."
+                        : "Some documents were rejected. Return this asset to MES for corrections."}
                 </p>
-                <textarea
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                    rows={2}
-                    placeholder="Remarks (required if returning)"
-                    value={remarks}
-                    onChange={(e) => setRemarks(e.target.value)}
-                />
+
+                {documentReviewStatus.can_return && (
+                    <textarea
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                        rows={2}
+                        placeholder="Remarks (required if returning)"
+                        value={remarks}
+                        onChange={(e) => setRemarks(e.target.value)}
+                    />
+                )}
+
                 <div className="flex gap-2">
-                    <Button
-                        size="sm"
-                        onClick={() => submit("approved")}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                        Approve
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => submit("returned")}
-                        className="border-red-300 text-red-700 hover:bg-red-50"
-                    >
-                        Return
-                    </Button>
+                    {documentReviewStatus.can_approve && (
+                        <Button
+                            size="sm"
+                            onClick={() => submit("approved")}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                            Approve
+                        </Button>
+                    )}
+                    {documentReviewStatus.can_return && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => submit("returned")}
+                            className="border-red-300 text-red-700 hover:bg-red-50"
+                        >
+                            Return
+                        </Button>
+                    )}
                 </div>
             </div>
         );
@@ -890,7 +910,7 @@ export default function AssetsShow({
                                                 Not yet received
                                             </span>
                                         )}
-                                        {can.updateAap && (
+                                        {can.updateAap && asset.aap_number && (
                                             <button
                                                 type="button"
                                                 onClick={() =>
@@ -898,9 +918,7 @@ export default function AssetsShow({
                                                 }
                                                 className="ml-2 text-xs font-medium text-emerald-700 hover:underline"
                                             >
-                                                {asset.aap_number
-                                                    ? "Edit"
-                                                    : "Add"}
+                                                Edit
                                             </button>
                                         )}
                                     </>
@@ -1251,15 +1269,7 @@ export default function AssetsShow({
                                         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
                                             <p className="font-medium">AAP Number required before submitting.</p>
                                             <p className="mt-0.5 text-xs text-amber-700">
-                                                The AAP Scanned Document has been uploaded. Please{" "}
-                                                <button
-                                                    type="button"
-                                                    className="underline font-medium"
-                                                    onClick={() => setEditingAap(true)}
-                                                >
-                                                    enter the AAP number
-                                                </button>{" "}
-                                                in the Overview section above.
+                                                Upload the AAP Scanned Document with the AAP number filled in.
                                             </p>
                                         </div>
                                     ) : asset.custody_review_status === "pending" ? (
@@ -1295,8 +1305,10 @@ export default function AssetsShow({
                                     )}
                                 </div>
                             )}
-                            {can.resolveCustodyReview && asset.custody_review_status === "pending" && (
-                                <CustodianReviewPanel asset={asset} />
+                            {can.resolveCustodyReview &&
+                                asset.custody_review_status === "pending" &&
+                                documentReviewStatus.show_panel && (
+                                <CustodianReviewPanel asset={asset} documentReviewStatus={documentReviewStatus} />
                             )}
                         </CardContent>
                     </Card>

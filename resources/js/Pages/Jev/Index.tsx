@@ -78,7 +78,7 @@ export default function JevIndex({ jevs, pendingAssets }: Props) {
                                                         href={route('assets.jev.show', asset.id)}
                                                         className="text-sm font-medium text-emerald-600 hover:underline"
                                                     >
-                                                        Add JEV →
+                                                        Add JEV IN →
                                                     </Link>
                                                 </td>
                                             </tr>
@@ -120,7 +120,11 @@ export default function JevIndex({ jevs, pendingAssets }: Props) {
                                             <td className="px-4 py-3 font-medium text-gray-800">{jev.asset?.asset_code ?? '—'}</td>
                                             <td className="px-4 py-3 text-gray-500">{jev.asset?.aap_number ?? '—'}</td>
                                             <td className="px-4 py-3 text-gray-700">{jev.jev_number ?? '—'}</td>
-                                            <td className="px-4 py-3 text-gray-500">{jev.jev_date ?? '—'}</td>
+                                            <td className="px-4 py-3 text-gray-500">
+                                                {jev.jev_date
+                                                    ? new Date(jev.jev_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+                                                    : '—'}
+                                            </td>
                                             <td className="px-4 py-3 text-gray-700">
                                                 {jev.amount
                                                     ? `₱ ${Number(jev.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`

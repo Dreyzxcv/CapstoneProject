@@ -219,6 +219,33 @@ class AssetController extends Controller
                 'edit'              => $request->user()?->can('assets.update') ?? false,
             ],
             'aapDocumentUploaded' => $asset->hasAapDocument(),
+            'documentReviewStatus' => (function () use ($asset) {
+                $required = $asset->requiredDocumentTypes();
+                $docs = $asset->documents()
+                    ->whereIn('document_type', array_map(fn ($t) => $t->value, $required))
+                    ->get()
+                    ->groupBy(fn ($d) => $d->getRawOriginal('document_type'))
+                    ->map(fn ($group) => $group->sortByDesc('id')->first());
+
+                $statuses = collect($required)->map(function ($type) use ($docs) {
+                    $doc = $docs->get($type->value);
+                    $status = $doc ? $doc->getRawOriginal('status') : 'missing';
+                    return $status;
+                });
+
+                $allVerified = $statuses->every(fn ($s) => $s === 'verified');
+                $anyRejected = $statuses->contains('rejected');
+                $anyPending  = $statuses->contains('pending');
+                $anyMissing  = $statuses->contains('missing');
+
+                return [
+                    'all_verified' => $allVerified,
+                    'any_rejected' => $anyRejected,
+                    'can_approve'  => $allVerified,
+                    'can_return'   => $anyRejected && !$anyPending && !$anyMissing,
+                    'show_panel'   => $allVerified || ($anyRejected && !$anyPending && !$anyMissing),
+                ];
+            })(),
         ]);
     }
     

@@ -153,7 +153,11 @@ export default function JevShow({ asset, jev, can }: Props) {
                                 </div>
                                 <div>
                                     <dt className="text-gray-400 font-medium">JEV Date</dt>
-                                    <dd className="text-gray-800">{jev.jev_date ?? '—'}</dd>
+                                    <dd className="text-gray-800">
+                                        {jev.jev_date
+                                            ? new Date(jev.jev_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+                                            : '—'}
+                                    </dd>
                                 </div>
                                 <div className="col-span-2">
                                     <dt className="text-gray-400 font-medium">Particulars</dt>
@@ -174,6 +178,15 @@ export default function JevShow({ asset, jev, can }: Props) {
                                 Issued on {jev.created_at
                                     ? new Date(jev.created_at).toLocaleDateString('en-PH')
                                     : '—'}
+                            </div>
+
+                            <div className="mt-3">
+                                <Link
+                                    href={route('assets.show', asset.id)}
+                                    className="text-sm font-medium text-emerald-600 hover:underline"
+                                >
+                                    View Asset →
+                                </Link>
                             </div>
                         </div>
                     )}

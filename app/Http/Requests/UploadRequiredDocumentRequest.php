@@ -17,7 +17,13 @@ class UploadRequiredDocumentRequest extends FormRequest
     {
         return [
             'document_type' => ['required', Rule::enum(DocumentType::class)],
-            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:8192'],
+            'file'          => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:8192'],
+            'aap_number'    => [
+                Rule::requiredIf($this->input('document_type') === 'aap_document'),
+                'nullable',
+                'string',
+                'max:100',
+            ],
         ];
     }
 }

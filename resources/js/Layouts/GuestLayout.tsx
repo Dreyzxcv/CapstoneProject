@@ -14,7 +14,7 @@ export default function Guest({ children }: PropsWithChildren) {
 
                     {/* System title */}
                     <div className="text-center">
-                        <h1 className="text-[20px] font-semibold tracking-tight text-white">LogTrack Insight</h1>
+                        <h1 className="text-[20px] font-semibold tracking-tight text-white">ForestTrack</h1>
                         <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.13em] text-[#4E8066]">
                             DENR · PENRO Catanduanes
                         </p>
