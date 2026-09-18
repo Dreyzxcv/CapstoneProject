@@ -848,11 +848,11 @@ export default function AssetsShow({
                                 <span className="font-medium">Mode:</span>{" "}
                                 {asset.mode}
                             </p>
-                            <div className="md:col-span-2">
+                            <div>
                                 <span className="font-medium">AAP No.:</span>{" "}
                                 {editingAap ? (
                                     <form
-                                        onSubmit={submitAap}
+                                        onSubmit={submitAap}    
                                         className="mt-1 flex items-center gap-2"
                                     >
                                         <Input
@@ -910,18 +910,11 @@ export default function AssetsShow({
                                     className="mt-1"
                                 />
                             </div>
-                            {can.submitAapForReview && (
-                                <div className="md:col-span-2 mt-1">
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={handleSubmitAapForReview}
-                                        className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-                                    >
-                                        Notify Custodian to Verify AAP
-                                    </Button>
-                                </div>
+                            {asset.jev?.jev_number && (
+                                <p>
+                                    <span className="font-medium">JEV No. (IN):</span>{" "}
+                                    {asset.jev.jev_number}
+                                </p>
                             )}
                             {(asset as any).aap_review_requested && (
                                 <div className="md:col-span-2">

@@ -28,8 +28,7 @@ interface Props extends PageProps {
 }
 
 function StatusBadge({ jev }: { jev: Jev }) {
-    if (jev.uploaded_at) return <Badge className="bg-green-600 text-white">Uploaded</Badge>;
-    if (jev.issued_at)   return <Badge className="bg-blue-600 text-white">Issued</Badge>;
+    if (jev.jev_number) return <Badge className="bg-green-600 text-white">Issued</Badge>;
     return <Badge variant="outline" className="text-yellow-600 border-yellow-400">Pending</Badge>;
 }
 

@@ -10,26 +10,19 @@ class Jev extends Model
     protected $fillable = [
         'asset_id',
         'jev_number',
-        'funding_source_code',
-        'funding_source_label',
-        'transaction_type',
-        'transaction_code',
-        'responsibility_center',
+        'jev_date',
         'particulars',
-        'document_no',
-        'prepared_by_name',
-        'approved_by_name',
+        'amount',
         'line_items',
         'created_by_accounting_id',
-        'uploaded_by_mes_id',
-        'uploaded_at',
         'pdf_path',
     ];
 
     protected function casts(): array
     {
         return [
-            'uploaded_at' => 'datetime',
+            'jev_date'   => 'date',
+            'amount'     => 'decimal:2',
             'line_items' => 'array',
         ];
     }
@@ -42,11 +35,6 @@ class Jev extends Model
     public function createdByAccounting(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_accounting_id');
-    }
-
-    public function uploadedByMes(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'uploaded_by_mes_id');
     }
 
     public function totalDebit(): float

@@ -134,15 +134,11 @@ export interface Jev {
     id: number;
     asset_id: number;
     jev_number: string | null;
-    jev_date: string | null;    
+    jev_date: string | null;
     particulars: string | null;
-    amount: string | null;   
-    issued_at: string | null;
-    issued_by_name: string | null;
-    uploaded_at: string | null;
-    file_path: string | null;
-    appeal_window_open: boolean;
-    appeal_deadline: string | null; 
+    amount: string | null;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface Donation {

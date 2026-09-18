@@ -125,7 +125,6 @@ class AssetController extends Controller
             'creator',
             'acknowledgementReceipt.signedByCustodian',
             'jev.createdByAccounting',
-            'jev.uploadedByMes',
             'disposals.donation',
             'disposals.disposalJev.issuedByAccounting',
             'disposals.disposalJev.uploadedByMes',

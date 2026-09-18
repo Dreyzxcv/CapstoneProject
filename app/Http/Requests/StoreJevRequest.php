@@ -14,7 +14,10 @@ class StoreJevRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'jev_number' => ['required', 'string', 'max:100', 'unique:jevs,jev_number'],
+            'jev_number'  => ['required', 'string', 'max:100', 'unique:jevs,jev_number'],
+            'jev_date'    => ['required', 'date'],
+            'particulars' => ['nullable', 'string', 'max:1000'],
+            'amount'      => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }

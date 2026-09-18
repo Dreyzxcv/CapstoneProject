@@ -3,16 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Actions\IssueJev;
-use App\Actions\UploadJev;
 use App\Http\Requests\StoreJevRequest;
-use App\Http\Requests\UploadJevRequest;
 use App\Models\Asset;
 use App\Models\Jev;
+use App\Enums\AssetStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Illuminate\Support\Facades\Gate;
 
 class JevController extends Controller
 {
@@ -25,8 +23,12 @@ class JevController extends Controller
             ->paginate(25);
 
         $pendingAssets = Asset::with('incident')
-            ->where('current_status', \App\Enums\AssetStatus::ClearedForAccounting)
+            ->where('current_status', AssetStatus::ClearedForAccounting)
             ->whereDoesntHave('jev')
+            ->whereNotIn(
+                'asset_code',
+                Asset::whereHas('jev')->pluck('asset_code')
+            )
             ->latest()
             ->get(['id', 'asset_code', 'aap_number', 'current_status'])
             ->unique('asset_code')
@@ -44,20 +46,7 @@ class JevController extends Controller
 
         $issueJev->execute($asset, $request->validated(), $request->user());
 
-        return back()->with('success', 'JEV created and linked to asset.');
-    }
-
-    public function upload(UploadJevRequest $request, Asset $asset, UploadJev $uploadJev): RedirectResponse
-    {
-        $asset->loadMissing('jev');
-
-        abort_if($asset->jev === null, 404, 'No JEV has been issued for this asset yet.');
-
-        $this->authorize('upload', $asset->jev);
-
-        $uploadJev->execute($asset, $asset->jev, $request->user());
-
-        return back()->with('success', 'JEV uploaded. Asset moved to disposal processing.');
+        return back()->with('success', 'JEV issued successfully.');
     }
 
     public function show(Request $request, Asset $asset): Response
@@ -69,14 +58,10 @@ class JevController extends Controller
         $jev = $asset->jev;
 
         return Inertia::render('Jev/Show', [
-            'asset'              => $asset,
-            'jev'                => $jev,
-            'appeal_window_open' => $jev?->appeal_window_open ?? false,
-            'appeal_deadline'    => $jev?->appeal_deadline?->toDateString(),
-            'can'                => [
-                'issue_jev'  => $request->user()->can('issue', [Jev::class, $asset]),
-                'upload_jev' => $jev && $request->user()->can('upload', $jev),
-                'store_jev'  => $jev && $request->user()->can('store', $jev),
+            'asset' => $asset,
+            'jev'   => $jev,
+            'can'   => [
+                'issue_jev' => $request->user()->can('create', Jev::class),
             ],
         ]);
     }
