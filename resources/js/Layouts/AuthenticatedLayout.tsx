@@ -112,7 +112,7 @@ export default function Authenticated({
                 {
                     href: route('jev.index'),
                     label: 'JEV',
-                    active: route().current('jev.*') || route().current('assets.jev.*'),
+                    active: route().current('jev.*'),
                     show: hasPermission(permissions, 'jev.view'),
                     icon: <Receipt className={iconClass} />,
                 },
@@ -456,6 +456,12 @@ export default function Authenticated({
                     {flash?.error && (
                         <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                             {flash.error}
+                        </div>
+                    )}
+                    {flash?.info && (
+                        <div className="border-b border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex items-center gap-2">
+                            <span>ℹ️</span>
+                            {flash.info}
                         </div>
                     )}
 

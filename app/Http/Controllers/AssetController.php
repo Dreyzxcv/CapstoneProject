@@ -110,9 +110,19 @@ class AssetController extends Controller
             ->with('success', 'Asset intake recorded successfully.');
     }
 
-    public function show(Request $request, Asset $asset, QrCodeService $qrCodeService): Response
+    public function show(Request $request, Asset $asset, QrCodeService $qrCodeService): Response|RedirectResponse
     {
         $this->authorize('view', $asset);
+
+        $primaryAsset = Asset::where('asset_code', $asset->asset_code)
+            ->orderBy('id')
+            ->first();
+
+        if ($primaryAsset && $primaryAsset->id !== $asset->id) {
+            return redirect()
+                ->route('assets.show', $primaryAsset->id)
+                ->with('info', "You were redirected to the primary record for {$asset->asset_code}.");
+        }
 
         \App\Models\Notification::where('user_id', $request->user()->id)
             ->where('asset_id', $asset->id)
