@@ -53,12 +53,16 @@ return new class extends Migration
 
         Schema::create('jevs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('asset_id')->constrained()->cascadeOnDelete();
+            $table->string('asset_code');
+            $table->string('asset_type'); // log, vehicle, equipment
             $table->string('jev_number')->unique();
+            $table->date('jev_date')->nullable();
+            $table->text('particulars')->nullable();
+            $table->decimal('amount', 15, 2)->nullable();
             $table->foreignId('created_by_accounting_id')->constrained('users');
-            $table->foreignId('uploaded_by_mes_id')->nullable()->constrained('users');
-            $table->string('pdf_path')->nullable();
             $table->timestamps();
+
+            $table->unique(['asset_code', 'asset_type']);
         });
 
         Schema::create('disposals', function (Blueprint $table) {

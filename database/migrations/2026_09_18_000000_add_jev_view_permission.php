@@ -13,11 +13,16 @@ return new class extends Migration
 
         $permission = Permission::firstOrCreate(['name' => 'jev.view']);
 
-        // System Admin already has all permissions — give it this one too
-        Role::findByName('System Admin')->givePermissionTo($permission);
+        // Only assign if roles exist -- they may not during fresh migration
+        $systemAdmin = Role::whereName('System Admin')->first();
+        if ($systemAdmin) {
+            $systemAdmin->givePermissionTo($permission);
+        }
 
-        // Accounting Officer is the JEV role
-        Role::findByName('Accounting Officer')->givePermissionTo($permission);
+        $accountingOfficer = Role::whereName('Accounting Officer')->first();
+        if ($accountingOfficer) {
+            $accountingOfficer->givePermissionTo($permission);
+        }
     }
 
     public function down(): void
@@ -26,8 +31,8 @@ return new class extends Migration
 
         $permission = Permission::findByName('jev.view');
 
-        Role::findByName('System Admin')->revokePermissionTo($permission);
-        Role::findByName('Accounting Officer')->revokePermissionTo($permission);
+        Role::whereName('System Admin')->first()?->revokePermissionTo($permission);
+        Role::whereName('Accounting Officer')->first()?->revokePermissionTo($permission);
 
         $permission->delete();
     }

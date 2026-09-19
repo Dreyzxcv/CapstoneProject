@@ -25,6 +25,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'assets.scan',
             'assets.submit_custody_review',
             'incidents.create',
+            'jev.view',
             'jev.create',
             'jev.upload',
             'disposals.view',
@@ -53,7 +54,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'assets.generate_qr', 'assets.scan', 'reports.view', 'documents.upload', 'documents.verify',
             ],
             'Accounting Officer' => [
-                'assets.view', 'jev.create', 'jev.upload', 'disposals.view', 'disposals.process',
+                'assets.view', 'jev.view', 'jev.create', 'jev.upload', 'disposals.view', 'disposals.process',
                 'reports.view', 'reports.export', 'documents.upload',
             ],
             'PENRO Management' => [

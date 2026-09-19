@@ -25,12 +25,17 @@ class IssueJev
         }
 
         if ($asset->jev) {
-            throw new DomainException('JEV already exists for this asset.');
+            throw new DomainException('JEV already exists for this asset type.');
         }
 
         return DB::transaction(function () use ($asset, $data, $accountingUser) {
+            $assetType = $asset->type instanceof \App\Enums\AssetType
+                ? $asset->type->value
+                : $asset->type;
+
             $jev = Jev::create([
-                'asset_id'                 => $asset->id,
+                'asset_code'               => $asset->asset_code,
+                'asset_type'               => $assetType,
                 'jev_number'               => $data['jev_number'],
                 'jev_date'                 => $data['jev_date'],
                 'particulars'              => $data['particulars'] ?? null,
@@ -38,14 +43,14 @@ class IssueJev
                 'created_by_accounting_id' => $accountingUser->id,
             ]);
 
-            // Transition all siblings to ForDisposal
+            // Transition only THIS asset type to ForDisposal
             $this->lifecycle->transition(
                 $asset,
                 AssetStatus::ForDisposal,
                 $accountingUser,
-                'JEV IN issued — asset cleared for disposal processing.',
+                'JEV issued — asset cleared for disposal processing.',
                 'jev.issued',
-                syncSiblings: true,
+                syncSiblings: false, // only this type, not all siblings
             );
 
             $this->auditLogService->log('jev.issued', $jev, null, $jev->toArray(), $accountingUser->id);

@@ -18,20 +18,19 @@ class JevController extends Controller
     {
         $this->authorize('viewAny', Jev::class);
 
-        $jevs = Jev::with(['asset.incident'])
-            ->latest()
-            ->paginate(25);
+        $jevs = Jev::latest()->paginate(25);
 
-        $pendingAssets = Asset::with('incident')
-            ->where('current_status', AssetStatus::ClearedForAccounting)
-            ->whereDoesntHave('jev')
-            ->whereNotIn(
-                'asset_code',
-                Asset::whereHas('jev')->pluck('asset_code')
-            )
+        // Assets cleared for accounting where their type has no JEV yet
+        $pendingAssets = Asset::where('current_status', AssetStatus::ClearedForAccounting)
+            ->whereNotExists(function ($query) {
+                $query->selectRaw(1)
+                    ->from('jevs')
+                    ->whereColumn('jevs.asset_code', 'assets.asset_code')
+                    ->whereColumn('jevs.asset_type', 'assets.type');
+            })
             ->latest()
-            ->get(['id', 'asset_code', 'aap_number', 'current_status'])
-            ->unique('asset_code')
+            ->get(['id', 'asset_code', 'aap_number', 'type', 'current_status'])
+            ->unique(fn ($a) => $a->asset_code . '-' . ($a->type instanceof \App\Enums\AssetType ? $a->type->value : $a->type))
             ->values();
 
         return Inertia::render('Jev/Index', [

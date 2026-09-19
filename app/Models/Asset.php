@@ -111,7 +111,10 @@ class Asset extends Model
 
     public function jev(): HasOne
     {
-        return $this->hasOne(Jev::class);
+        return $this->hasOne(Jev::class, 'asset_code', 'asset_code')
+            ->where('asset_type', $this->type instanceof \App\Enums\AssetType
+                ? $this->type->value
+                : $this->type);
     }
 
     public function disposals(): HasMany

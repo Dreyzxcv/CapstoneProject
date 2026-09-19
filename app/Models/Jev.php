@@ -8,12 +8,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Jev extends Model
 {
     protected $fillable = [
-        'asset_id',
+        'asset_code',
+        'asset_type',
         'jev_number',
         'jev_date',
         'particulars',
         'amount',
-        'line_items',
         'created_by_accounting_id',
         'pdf_path',
     ];
@@ -27,9 +27,9 @@ class Jev extends Model
         ];
     }
 
-    public function asset(): BelongsTo
+    public function asset(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(Asset::class);
+        return $this->belongsTo(Asset::class, 'asset_code', 'asset_code');
     }
 
     public function createdByAccounting(): BelongsTo

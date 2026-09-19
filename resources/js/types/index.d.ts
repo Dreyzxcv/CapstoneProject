@@ -133,7 +133,8 @@ export interface JevLineItem {
 
 export interface Jev {
     id: number;
-    asset_id: number;
+    asset_code: string;
+    asset_type: string;
     jev_number: string | null;
     jev_date: string | null;
     particulars: string | null;

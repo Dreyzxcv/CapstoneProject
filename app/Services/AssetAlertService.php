@@ -15,7 +15,6 @@ class AssetAlertService
             ->merge($this->appealDeadlineAlerts())
             ->merge($this->staleDisposalAlerts())
             ->merge($this->stalePendingReviewAlerts())
-            ->merge($this->staleJevAlerts())
             ->sortBy('severity_rank')
             ->take(15)
             ->values();
@@ -96,29 +95,6 @@ class AssetAlertService
             'severity_rank' => 2,
             'title' => 'Custody review overdue',
             'message' => "{$asset->asset_code} has been pending custody review for over 7 days.",
-            'asset_id' => $asset->id,
-        ]);
-    }
-
-    /**
-     * JEVs issued by Accounting but not yet uploaded/confirmed by MES.
-     */
-    protected function staleJevAlerts(): Collection
-    {
-        $threshold = now()->subDays(10);
-
-        $stale = Asset::query()
-            ->whereHas('jev', function ($q) use ($threshold) {
-                $q->whereNull('uploaded_at')->where('created_at', '<=', $threshold);
-            })
-            ->get();
-
-        return $stale->map(fn (Asset $asset) => [
-            'id' => "jev-{$asset->id}",
-            'severity' => 'info',
-            'severity_rank' => 2,
-            'title' => 'JEV upload pending',
-            'message' => "{$asset->asset_code} — JEV issued over 10 days ago but not yet uploaded by MES.",
             'asset_id' => $asset->id,
         ]);
     }

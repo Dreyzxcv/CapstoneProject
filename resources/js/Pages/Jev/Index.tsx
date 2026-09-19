@@ -1,24 +1,19 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
-import { PageProps, Jev, Asset } from '@/types';
+import { PageProps, Jev } from '@/types';
 import { Badge } from '@/Components/ui/badge';
-
-interface JevWithAsset extends Jev {
-    asset: Asset & {
-        incident?: { incident_number: string };
-    };
-}
 
 interface PendingAsset {
     id: number;
     asset_code: string;
     aap_number: string | null;
+    type: string;
     current_status: string;
 }
 
 interface Props extends PageProps {
     jevs: {
-        data: JevWithAsset[];
+        data: Jev[];
         current_page: number;
         last_page: number;
         next_page_url: string | null;
@@ -47,7 +42,7 @@ export default function JevIndex({ jevs, pendingAssets }: Props) {
                         <div>
                             <div className="mb-3 flex items-center gap-2">
                                 <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                                    Cleared for Custodian — Awaiting JEV
+                                    Cleared for Accounting — Awaiting JEV
                                 </h3>
                                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
                                     {pendingAssets.length}
@@ -59,6 +54,7 @@ export default function JevIndex({ jevs, pendingAssets }: Props) {
                                         <tr>
                                             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Asset Code</th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">AAP No.</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Type</th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
                                             <th className="px-4 py-3" />
                                         </tr>
@@ -68,9 +64,10 @@ export default function JevIndex({ jevs, pendingAssets }: Props) {
                                             <tr key={asset.id} className="hover:bg-amber-50/40">
                                                 <td className="px-4 py-3 font-medium text-gray-800">{asset.asset_code}</td>
                                                 <td className="px-4 py-3 text-gray-500">{asset.aap_number ?? '—'}</td>
+                                                <td className="px-4 py-3 capitalize text-gray-600">{asset.type}</td>
                                                 <td className="px-4 py-3">
                                                     <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200">
-                                                        Cleared for Custodian
+                                                        Cleared for Accounting
                                                     </Badge>
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
@@ -99,7 +96,7 @@ export default function JevIndex({ jevs, pendingAssets }: Props) {
                                 <thead className="bg-gray-50">
                                     <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Asset Code</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">AAP No.</th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Type</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">JEV No.</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Date</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Amount</th>
@@ -117,8 +114,8 @@ export default function JevIndex({ jevs, pendingAssets }: Props) {
                                     )}
                                     {jevs.data.map((jev) => (
                                         <tr key={jev.id} className="hover:bg-gray-50">
-                                            <td className="px-4 py-3 font-medium text-gray-800">{jev.asset?.asset_code ?? '—'}</td>
-                                            <td className="px-4 py-3 text-gray-500">{jev.asset?.aap_number ?? '—'}</td>
+                                            <td className="px-4 py-3 font-medium text-gray-800">{jev.asset_code}</td>
+                                            <td className="px-4 py-3 capitalize text-gray-600">{jev.asset_type}</td>
                                             <td className="px-4 py-3 text-gray-700">{jev.jev_number ?? '—'}</td>
                                             <td className="px-4 py-3 text-gray-500">
                                                 {jev.jev_date
@@ -133,7 +130,7 @@ export default function JevIndex({ jevs, pendingAssets }: Props) {
                                             <td className="px-4 py-3"><StatusBadge jev={jev} /></td>
                                             <td className="px-4 py-3 text-right">
                                                 <Link
-                                                    href={route('assets.jev.show', jev.asset_id)}
+                                                    href={route('assets.jev.show', { asset: jev.asset_code, type: jev.asset_type })}
                                                     className="text-sm text-emerald-600 hover:underline"
                                                 >
                                                     View
