@@ -118,6 +118,7 @@ export interface StatusHistoryEntry {
     status: string;
     notes: string | null;
     changed_at: string;
+    asset_type?: string;
     changed_by?: Omit<User, 'roles'> & {
         roles: Array<{ id: number; name: string; guard_name: string }>;
     };

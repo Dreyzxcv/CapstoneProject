@@ -48,9 +48,9 @@ class IssueJev
                 $asset,
                 AssetStatus::ForDisposal,
                 $accountingUser,
-                'JEV issued — asset cleared for disposal processing.',
+                'JEV issued — asset cleared for disposal processing. (' . strtoupper($assetType) . ')',
                 'jev.issued',
-                syncSiblings: false, // only this type, not all siblings
+                syncSiblings: false,
             );
 
             $this->auditLogService->log('jev.issued', $jev, null, $jev->toArray(), $accountingUser->id);

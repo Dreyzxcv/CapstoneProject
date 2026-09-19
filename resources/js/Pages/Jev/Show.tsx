@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Asset, Jev, PageProps } from '@/types';
+import { Asset, AssetPiece, Jev, PageProps } from '@/types';
 import { FormEventHandler } from 'react';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
@@ -12,11 +12,109 @@ interface Props extends PageProps {
         incident?: {
             incident_number: string;
         };
+        pieces?: AssetPiece[];
     };
     jev: Jev | null;
-    can: {
-        issue_jev: boolean;
-    };
+    can: { issue_jev: boolean };
+}
+
+function PiecesTable({ asset }: { asset: Props['asset'] }) {
+    const pieces = asset.pieces ?? [];
+    if (pieces.length === 0) return null;
+
+    const type = asset.type;
+    const isLog = type === 'log';
+    const isVehicle = type === 'vehicle';
+    const isEquipment = type === 'equipment';
+
+    return (
+        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">
+                Asset Pieces
+            </p>
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr className="border-b border-gray-100 text-left text-xs text-gray-400 uppercase tracking-wide">
+                            <th className="pb-2 pr-4">#</th>
+                            {isLog && (
+                                <>
+                                    <th className="pb-2 pr-4">Species</th>
+                                    <th className="pb-2 pr-4">L × W × H (cm)</th>
+                                    <th className="pb-2 pr-4">Vol (bd ft)</th>
+                                    <th className="pb-2 pr-4">Vol (cu m)</th>
+                                </>
+                            )}
+                            {isVehicle && (
+                                <>
+                                    <th className="pb-2 pr-4">Vehicle Type</th>
+                                    <th className="pb-2 pr-4">Plate No.</th>
+                                    <th className="pb-2 pr-4">Serial No.</th>
+                                </>
+                            )}
+                            {isEquipment && (
+                                <>
+                                    <th className="pb-2 pr-4">Equipment Type</th>
+                                    <th className="pb-2 pr-4">Serial No.</th>
+                                </>
+                            )}
+                            {!isLog && !isVehicle && !isEquipment && (
+                                <th className="pb-2 pr-4">Species / Description</th>
+                            )}
+                            <th className="pb-2 pr-4">Est. Value (₱)</th>
+                            <th className="pb-2">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                        {pieces.map((piece) => (
+                            <tr key={piece.id} className="text-gray-700">
+                                <td className="py-2 pr-4 text-gray-400">{piece.piece_number}</td>
+                                {isLog && (
+                                    <>
+                                        <td className="py-2 pr-4">{piece.species ?? '—'}</td>
+                                        <td className="py-2 pr-4">
+                                            {[piece.length, piece.width, piece.height]
+                                                .map(v => v ?? '—')
+                                                .join(' × ')}
+                                        </td>
+                                        <td className="py-2 pr-4">{piece.volume_bd_ft ?? '—'}</td>
+                                        <td className="py-2 pr-4">{piece.volume_cu_m ?? '—'}</td>
+                                    </>
+                                )}
+                                {isVehicle && (
+                                    <>
+                                        <td className="py-2 pr-4">{piece.vehicle_type ?? '—'}</td>
+                                        <td className="py-2 pr-4">{piece.plate_number ?? '—'}</td>
+                                        <td className="py-2 pr-4">{piece.serial_number ?? '—'}</td>
+                                    </>
+                                )}
+                                {isEquipment && (
+                                    <>
+                                        <td className="py-2 pr-4">{piece.equipment_type ?? '—'}</td>
+                                        <td className="py-2 pr-4">{piece.serial_number ?? '—'}</td>
+                                    </>
+                                )}
+                                {!isLog && !isVehicle && !isEquipment && (
+                                    <td className="py-2 pr-4">{piece.species ?? piece.description ?? '—'}</td>
+                                )}
+                                <td className="py-2 pr-4">
+                                    {piece.estimated_value
+                                        ? `₱ ${Number(piece.estimated_value).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+                                        : '—'}
+                                </td>
+                                <td className="py-2">
+                                    {piece.disposed_at
+                                        ? <Badge variant="outline" className="text-xs text-red-500 border-red-200">Disposed</Badge>
+                                        : <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200">Active</Badge>
+                                    }
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
 }
 
 function StatusBadge({ jev }: { jev: Jev | null }) {
@@ -75,6 +173,8 @@ export default function JevShow({ asset, jev, can }: Props) {
                             <p className="text-sm text-gray-500">Incident: {asset.incident.incident_number}</p>
                         )}
                     </div>
+
+                    <PiecesTable asset={asset} />
 
                     {/* Issue form -- only shown if no JEV yet and user can issue */}
                     {!jev && can.issue_jev && (

@@ -52,7 +52,7 @@ class JevController extends Controller
     {
         $this->authorize('view', $asset);
 
-        $asset->load(['incident']);
+        $asset->load(['incident', 'pieces']);
 
         $jev = $asset->jev;
 

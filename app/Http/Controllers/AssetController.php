@@ -143,13 +143,54 @@ class AssetController extends Controller
             'qrScans.scannedBy',
             'documents.uploadedBy',
             'documents.verifiedBy',
+            'statusHistory.changedBy.roles',
         ]);
 
         $relatedAssets = Asset::where('asset_code', $asset->asset_code)
             ->where('id', '!=', $asset->id)
-            ->with(['acknowledgementReceipt', 'statusHistory', 'pieces'])
+            ->with(['acknowledgementReceipt', 'statusHistory.changedBy.roles', 'pieces'])
             ->get();
 
+        $jevStatuses = ['for_disposal', 'donation_pending_jev_out', 'pending_release', 'donated', 'decayed', 'fabricated', 'released', 'forfeited', 'damaged'];
+        
+        $allStatusHistory = collect([$asset, ...$relatedAssets->all()])
+            ->flatMap(fn ($a) => $a->statusHistory->map(function ($entry) use ($a) {
+                $entry->asset_type = $a->type instanceof \App\Enums\AssetType
+                    ? $a->type->value
+                    : $a->type;
+                return $entry;
+            }))
+            ->sortBy('changed_at')
+            ->values()
+            ->reduce(function ($carry, $entry) use ($jevStatuses) {
+                $statusValue = $entry->getRawOriginal('status') ?? (
+                    $entry->status instanceof \App\Enums\AssetStatus
+                        ? $entry->status->value
+                        : $entry->status
+                );
+
+                if (in_array($statusValue, $jevStatuses)) {
+                    $carry->push($entry);
+                    return $carry;
+                }
+
+                // Find existing entry with same status + notes
+                $existingIndex = $carry->search(
+                    fn ($e) => $e->status === $entry->status && $e->notes === $entry->notes
+                );
+
+                if ($existingIndex === false) {
+                    $carry->push($entry);
+                } elseif ($entry->changed_by && !$carry[$existingIndex]->changed_by) {
+                    // Replace with the one that has a user attached
+                    $carry[$existingIndex] = $entry;
+                }
+
+                return $carry;
+            }, collect())
+            ->sortBy('changed_at')
+            ->values();
+            
         $qrPayload = null;
         $qrSvg = null;
 
@@ -189,6 +230,7 @@ class AssetController extends Controller
                 'statusHistory.changedBy.roles',
             ]),
             'qrPayload' => $qrPayload,
+            'allStatusHistory' => $allStatusHistory,
             'qrSvg' => $qrSvg,
             'pieceQrSvgs' => $pieceQrSvgs, 
             'relatedAssets' => $relatedAssets,

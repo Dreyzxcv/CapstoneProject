@@ -22,6 +22,7 @@ import { IncidentLocationMap } from "@/Components/shared/IncidentLocationMap";
 import { PdfBadge } from "@/Components/shared/PdfBadge";
 import RequiredDocumentsModal from "@/Components/shared/RequiredDocumentsModal";
 import CoordinatesPickerModal from "@/Components/shared/CoordinatesPickerModal";
+import { StatusHistoryEntry } from "@/types";
 
 interface ShowProps {
     asset: Asset & {
@@ -40,6 +41,7 @@ interface ShowProps {
     modes: Array<{ value: string; label: string }>;
     speciesOptions: string[];
     equipmentOptions: string[];
+    allStatusHistory: StatusHistoryEntry[];
     can: {
         submitForCustodyReview: boolean;
         submitAapForReview: boolean;
@@ -504,6 +506,7 @@ export default function AssetsShow({
     hasAllRequiredDocuments,
     aapDocumentUploaded,
     documentReviewStatus,
+    allStatusHistory,
 }: ShowProps) {
     usePoll(6000, { only: ["asset"] });
 
@@ -1952,22 +1955,24 @@ export default function AssetsShow({
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-3">
-                            {(asset.status_history ?? []).map((entry) => (
+                            {allStatusHistory.map((entry) => (
                                 <div
                                     key={entry.id}
                                     className="flex flex-wrap justify-between gap-2 border-b border-gray-100 pb-2 text-sm"
                                 >
                                     <div className="min-w-0 flex-1 break-words">
-                                        <AssetStatusBadge
-                                            status={entry.status}
-                                            label={entry.status.replace(
-                                                /_/g,
-                                                " ",
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <AssetStatusBadge
+                                                status={entry.status}
+                                                label={entry.status.replace(/_/g, " ")}
+                                            />
+                                            {entry.asset_type && ['for_disposal', 'donation_pending_jev_out', 'pending_release', 'donated'].includes(entry.status) && (
+                                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                                                    {entry.asset_type}
+                                                </span>
                                             )}
-                                        />
-                                        <p className="mt-1 text-gray-600">
-                                            {entry.notes}
-                                        </p>
+                                        </div>
+                                        <p className="mt-1 text-gray-600">{entry.notes}</p>
                                     </div>
                                     <div className="min-w-0 shrink-0 break-words text-right text-gray-500">
                                         {entry.changed_by && (
