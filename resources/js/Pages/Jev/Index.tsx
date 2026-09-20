@@ -42,7 +42,7 @@ export default function JevIndex({ jevs, pendingAssets }: Props) {
                         <div>
                             <div className="mb-3 flex items-center gap-2">
                                 <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                                    Cleared for Accounting — Awaiting JEV
+                                    Cleared for Custodian — Awaiting JEV
                                 </h3>
                                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
                                     {pendingAssets.length}
@@ -67,7 +67,7 @@ export default function JevIndex({ jevs, pendingAssets }: Props) {
                                                 <td className="px-4 py-3 capitalize text-gray-600">{asset.type}</td>
                                                 <td className="px-4 py-3">
                                                     <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200">
-                                                        Cleared for Accounting
+                                                        Cleared for Custodian
                                                     </Badge>
                                                 </td>
                                                 <td className="px-4 py-3 text-right">

@@ -169,9 +169,7 @@ export default function JevShow({ asset, jev, can }: Props) {
                         {asset.aap_number && (
                             <p className="text-sm text-gray-500">AAP No. {asset.aap_number}</p>
                         )}
-                        {asset.incident && (
-                            <p className="text-sm text-gray-500">Incident: {asset.incident.incident_number}</p>
-                        )}
+                        <p className="mt-1 text-sm text-gray-500">Asset Type: {asset.type.replace(/_/g, ' ')}</p>
                     </div>
 
                     <PiecesTable asset={asset} />
