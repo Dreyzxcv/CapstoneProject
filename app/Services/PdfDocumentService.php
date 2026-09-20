@@ -22,14 +22,26 @@ class PdfDocumentService
         $this->ensurePdfEnvironment();
     }
 
-   public function generateAcknowledgementReceipt(Asset $asset, AcknowledgementReceipt $receipt): string
+    public function generateAcknowledgementReceipt(Asset $asset, AcknowledgementReceipt $receipt): string
     {
-        $asset->loadMissing('pieces');
+        $allSiblings = Asset::where('asset_code', $asset->asset_code)
+            ->with('pieces')
+            ->get();
 
-        $items = $asset->pieces->isNotEmpty() ? $asset->pieces : collect([$asset]);
+        $items = collect();
+        foreach ($allSiblings as $sibling) {
+            if ($sibling->pieces->isNotEmpty()) {
+                foreach ($sibling->pieces as $piece) {
+                    $piece->setRelation('asset', $sibling);
+                }
+                $items = $items->concat($sibling->pieces);
+            } else {
+                $items->push($sibling);
+            }
+        }
 
-        $qrPayload     = $this->qrCodeService->buildScanUrl($asset->qr_code_token);
-        $qrPngDataUri  = $this->qrCodeService->generatePngDataUri($qrPayload);
+        $qrPayload    = $this->qrCodeService->buildScanUrl($asset->qr_code_token);
+        $qrPngDataUri = $this->qrCodeService->generatePngDataUri($qrPayload);
 
         $pdf = Pdf::loadView('pdf.acknowledgement-receipt', [
             'asset'        => $asset,

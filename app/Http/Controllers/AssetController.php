@@ -36,6 +36,7 @@ class AssetController extends Controller
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($query) use ($search) {
                     $query->where('asset_code', 'like', "%{$search}%")
+                        ->orWhere('aap_number', 'like', "%{$search}%")
                         ->orWhere('species', 'like', "%{$search}%")
                         ->orWhere('municipality_of_origin', 'like', "%{$search}%");
                 });
