@@ -137,7 +137,7 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                 <Input
                                     name="search"
-                                    placeholder="Search code, species, municipality..."
+                                    placeholder="Search asset code, AAP no., species, municipality..."
                                     defaultValue={filters.search}
                                     className="pl-9"
                                 />
@@ -320,21 +320,29 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                     <tbody className="divide-y divide-gray-200">
                                         {assets.data.map((row) => (
                                             <tr key={row.asset_code} className="hover:bg-gray-50">
-                                                <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.asset_code}</td>
-                                                <td className="px-4 py-3 text-sm capitalize text-gray-600">{row.types.join(', ')}</td>
-                                                <td className="px-4 py-3 text-sm text-gray-600">{row.municipality_of_origin}</td>
-                                                <td className="px-4 py-3 text-sm">
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {row.status_summary.map((s) => (
-                                                            <AssetStatusBadge
-                                                                key={s.status}
-                                                                status={s.status}
-                                                                label={`${s.status.replace(/_/g, ' ')} (${s.count})`}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                    <p className="mt-1 text-xs text-gray-400">{row.item_count} item{row.item_count === 1 ? '' : 's'}</p>
-                                                </td>
+                                                {visibleColumns.asset_code && (
+                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.asset_code}</td>
+                                                )}
+                                                {visibleColumns.type && (
+                                                    <td className="px-4 py-3 text-sm capitalize text-gray-600">{row.types.join(', ')}</td>
+                                                )}
+                                                {visibleColumns.municipality && (
+                                                    <td className="px-4 py-3 text-sm text-gray-600">{row.municipality_of_origin}</td>
+                                                )}
+                                                {visibleColumns.status && (
+                                                    <td className="px-4 py-3 text-sm">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {row.status_summary.map((s) => (
+                                                                <AssetStatusBadge
+                                                                    key={s.status}
+                                                                    status={s.status}
+                                                                    label={`${s.status.replace(/_/g, ' ')} (${s.count})`}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                        <p className="mt-1 text-xs text-gray-400">{row.item_count} item{row.item_count === 1 ? '' : 's'}</p>
+                                                    </td>
+                                                )}
                                                 <td className="px-4 py-3 text-right">
                                                     <Link
                                                         href={route('assets.show', row.first_asset_id)}
