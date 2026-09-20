@@ -219,19 +219,52 @@
 @php
     $items = $items ?? collect([$asset]);
 
-    // Group pieces by species so that e.g. two Narra pieces become one row
-    // with combined quantity and summed volume instead of two separate rows.
+    // Group by asset type + species/equipment_type/vehicle_type combined key
+    // so Log-Narra, Log-Coco, Equipment-Chainsaw, Vehicle-Truck each get their own row
     $groupedItems = $items
-        ->groupBy(fn ($item) => trim(strtolower($item->species ?? 'unknown')))
+        ->groupBy(function ($item) {
+            if ($item instanceof \App\Models\AssetPiece) {
+                $parentAsset = $item->relationLoaded('asset') ? $item->asset : null;
+                $type = $parentAsset?->type?->value ?? 'unknown';
+                $subtype = $item->species ?? $item->equipment_type ?? $item->vehicle_type ?? 'unknown';
+            } else {
+                // $item is an Asset
+                $type = $item->type?->value ?? 'unknown';
+                $subtype = $item->species ?? $item->equipment_type ?? $item->vehicle_type ?? 'unknown';
+            }
+            return $type . '|' . trim(strtolower($subtype));
+        })
         ->map(function ($group) {
             $first = $group->first();
+
+            if ($first instanceof \App\Models\AssetPiece) {
+                $parentAsset = $first->relationLoaded('asset') ? $first->asset : null;
+                return (object) [
+                    'type_label'   => $parentAsset?->type?->label() ?? '—',
+                    'species'      => $first->species,
+                    'equipment_type' => $first->equipment_type,
+                    'vehicle_type' => $first->vehicle_type,
+                    'quantity'     => $group->count(),
+                    'volume_bd_ft' => $group->sum(fn ($i) => (float) ($i->volume_bd_ft ?? 0)) ?: null,
+                    'volume_cu_m'  => $group->sum(fn ($i) => (float) ($i->volume_cu_m  ?? 0)) ?: null,
+                    'description'  => $first->description,
+                    'plate_number' => $first->plate_number,
+                    'serial_number' => $first->serial_number,
+                ];
+            }
+
+            // $first is an Asset
             return (object) [
+                'type_label'   => $first->type?->label() ?? '—',
                 'species'      => $first->species,
-                'quantity'     => $group->sum(fn ($i) => $i instanceof \App\Models\AssetPiece ? 1 : ($i->quantity ?? 1)),
-                'volume_bd_ft' => $group->sum(fn ($i) => (float) ($i->volume_bd_ft ?? 0)) ?: null,
-                'volume_cu_m'  => $group->sum(fn ($i) => (float) ($i->volume_cu_m  ?? 0)) ?: null,
-                'description'  => $first->description ?? null,
+                'equipment_type' => $first->equipment_type ?? null,
+                'vehicle_type' => $first->vehicle_type ?? null,
+                'quantity'     => $first->quantity ?? 1,
+                'volume_bd_ft' => (float) ($first->volume_bd_ft ?? 0) ?: null,
+                'volume_cu_m'  => (float) ($first->volume_cu_m  ?? 0) ?: null,
+                'description'  => $first->description,
                 'plate_number' => $first->plate_number ?? null,
+                'serial_number' => null,
             ];
         })
         ->values();
@@ -239,7 +272,6 @@
     $denrLogo = 'data:image/jpeg;base64,' . base64_encode(
         file_get_contents(public_path('images/denr-logo.jpg'))
     );
-
     $bagongPilipinasLogo = 'data:image/png;base64,' . base64_encode(
         file_get_contents(public_path('images/bagong-pilipinas-logo.png'))
     );
@@ -287,36 +319,49 @@
     </tr>
 
     <tr>
+        {{-- Quantity column --}}
         <td class="item-cell">
             @foreach($groupedItems as $item)
-                <p class="item-entry">
-                    {{ $item->quantity }}
-                </p>
+                <p class="item-entry">{{ $item->quantity }}</p>
             @endforeach
         </td>
 
+        {{-- Items column --}}
         <td class="item-cell">
             @foreach($groupedItems as $item)
                 <p class="item-entry">
-                    {{ $asset->type->label() }}
-                    @if($item->species ?? null)
+                    {{ $item->type_label }}
+                    @if($item->species)
                         — {{ $item->species }}
+                    @elseif($item->equipment_type)
+                        — {{ $item->equipment_type }}
+                    @elseif($item->vehicle_type)
+                        — {{ $item->vehicle_type }}
                     @endif
                 </p>
             @endforeach
         </td>
 
+        {{-- Description column --}}
         <td class="item-cell">
             @foreach($groupedItems as $item)
                 <p class="item-entry">
-                    {{ $item->description ?? $asset->description ?? '—' }}
+                    {{ $item->description ?? '—' }}
 
-                    @if($item->plate_number ?? $asset->plate_number ?? null)
-                        <br>Plate/Conveyance No.: {{ $item->plate_number ?? $asset->plate_number }}
+                    @if($item->plate_number)
+                        <br>Plate/Conveyance No.: {{ $item->plate_number }}
+                    @endif
+
+                    @if($item->serial_number)
+                        <br>Serial No.: {{ $item->serial_number }}
                     @endif
 
                     @if($item->volume_bd_ft)
                         <br>Volume: {{ number_format($item->volume_bd_ft, 2) }} bd.ft
+                    @endif
+
+                    @if($item->volume_cu_m)
+                        <br>Volume: {{ number_format($item->volume_cu_m, 4) }} cu.m
                     @endif
                 </p>
             @endforeach
