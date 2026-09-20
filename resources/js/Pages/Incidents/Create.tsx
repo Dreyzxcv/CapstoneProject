@@ -308,13 +308,19 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
     }
 
     function addAssetRow() {
+        const usedTypeValues = data.assets.map((a) => a.type);
+        const firstUnusedType = types.find((t) => !usedTypeValues.includes(t.value))?.value ?? types[0].value;
+
         setData('assets', [
             ...data.assets,
-            emptyAssetRow({
-                municipality: data.place_of_apprehension || defaultMunicipality,
-                agency: defaultAgency,
-                mode: data.intake_mode,
-            }),
+            {
+                ...emptyAssetRow({
+                    municipality: data.place_of_apprehension || defaultMunicipality,
+                    agency: defaultAgency,
+                    mode: data.intake_mode,
+                }),
+                type: firstUnusedType,
+            },
         ]);
     }
 
@@ -414,6 +420,14 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
     function labelFor(options: Option[], value: string): string {
         return options.find((o) => o.value === value)?.label ?? value;
     }
+
+    const usedTypes = (currentIndex: number) =>
+    data.assets
+        .filter((_, i) => i !== currentIndex)
+        .map((a) => a.type);
+
+    const availableTypes = (currentIndex: number) =>
+        types.filter((t) => !usedTypes(currentIndex).includes(t.value));
 
     // ── Piece form — rendered inside each asset card ──────────────────────────
 
@@ -656,8 +670,12 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
     // ── Render ───────────────────────────────────────────────────────────────
     
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">MES Apprehension Intake</h2>}>
-            <Head title="New Apprehension Intake" />
+        <AuthenticatedLayout header={
+            <h2 className="text-xl font-semibold text-gray-800">
+                {data.intake_mode === 'turned_over' ? 'MES Turn-Over Intake' : 'MES Apprehension Intake'}
+            </h2>
+        }>
+        <Head title={data.intake_mode === 'turned_over' ? 'New Turn-Over Intake' : 'New Apprehension Intake'} />
 
             <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
                 <form onSubmit={handleReviewClick} className="space-y-6">
@@ -722,9 +740,13 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                             {/* Incident-level details */}
                             <Card className="border-0 shadow-sm">
                                 <CardHeader className="border-b border-gray-100">
-                                    <CardTitle className="text-xl">Apprehension Details</CardTitle>
+                                    <CardTitle className="text-xl">
+                                        {data.intake_mode === 'turned_over' ? 'Turn-Over Details' : 'Apprehension Details'}
+                                    </CardTitle>
                                     <p className="text-sm text-gray-600">
-                                        Details shared across every item apprehended in this incident.
+                                        {data.intake_mode === 'turned_over'
+                                            ? 'Details shared across every item turned over in this incident.'
+                                            : 'Details shared across every item apprehended in this incident.'}
                                     </p>
                                     <div className="mt-2">
                                         {previewCode ? (
@@ -741,7 +763,10 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                 <CardContent className="space-y-6 pt-6">
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label htmlFor="date_of_apprehension">Date of Apprehension<span className="text-red-500">*</span></Label>
+                                            <Label htmlFor="date_of_apprehension">
+                                                {data.intake_mode === 'turned_over' ? 'Date of Turn-Over' : 'Date of Apprehension'}
+                                                <span className="text-red-500">*</span>
+                                            </Label>
                                             <Input
                                                 id="date_of_apprehension"
                                                 type="date"
@@ -752,7 +777,10 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             <InputError message={errors.date_of_apprehension} />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="date_report_submitted">Date Submitted (Apprehension Report)<span className="text-red-500">*</span></Label>
+                                            <Label htmlFor="date_report_submitted">
+                                                {data.intake_mode === 'turned_over' ? 'Date Submitted (Turn-Over Report)' : 'Date Submitted (Apprehension Report)'}
+                                                <span className="text-red-500">*</span>
+                                            </Label>
                                             <Input
                                                 id="date_report_submitted"
                                                 type="date"
@@ -772,7 +800,10 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             </select>
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="place_of_apprehension">Municipality (Place of Apprehension)<span className="text-red-500">*</span></Label>
+                                            <Label htmlFor="place_of_apprehension">
+                                                {data.intake_mode === 'turned_over' ? 'Municipality (Place of Turn-Over)' : 'Municipality (Place of Apprehension)'}
+                                                <span className="text-red-500">*</span>
+                                            </Label>
                                             <select
                                                 id="place_of_apprehension"
                                                 value={data.place_of_apprehension}
@@ -825,7 +856,10 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label>Apprehending Party<span className="text-red-500">*</span></Label>
+                                            <Label>
+                                                {data.intake_mode === 'turned_over' ? 'Turning-Over Party' : 'Apprehending Party'}
+                                                <span className="text-red-500">*</span>
+                                            </Label>
                                             <div className="space-y-2">
                                                 {data.apprehending_parties.map((party, index) => (
                                                     <div key={index} className="flex gap-2">
@@ -850,149 +884,153 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                             </div>
                                             <Button type="button" variant="outline" size="sm" onClick={addApprehendingParty}>
                                                 <Plus className="mr-1.5 h-3.5 w-3.5" />
-                                                Add Another Apprehending Party
+                                                {data.intake_mode === 'turned_over' ? 'Add Another Turning-Over Party' : 'Add Another Apprehending Party'}
                                             </Button>
                                             <InputError message={(errors as Record<string, string>).apprehending_party} />
                                         </div>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="initial_custodian_name">Initial Custodian (before PENRO)</Label>
-                                        <Input
-                                            id="initial_custodian_name"
-                                            placeholder="e.g. Barangay Tanod / ENRO field officer who first held the item"
-                                            value={data.initial_custodian_name}
-                                            onChange={(e) => setData('initial_custodian_name', e.target.value)}
-                                        />
-                                        <p className="text-xs text-gray-500">
-                                            Leave blank if PENRO received it directly.
-                                        </p>
-                                        <InputError message={errors.initial_custodian_name} />
-                                    </div>
-
-                                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                        <Label className="mb-2 block">Claimant Status<span className="text-red-500">*</span></Label>
-                                        <div className="flex gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleClaimantToggle(true)}
-                                                className={
-                                                    'flex-1 rounded-md border px-4 py-2 text-sm font-medium transition ' +
-                                                    (data.has_claimant
-                                                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-                                                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
-                                                }
-                                            >
-                                                With Claimant
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleClaimantToggle(false)}
-                                                className={
-                                                    'flex-1 rounded-md border px-4 py-2 text-sm font-medium transition ' +
-                                                    (!data.has_claimant
-                                                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-                                                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
-                                                }
-                                            >
-                                                Without Claimant
-                                            </button>
+                                    {data.intake_mode !== 'turned_over' && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="initial_custodian_name">Initial Custodian (before PENRO)</Label>
+                                            <Input
+                                                id="initial_custodian_name"
+                                                placeholder="e.g. Barangay Tanod / ENRO field officer who first held the item"
+                                                value={data.initial_custodian_name}
+                                                onChange={(e) => setData('initial_custodian_name', e.target.value)}
+                                            />
+                                            <p className="text-xs text-gray-500">
+                                                Leave blank if PENRO received it directly.
+                                            </p>
+                                            <InputError message={errors.initial_custodian_name} />
                                         </div>
-                                        <p className="mt-1 text-xs text-gray-500">
-                                            {data.has_claimant
-                                                ? 'A claimant/offender has come forward regarding this apprehension.'
-                                                : 'No claimant has come forward — this proceeds toward automatic confiscation per DAO 97-32.'}
-                                        </p>
+                                    )}
 
-                                        {data.has_claimant && (
-                                            <div className="mt-4 grid gap-4 md:grid-cols-2">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="claimant_offender_name">Claimant / Offender Name<span className="text-red-500">*</span></Label>
-                                                    <Input
-                                                        id="claimant_offender_name"
-                                                        value={data.claimant_offender_name}
-                                                        onChange={(e) => setData('claimant_offender_name', e.target.value)}
-                                                        required
-                                                    />
-                                                    <InputError message={errors.claimant_offender_name} />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="claimant_address">Claimant Address<span className="text-red-500">*</span></Label>
-                                                    <Input
-                                                        id="claimant_address"
-                                                        value={data.claimant_address}
-                                                        onChange={(e) => setData('claimant_address', e.target.value)}
-                                                        required
-                                                    />
-                                                    <InputError message={errors.claimant_address} />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="claimant_contact_number">Contact Number</Label>
-                                                    <Input
-                                                        id="claimant_contact_number"
-                                                        value={data.claimant_contact_number}
-                                                        onChange={(e) => setData('claimant_contact_number', e.target.value)}
-                                                    />
-                                                    <InputError message={errors.claimant_contact_number} />
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor="claimant_id_type">Valid ID Type</Label>
-                                                        <Input
-                                                            id="claimant_id_type"
-                                                            placeholder="e.g. Driver's License"
-                                                            value={data.claimant_id_type}
-                                                            onChange={(e) => setData('claimant_id_type', e.target.value)}
-                                                        />
-                                                        <InputError message={errors.claimant_id_type} />
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor="claimant_id_number">ID Number</Label>
-                                                        <Input
-                                                            id="claimant_id_number"
-                                                            value={data.claimant_id_number}
-                                                            onChange={(e) => setData('claimant_id_number', e.target.value)}
-                                                        />
-                                                        <InputError message={errors.claimant_id_number} />
-                                                    </div>
-                                                </div>
+                                    {data.intake_mode !== 'turned_over' && (
+                                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                            <Label className="mb-2 block">Claimant Status<span className="text-red-500">*</span></Label>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleClaimantToggle(true)}
+                                                    className={
+                                                        'flex-1 rounded-md border px-4 py-2 text-sm font-medium transition ' +
+                                                        (data.has_claimant
+                                                            ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                                                            : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
+                                                    }
+                                                >
+                                                    With Claimant
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleClaimantToggle(false)}
+                                                    className={
+                                                        'flex-1 rounded-md border px-4 py-2 text-sm font-medium transition ' +
+                                                        (!data.has_claimant
+                                                            ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                                                            : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
+                                                    }
+                                                >
+                                                    Without Claimant
+                                                </button>
                                             </div>
-                                        )}
-                                    </div>
-
-                                    {/* Legal — incident-level, applies to every item */}
-                                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                                        <Label className="mb-1 block">Legal</Label>
-                                        <p className="mb-3 text-xs text-gray-500">
-                                            Applies to all items in this incident (apprehended or turned over).
-                                        </p>
-                                        <div className="grid gap-3 md:grid-cols-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => setData('has_ongoing_case', !data.has_ongoing_case)}
-                                                className={
-                                                    'rounded-md border px-4 py-2 text-sm font-medium transition ' +
-                                                    (data.has_ongoing_case
-                                                        ? 'border-amber-600 bg-amber-100 text-amber-900'
-                                                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
-                                                }
-                                            >
-                                                {data.has_ongoing_case ? 'Ongoing case' : 'No ongoing case'}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setData('has_confiscation_order', !data.has_confiscation_order)}
-                                                className={
-                                                    'rounded-md border px-4 py-2 text-sm font-medium transition ' +
-                                                    (data.has_confiscation_order
-                                                        ? 'border-red-600 bg-red-100 text-red-900'
-                                                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
-                                                }
-                                            >
-                                                {data.has_confiscation_order ? 'Confiscation / Forfeiture Order' : 'No order yet'}
-                                            </button>
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                {data.has_claimant
+                                                    ? 'A claimant/offender has come forward regarding this apprehension.'
+                                                    : 'No claimant has come forward — this proceeds toward automatic confiscation per DAO 97-32.'}
+                                            </p>
+                                            {data.has_claimant && (
+                                                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="claimant_offender_name">Claimant / Offender Name<span className="text-red-500">*</span></Label>
+                                                        <Input
+                                                            id="claimant_offender_name"
+                                                            value={data.claimant_offender_name}
+                                                            onChange={(e) => setData('claimant_offender_name', e.target.value)}
+                                                            required
+                                                        />
+                                                        <InputError message={errors.claimant_offender_name} />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="claimant_address">Claimant Address<span className="text-red-500">*</span></Label>
+                                                        <Input
+                                                            id="claimant_address"
+                                                            value={data.claimant_address}
+                                                            onChange={(e) => setData('claimant_address', e.target.value)}
+                                                            required
+                                                        />
+                                                        <InputError message={errors.claimant_address} />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="claimant_contact_number">Contact Number</Label>
+                                                        <Input
+                                                            id="claimant_contact_number"
+                                                            value={data.claimant_contact_number}
+                                                            onChange={(e) => setData('claimant_contact_number', e.target.value)}
+                                                        />
+                                                        <InputError message={errors.claimant_contact_number} />
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="claimant_id_type">Valid ID Type</Label>
+                                                            <Input
+                                                                id="claimant_id_type"
+                                                                placeholder="e.g. Driver's License"
+                                                                value={data.claimant_id_type}
+                                                                onChange={(e) => setData('claimant_id_type', e.target.value)}
+                                                            />
+                                                            <InputError message={errors.claimant_id_type} />
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="claimant_id_number">ID Number</Label>
+                                                            <Input
+                                                                id="claimant_id_number"
+                                                                value={data.claimant_id_number}
+                                                                onChange={(e) => setData('claimant_id_number', e.target.value)}
+                                                            />
+                                                            <InputError message={errors.claimant_id_number} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
+                                    )}
+
+                                    {data.intake_mode !== 'turned_over' && (
+                                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                                            <Label className="mb-1 block">Legal</Label>
+                                            <p className="mb-3 text-xs text-gray-500">
+                                                Applies to all items in this incident (apprehended).
+                                            </p>
+                                            <div className="grid gap-3 md:grid-cols-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setData('has_ongoing_case', !data.has_ongoing_case)}
+                                                    className={
+                                                        'rounded-md border px-4 py-2 text-sm font-medium transition ' +
+                                                        (data.has_ongoing_case
+                                                            ? 'border-amber-600 bg-amber-100 text-amber-900'
+                                                            : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
+                                                    }
+                                                >
+                                                    {data.has_ongoing_case ? 'Ongoing case' : 'No ongoing case'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setData('has_confiscation_order', !data.has_confiscation_order)}
+                                                    className={
+                                                        'rounded-md border px-4 py-2 text-sm font-medium transition ' +
+                                                        (data.has_confiscation_order
+                                                            ? 'border-red-600 bg-red-100 text-red-900'
+                                                            : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50')
+                                                    }
+                                                >
+                                                    {data.has_confiscation_order ? 'Confiscation / Forfeiture Order' : 'No order yet'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
 
@@ -1021,7 +1059,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                         </CardHeader>
                                         <CardContent className="space-y-6 pt-6">
                                             {/* Asset-level fields (container) */}
-                                            <div className="grid gap-4 md:grid-cols-2">
+                                            <div className={`grid gap-4 ${data.intake_mode !== 'turned_over' ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
                                                 <div className="space-y-2">
                                                     <Label htmlFor={`type-${assetIndex}`}>Asset Type<span className="text-red-500">*</span></Label>
                                                     <select
@@ -1031,22 +1069,24 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                                         className={selectClass}
                                                         required
                                                     >
-                                                        {types.map((t) => (
+                                                        {availableTypes(assetIndex).map((t) => (
                                                             <option key={t.value} value={t.value}>{t.label}</option>
                                                         ))}
                                                     </select>
                                                     <InputError message={assetError(assetIndex, 'type')} />
                                                 </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor={`apprehending_agency-${assetIndex}`}>Apprehending Agency<span className="text-red-500">*</span></Label>
-                                                    <Input
-                                                        id={`apprehending_agency-${assetIndex}`}
-                                                        value={asset.apprehending_agency}
-                                                        onChange={(e) => updateAsset(assetIndex, 'apprehending_agency', e.target.value)}
-                                                        required
-                                                    />
-                                                    <InputError message={assetError(assetIndex, 'apprehending_agency')} />
-                                                </div>
+                                                {data.intake_mode !== 'turned_over' && (
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor={`apprehending_agency-${assetIndex}`}>Apprehending Agency<span className="text-red-500">*</span></Label>
+                                                        <Input
+                                                            id={`apprehending_agency-${assetIndex}`}
+                                                            value={asset.apprehending_agency}
+                                                            onChange={(e) => updateAsset(assetIndex, 'apprehending_agency', e.target.value)}
+                                                            required
+                                                        />
+                                                        <InputError message={assetError(assetIndex, 'apprehending_agency')} />
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Per-piece forms */}
@@ -1078,10 +1118,12 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                     </Card>
                                 ))}
 
-                                <Button type="button" variant="outline" onClick={addAssetRow}>
-                                    <Plus className="mr-1.5 h-4 w-4" />
-                                    Add Another Item
-                                </Button>
+                                {data.assets.length < types.length && (
+                                    <Button type="button" variant="outline" onClick={addAssetRow}>
+                                        <Plus className="mr-1.5 h-4 w-4" />
+                                        Add Another Item
+                                    </Button>
+                                )}
                             </div>
 
                             <div className="flex flex-wrap gap-3 pb-8">
@@ -1105,7 +1147,9 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
             {/* Confirmation modal */}
             <Modal show={showConfirmModal} onClose={() => setShowConfirmModal(false)} maxWidth="2xl">
                 <div className="max-h-[85vh] overflow-y-auto p-6">
-                    <h2 className="text-lg font-medium text-gray-900">Confirm Apprehension Intake</h2>
+                    <h2 className="text-lg font-medium text-gray-900">
+                        {data.intake_mode === 'turned_over' ? 'Confirm Turn-Over Intake' : 'Confirm Apprehension Intake'}
+                    </h2>
                     <p className="mt-1 text-sm text-gray-600">
                         Please review the details below before recording this incident.
                     </p>
@@ -1113,7 +1157,9 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                     <div className="mt-6 space-y-6">
                         {/* Incident summary */}
                         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                            <h3 className="text-sm font-semibold text-gray-700">Apprehension Details</h3>
+                            <h3 className="text-sm font-semibold text-gray-700">
+                                {data.intake_mode === 'turned_over' ? 'Turn-Over Details' : 'Apprehension Details'}
+                            </h3>
                             {previewCode && (
                                 <p className="mt-1 font-mono text-xs font-semibold text-emerald-700">
                                     Asset ID: {previewCode}
@@ -1144,22 +1190,28 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                                         {data.apprehending_parties.filter((p) => p.trim() !== '').join('; ') || '—'}
                                     </dd>
                                 </div>
-                                <div>
-                                    <dt className="text-gray-500">Claimant Status</dt>
-                                    <dd className="font-medium text-gray-900">
-                                        {data.has_claimant
-                                            ? `With Claimant — ${data.claimant_offender_name || '—'}`
-                                            : 'Without Claimant (unclaimed)'}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt className="text-gray-500">Ongoing Case</dt>
-                                    <dd className="font-medium text-gray-900">{data.has_ongoing_case ? 'Yes' : 'No'}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-gray-500">Confiscation / Forfeiture Order</dt>
-                                    <dd className="font-medium text-gray-900">{data.has_confiscation_order ? 'Yes' : 'No'}</dd>
-                                </div>
+                                {data.intake_mode !== 'turned_over' && (
+                                    <div>
+                                        <dt className="text-gray-500">Claimant Status</dt>
+                                        <dd className="font-medium text-gray-900">
+                                            {data.has_claimant
+                                                ? `With Claimant — ${data.claimant_offender_name || '—'}`
+                                                : 'Without Claimant (unclaimed)'}
+                                        </dd>
+                                    </div>
+                                )}
+                                {data.intake_mode !== 'turned_over' && (
+                                    <div>
+                                        <dt className="text-gray-500">Ongoing Case</dt>
+                                        <dd className="font-medium text-gray-900">{data.has_ongoing_case ? 'Yes' : 'No'}</dd>
+                                    </div>
+                                )}
+                                {data.intake_mode !== 'turned_over' && (
+                                    <div>
+                                        <dt className="text-gray-500">Confiscation / Forfeiture Order</dt>
+                                        <dd className="font-medium text-gray-900">{data.has_confiscation_order ? 'Yes' : 'No'}</dd>
+                                    </div>
+                                )}
                             </dl>
                         </div>
 
