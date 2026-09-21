@@ -46,7 +46,7 @@ class DisposalController extends Controller
 
         $assets = (clone $baseQuery)
             ->when($mode, fn ($q) => $q->where('type', $mode))
-            ->with(['jev', 'creator'])
+            ->with(['jev', 'creator', 'pieces'])
             ->latest()
             ->paginate(15)
             ->withQueryString();

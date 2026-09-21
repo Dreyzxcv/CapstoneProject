@@ -172,6 +172,9 @@ export default function DisposalsIndex({ assets, mode, modeCounts, can }: Dispos
                                         Type
                                     </th>
                                     <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        Pieces
+                                    </th>
+                                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                                         Status
                                     </th>
                                     <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -222,6 +225,18 @@ export default function DisposalsIndex({ assets, mode, modeCounts, can }: Dispos
                                                         {mode === 'equipment' && <Wrench className="h-3 w-3 text-amber-600" />}
                                                         {asset.type}
                                                     </span>
+                                                </td>
+
+                                                {/* Pieces */}
+                                                <td className="px-5 py-3.5">
+                                                    <span className="text-sm font-medium text-gray-900">
+                                                        {asset.pieces?.length ?? asset.quantity ?? '—'}
+                                                    </span>
+                                                    <p className="mt-0.5 text-[11px] text-gray-400">
+                                                        {(asset.disposed_quantity ?? 0) > 0
+                                                            ? `${(asset.pieces?.length ?? asset.quantity ?? 0) - (asset.disposed_quantity ?? 0)} avail.`
+                                                            : 'all available'}
+                                                    </p>
                                                 </td>
 
                                                 {/* Status */}

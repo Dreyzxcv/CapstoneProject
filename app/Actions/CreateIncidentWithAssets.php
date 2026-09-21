@@ -98,6 +98,14 @@ class CreateIncidentWithAssets
                     $assetData['plate_number'] = $pieces[0]['plate_number'];
                 }
 
+                $assetData['apprehending_agency'] = $assetData['apprehending_agency'] 
+                    ?? $incidentData['apprehending_party'] 
+                    ?? 'PENRO Catanduanes MES';
+
+                $assetData['location_apprehended'] = $assetData['location_apprehended'] 
+                    ?? $incidentData['place_of_apprehension'] 
+                    ?? '';
+
                 // Apply incident-level legal flags to every asset
                 $assetData['has_ongoing_case']       = $hasOngoingCase;
                 $assetData['has_confiscation_order'] = $hasConfiscationOrder;

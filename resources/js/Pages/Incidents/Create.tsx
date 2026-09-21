@@ -347,7 +347,36 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
         setData((prevData) => ({
             ...prevData,
             intake_mode: value,
-            assets: prevData.assets.map((asset) => ({ ...asset, mode: value })),
+
+            // Turned Over does not have a claimant
+            has_claimant: value === 'turned_over'
+                ? false
+                : prevData.has_claimant,
+
+            claimant_offender_name: value === 'turned_over'
+                ? ''
+                : prevData.claimant_offender_name,
+
+            claimant_address: value === 'turned_over'
+                ? ''
+                : prevData.claimant_address,
+
+            claimant_contact_number: value === 'turned_over'
+                ? ''
+                : prevData.claimant_contact_number,
+
+            claimant_id_type: value === 'turned_over'
+                ? ''
+                : prevData.claimant_id_type,
+
+            claimant_id_number: value === 'turned_over'
+                ? ''
+                : prevData.claimant_id_number,
+
+            assets: prevData.assets.map((asset) => ({
+                ...asset,
+                mode: value,
+            })),
         }));
     }
 

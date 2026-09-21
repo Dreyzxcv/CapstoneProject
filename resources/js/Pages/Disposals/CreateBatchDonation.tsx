@@ -391,15 +391,9 @@ export default function CreateBatchDonation({
                                         Add Another Asset
                                     </Button>
                                 )}
-                                {data.lines.length < assets.length && (
-                                    <Button type="button" variant="outline" size="sm" onClick={addLine}>
-                                        <Plus className="mr-1.5 h-3.5 w-3.5" />
-                                        Add Another Asset
-                                    </Button>
-                                )}
                                 <Button type="button" variant="outline" size="sm" onClick={() => setScanning(true)}>
                                     <ScanLine className="mr-1.5 h-3.5 w-3.5" />
-                                    Scan Barcode
+                                    Scan QR Code
                                 </Button>
                             </CardContent>
                         </Card>

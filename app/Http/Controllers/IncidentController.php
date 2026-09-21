@@ -40,6 +40,7 @@ class IncidentController extends Controller
 
     public function store(StoreIncidentRequest $request, CreateIncidentWithAssets $createIncident): RedirectResponse
     {
+        
         $validated = $request->validated();
 
         $incident = $createIncident->execute(
