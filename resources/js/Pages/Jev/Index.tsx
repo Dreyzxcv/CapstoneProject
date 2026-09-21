@@ -11,6 +11,15 @@ interface PendingAsset {
     current_status: string;
 }
 
+interface DisposalAwaitingJevOut {
+    id: number;
+    requester_name: string;
+    agency_name: string | null;
+    disposals: {
+        id: number;
+        asset: { id: number; asset_code: string; type: string } | null;
+    }[];
+}
 interface Props extends PageProps {
     jevs: {
         data: Jev[];
@@ -20,6 +29,7 @@ interface Props extends PageProps {
         prev_page_url: string | null;
     };
     pendingAssets: PendingAsset[];
+    disposalsAwaitingJevOut: DisposalAwaitingJevOut[];
 }
 
 function StatusBadge({ jev }: { jev: Jev }) {
@@ -27,7 +37,7 @@ function StatusBadge({ jev }: { jev: Jev }) {
     return <Badge variant="outline" className="text-yellow-600 border-yellow-400">Pending</Badge>;
 }
 
-export default function JevIndex({ jevs, pendingAssets }: Props) {
+export default function JevIndex({ jevs, pendingAssets, disposalsAwaitingJevOut }: Props) {
     return (
         <AuthenticatedLayout
             header={<h2 className="text-xl font-semibold text-gray-800">Journal Entry Vouchers</h2>}
@@ -37,7 +47,7 @@ export default function JevIndex({ jevs, pendingAssets }: Props) {
             <div className="py-8">
                 <div className="mx-auto max-w-7xl space-y-8 px-4 sm:px-6 lg:px-8">
 
-                    {/* ── Pending JEV section ── */}
+                    {/* ── Pending JEV IN section ── */}
                     {pendingAssets.length > 0 && (
                         <div>
                             <div className="mb-3 flex items-center gap-2">
@@ -75,7 +85,7 @@ export default function JevIndex({ jevs, pendingAssets }: Props) {
                                                         href={route('assets.jev.show', asset.id)}
                                                         className="text-sm font-medium text-emerald-600 hover:underline"
                                                     >
-                                                        Add JEV IN →
+                                                        Issue JEV IN →
                                                     </Link>
                                                 </td>
                                             </tr>
@@ -85,6 +95,57 @@ export default function JevIndex({ jevs, pendingAssets }: Props) {
                             </div>
                         </div>
                     )}
+
+                    {disposalsAwaitingJevOut.length > 0 && (
+                    <div>
+                        <div className="mb-3 flex items-center gap-2">
+                            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                                Donations — Awaiting JEV Out
+                            </h3>
+                            <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">
+                                {disposalsAwaitingJevOut.length}
+                            </span>
+                        </div>
+                        <div className="overflow-hidden rounded-lg border border-rose-200 bg-white shadow-sm">
+                            <table className="min-w-full divide-y divide-gray-100 text-sm">
+                                <thead className="bg-rose-50">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Donation ID</th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Recipient</th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
+                                        <th className="px-4 py-3" />
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {disposalsAwaitingJevOut.map((donation) => (
+                                        <tr key={donation.id} className="hover:bg-rose-50/40">
+                                            <td className="px-4 py-3 font-medium text-gray-800">
+                                                {`DON-${String(donation.id).padStart(4, '0')}`}
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-600">
+                                                {donation.agency_name ?? donation.requester_name}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <Badge className="bg-rose-100 text-rose-700 border-rose-200">
+                                                    Awaiting JEV Out
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                {/* Link to first disposal's JEV out page */}
+                                                <Link
+                                                    href={route('disposals.jev-out.show', donation.disposals[0]?.id ?? 0)}
+                                                    className="text-sm font-medium text-emerald-600 hover:underline"
+                                                >
+                                                    Issue JEV Out →
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
 
                     {/* ── All JEVs table ── */}
                     <div>

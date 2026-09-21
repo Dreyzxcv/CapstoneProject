@@ -58,6 +58,10 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/disposals/{disposal}/release-donation', [DisposalController::class, 'releaseDonation'])->name('disposals.release-donation');
     Route::post('/disposals/{disposal}/jev-out', [DisposalController::class, 'issueJevOut'])->name('disposals.jev-out.store');
     Route::post('/disposals/{disposal}/jev-out/upload', [DisposalController::class, 'uploadJevOut'])->name('disposals.jev-out.upload');
+    Route::get('disposals/{disposal}/jev-out/show', [JevController::class, 'showDisposalJev'])
+        ->name('disposals.jev-out.show');
+    Route::get('donations/{donation}/jev-out', [JevController::class, 'showDisposalJev'])
+        ->name('disposals.jev-out.show');
     Route::post('/disposals/scan-lookup', [DisposalController::class, 'scanLookup'])->name('disposals.scan-lookup');
 
     Route::get('/scan', [QrScanController::class, 'index'])->name('scan.index');

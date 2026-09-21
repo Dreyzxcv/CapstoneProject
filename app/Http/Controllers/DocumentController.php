@@ -85,17 +85,17 @@ class DocumentController extends Controller
                 ParRecord::where('pdf_path', $path)->first()?->disposal?->asset,
 
             str_starts_with($path, 'documents/donations/release-photos/') =>
-                \App\Models\Donation::where('release_photo_path', $path)->first()?->disposal?->asset,
+                \App\Models\Donation::where('release_photo_path', $path)->first()?->disposals?->first()?->asset,
 
             str_starts_with($path, 'documents/release-orders/') =>
-                \App\Models\Donation::where('release_order_pdf_path', $path)->first()?->disposal?->asset,
+                \App\Models\Donation::where('release_order_pdf_path', $path)->first()?->disposals?->first()?->asset,
 
             str_starts_with($path, 'documents/donations/') && str_contains($path, '/waybill-') =>
-                \App\Models\Donation::where('waybill_pdf_path', $path)->first()?->disposal?->asset,
+                \App\Models\Donation::where('waybill_pdf_path', $path)->first()?->disposals?->first()?->asset,
 
             str_starts_with($path, 'documents/donations/') =>
                 \App\Models\Donation::where('deed_of_donation_path', $path)
-                    ->first()?->disposal?->asset,
+                    ->first()?->disposals?->first()?->asset,
 
             default => Document::where('file_path', $path)
                 ->first()

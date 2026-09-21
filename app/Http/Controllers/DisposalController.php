@@ -66,27 +66,23 @@ class DisposalController extends Controller
         $this->authorize('create', Disposal::class);
         $this->authorize('view', $asset);
 
-        $availableAssets = collect();
-        if ($asset->type === \App\Enums\AssetType::Log) {
-            $availableAssets = Asset::query()
-                ->where('type', 'log')
-                ->where('id', '!=', $asset->id)
-                ->where('current_status', 'for_disposal')
-                ->whereColumn('disposed_quantity', '<', 'quantity')
-                ->with('incident')
-                ->latest()
-                ->get()
-                ->map(function (Asset $a) {
-                    $data = $a->toArray();
-                    $data['remaining_quantity'] = $a->remainingQuantity();
-
-                    return $data;
-                });
-        }
+        $availableAssets = Asset::query()
+            ->where('type', 'log')
+            ->where('id', '!=', $asset->id)
+            ->where('current_status', 'for_disposal')
+            ->whereColumn('disposed_quantity', '<', 'quantity')
+            ->with(['incident', 'pieces']) 
+            ->latest()
+            ->get()
+            ->map(function (Asset $a) {
+                $data = $a->toArray();
+                $data['remaining_quantity'] = $a->remainingQuantity();
+                return $data;
+            });
 
         return Inertia::render('Disposals/Create', [
             'asset' => [
-                ...$asset->load(['jev'])->toArray(),
+                ...$asset->load(['jev', 'pieces'])->toArray(),
                 'remaining_quantity' => $asset->remainingQuantity(),
             ],
             'disposalTypes' => collect($lifecycle->allowedDisposalTypes($asset))->map(fn ($t) => [
@@ -162,7 +158,7 @@ class DisposalController extends Controller
             ->where('type', 'log')
             ->where('current_status', 'for_disposal')
             ->whereColumn('disposed_quantity', '<', 'quantity')
-            ->with('incident')
+            ->with(['incident', 'pieces'])
             ->latest()
             ->get()
             ->map(function (Asset $asset) {

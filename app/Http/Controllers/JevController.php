@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\IssueJev;
 use App\Http\Requests\StoreJevRequest;
+use App\Models\Disposal;
 use App\Models\Asset;
 use App\Models\Jev;
 use App\Enums\AssetStatus;
@@ -20,7 +21,6 @@ class JevController extends Controller
 
         $jevs = Jev::latest()->paginate(25);
 
-        // Assets cleared for accounting where their type has no JEV yet
         $pendingAssets = Asset::where('current_status', AssetStatus::ClearedForAccounting)
             ->whereNotExists(function ($query) {
                 $query->selectRaw(1)
@@ -33,9 +33,39 @@ class JevController extends Controller
             ->unique(fn ($a) => $a->asset_code . '-' . ($a->type instanceof \App\Enums\AssetType ? $a->type->value : $a->type))
             ->values();
 
+        $disposalsAwaitingJevOut = \App\Models\Donation::query()
+            ->whereHas('disposals', fn ($q) => $q->whereDoesntHave('disposalJev'))
+            ->with(['disposals' => fn ($q) => $q->with('asset')])
+            ->latest()
+            ->get();
+
         return Inertia::render('Jev/Index', [
-            'jevs'          => $jevs,
-            'pendingAssets' => $pendingAssets,
+            'jevs'                    => $jevs,
+            'pendingAssets'           => $pendingAssets,
+            'disposalsAwaitingJevOut' => $disposalsAwaitingJevOut,
+        ]);
+    }
+
+    public function showDisposalJev(Disposal $disposal): Response
+    {
+        $this->authorize('viewAny', Jev::class);
+
+        $disposal->load(['disposalJev', 'donation']);
+
+        $siblingsWithAssets = $disposal->donation
+            ? \App\Models\Disposal::where('donation_id', $disposal->donation->id)
+                ->with(['asset', 'asset.pieces' => fn($q) => $q->whereIn('disposal_id', 
+                    \App\Models\Disposal::where('donation_id', $disposal->donation->id)->pluck('id')
+                )])
+                ->get()
+            : collect();
+
+        return Inertia::render('Jev/ShowDisposalJev', [
+            'disposal'  => $disposal,
+            'siblings'  => $siblingsWithAssets,
+            'can' => [
+                'issue_jev_out' => request()->user()->can('jev.create'),
+            ],
         ]);
     }
 

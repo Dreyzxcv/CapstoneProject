@@ -7,6 +7,16 @@ import { FormEvent, useState } from 'react';
 import { Gift } from 'lucide-react';
 import { documentUrl } from '@/lib/utils';
 
+interface DisposalItem {
+    id: number;
+    quantity: number;
+    volume_bd_ft: string | null;
+    processed_at: string;
+    processed_by?: { name: string };
+    asset: { id: number; asset_code: string; species: string | null; type: string } | null;
+    disposal_jev: { jev_number: string; uploaded_at: string | null; pdf_path: string | null } | null;
+}
+
 interface DonationRow {
     id: number;
     requester_name: string;
@@ -30,15 +40,7 @@ interface DonationRow {
     witness_1_title: string | null;
     witness_2_name: string | null;
     witness_2_title: string | null;
-    disposal: {
-        id: number;
-        quantity: number;
-        volume_bd_ft: string | null;
-        processed_at: string;
-        processed_by?: { name: string };
-        asset: { id: number; asset_code: string; species: string | null; type: string } | null;
-        disposal_jev: { jev_number: string; uploaded_at: string | null; pdf_path: string | null } | null;
-    } | null;
+    disposals: DisposalItem[];
 }
 
 interface PaginatedDonations {
@@ -73,10 +75,12 @@ function StatusPill({ row }: { row: DonationRow }) {
     if (row.released_at) {
         return <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">Released</span>;
     }
-    if (row.disposal?.disposal_jev?.uploaded_at) {
+    const anyJev = row.disposals.some((d) => d.disposal_jev);
+    const anyUploaded = row.disposals.some((d) => d.disposal_jev?.uploaded_at);
+    if (anyUploaded) {
         return <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800">Awaiting Release</span>;
     }
-    if (row.disposal?.disposal_jev) {
+    if (anyJev) {
         return <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Awaiting MES Upload</span>;
     }
     return <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">Awaiting JEV Out</span>;
@@ -173,16 +177,20 @@ export default function Donations({ donations, filters }: DonationsProps) {
                             {donations.data.map((row) => (
                                 <tr key={row.id}>
                                     <td className="px-4 py-3 text-sm">
-                                        {row.disposal?.asset ? (
-                                            <span className="font-medium text-gray-900">
-                                                {row.disposal.asset.asset_code.slice(0, 8)}…
-                                            </span>
-                                        ) : (
-                                            '—'
-                                        )}
-                                        {row.disposal?.asset?.species && (
-                                            <p className="text-xs text-gray-500">{row.disposal.asset.species}</p>
-                                        )}
+                                        {row.disposals.length > 0 ? (
+                                            <div className="space-y-0.5">
+                                                {row.disposals.map((d) => (
+                                                    <div key={d.id}>
+                                                        <span className="font-medium text-gray-900">
+                                                            {d.asset?.asset_code ?? '—'}
+                                                        </span>
+                                                        {d.asset?.species && (
+                                                            <span className="ml-1 text-xs text-gray-500">{d.asset.species}</span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : '—'}
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-700">{row.requester_name}</td>
                                     <td className="px-4 py-3 text-sm capitalize text-gray-600">
@@ -193,8 +201,8 @@ export default function Donations({ donations, filters }: DonationsProps) {
                                         {[row.barangay, row.municipality].filter(Boolean).join(', ') || '—'}
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-600">
-                                        {row.disposal?.processed_at
-                                            ? new Date(row.disposal.processed_at).toLocaleDateString()
+                                        {row.disposals[0]?.processed_at
+                                            ? new Date(row.disposals[0].processed_at).toLocaleDateString()
                                             : '—'}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
@@ -250,9 +258,9 @@ export default function Donations({ donations, filters }: DonationsProps) {
                     <div className="p-6">
                         <h2 className="text-lg font-medium text-gray-900">Donation Details</h2>
                         <p className="mt-1 text-sm text-gray-600">
-                            {viewingDonation.disposal?.asset?.asset_code.slice(0, 8)}…
-                            {viewingDonation.disposal?.processed_at &&
-                                ` — processed ${new Date(viewingDonation.disposal.processed_at).toLocaleString()}`}
+                            {viewingDonation.disposals.map((d) => d.asset?.asset_code).filter(Boolean).join(', ')}
+                            {viewingDonation.disposals[0]?.processed_at &&
+                                ` — processed ${new Date(viewingDonation.disposals[0].processed_at).toLocaleString()}`}
                         </p>
 
                         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
@@ -296,10 +304,17 @@ export default function Donations({ donations, filters }: DonationsProps) {
                                     <dd className="text-gray-900">{viewingDonation.confiscation_order_reference}</dd>
                                 </div>
                             )}
-                            {viewingDonation.disposal?.quantity && (
-                                <div>
-                                    <dt className="text-gray-500">Quantity Donated</dt>
-                                    <dd className="text-gray-900">{viewingDonation.disposal.quantity} unit(s)</dd>
+                            {viewingDonation.disposals.length > 0 && (
+                                <div className="sm:col-span-2">
+                                    <dt className="text-gray-500">Assets Donated</dt>
+                                    <dd className="text-gray-900 space-y-0.5">
+                                        {viewingDonation.disposals.map((d) => (
+                                            <div key={d.id}>
+                                                {d.asset?.asset_code ?? '—'} — {d.quantity} unit(s)
+                                                {d.volume_bd_ft && ` / ${Number(d.volume_bd_ft).toFixed(2)} bd.ft`}
+                                            </div>
+                                        ))}
+                                    </dd>
                                 </div>
                             )}
                         </dl>
@@ -350,11 +365,11 @@ export default function Donations({ donations, filters }: DonationsProps) {
                             <p className="mt-1 text-sm text-gray-600">
                                 {viewingDonation.released_at
                                     ? `Released ${new Date(viewingDonation.released_at).toLocaleString()}`
-                                    : viewingDonation.disposal?.disposal_jev?.uploaded_at
-                                      ? 'JEV Out uploaded — awaiting physical release.'
-                                      : viewingDonation.disposal?.disposal_jev
-                                        ? 'JEV Out issued — awaiting MES upload confirmation.'
-                                        : 'Awaiting JEV Out from Accounting.'}
+                                    : viewingDonation.disposals.some((d) => d.disposal_jev?.uploaded_at)
+                                        ? 'JEV Out uploaded — awaiting physical release.'
+                                        : viewingDonation.disposals.some((d) => d.disposal_jev)
+                                            ? 'JEV Out issued — awaiting MES upload confirmation.'
+                                            : 'Awaiting JEV Out from Accounting.'}
                             </p>
                         </div>
 
@@ -379,8 +394,9 @@ export default function Donations({ donations, filters }: DonationsProps) {
                                     View Release Photo
                                 </a>
                             )}
-                            {documentUrl(viewingDonation.disposal?.disposal_jev?.pdf_path ?? null) && (
-                                <a href={documentUrl(viewingDonation.disposal?.disposal_jev?.pdf_path ?? null) ?? '#'} className="text-sm text-emerald-700 hover:underline">
+                            {documentUrl(viewingDonation.disposals.find((d) => d.disposal_jev?.pdf_path)?.disposal_jev?.pdf_path ?? null) && (
+                                <a href={documentUrl(viewingDonation.disposals.find((d) => d.disposal_jev?.pdf_path)?.disposal_jev?.pdf_path ?? null) ?? '#'}
+                                className="text-sm text-emerald-700 hover:underline">
                                     Download JEV Out
                                 </a>
                             )}

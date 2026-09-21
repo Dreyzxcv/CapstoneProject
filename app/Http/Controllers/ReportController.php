@@ -347,26 +347,26 @@ class ReportController extends Controller
 
         $query = \App\Models\Donation::query()
             ->with([
-                'disposal:id,asset_id,disposal_type,quantity,volume_bd_ft,details,processed_at,processed_by',
-                'disposal.asset:id,asset_code,species,type,description',
-                'disposal.disposalJev',
-                'disposal.processedBy:id,name',
+                'disposals:id,donation_id,asset_id,disposal_type,quantity,volume_bd_ft,details,processed_at,processed_by',
+                'disposals.asset:id,asset_code,species,type,description',
+                'disposals.disposalJev',
+                'disposals.processedBy:id,name',
             ])
-            ->whereHas('disposal', fn ($q) => $q->where('disposal_type', 'donation'));
+            ->whereHas('disposals', fn ($q) => $q->where('disposal_type', 'donation'));
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('requester_name', 'like', "%{$search}%")
                     ->orWhere('agency_name', 'like', "%{$search}%")
-                    ->orWhereHas('disposal.asset', fn ($a) => $a->where('asset_code', 'like', "%{$search}%"));
+                    ->orWhereHas('disposals.asset', fn ($a) => $a->where('asset_code', 'like', "%{$search}%"));
             });
         }
 
         match ($status) {
-            'awaiting_jev_out' => $query->whereHas('disposal', fn ($d) => $d->whereDoesntHave('disposalJev')),
-            'awaiting_upload'  => $query->whereHas('disposal.disposalJev', fn ($j) => $j->whereNull('uploaded_at')),
+            'awaiting_jev_out' => $query->whereHas('disposals', fn ($d) => $d->whereDoesntHave('disposalJev')),
+            'awaiting_upload'  => $query->whereHas('disposals.disposalJev', fn ($j) => $j->whereNull('uploaded_at')),
             'awaiting_release' => $query
-                ->whereHas('disposal.disposalJev', fn ($j) => $j->whereNotNull('uploaded_at'))
+                ->whereHas('disposals.disposalJev', fn ($j) => $j->whereNotNull('uploaded_at'))
                 ->whereNull('released_at'),
             'released' => $query->whereNotNull('released_at'),
             default    => null,

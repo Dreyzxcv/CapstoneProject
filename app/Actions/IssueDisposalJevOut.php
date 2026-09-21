@@ -32,9 +32,10 @@ class IssueDisposalJevOut
 
         return DB::transaction(function () use ($disposal, $data, $accountingUser) {
             $disposalJev = DisposalJev::create([
-                'disposal_id' => $disposal->id,
-                'jev_number' => $data['jev_number'],
+                'disposal_id'             => $disposal->id,
+                'jev_number'              => $data['jev_number'],
                 'issued_by_accounting_id' => $accountingUser->id,
+                'uploaded_at'             => now(),
             ]);
 
             $this->auditLogService->log('disposal_jev.issued', $disposalJev, null, $disposalJev->toArray(), $accountingUser->id);

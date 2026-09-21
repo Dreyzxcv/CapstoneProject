@@ -11,6 +11,7 @@ class Disposal extends Model
 {
     protected $fillable = [
         'asset_id',
+        'donation_id',
         'donation_batch_id',
         'disposal_type',
         'quantity',
@@ -42,9 +43,9 @@ class Disposal extends Model
         return $this->belongsTo(User::class, 'processed_by');
     }
 
-    public function donation(): HasOne
+    public function donation(): BelongsTo
     {
-        return $this->hasOne(Donation::class);
+        return $this->belongsTo(Donation::class);
     }
     
     public function disposalJev(): HasOne

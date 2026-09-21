@@ -8,8 +8,9 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { FormEventHandler, useMemo, useState } from 'react';
 import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
-import { MapPin, Plus, Trash2, ScanLine } from 'lucide-react';
+import { MapPin, Plus, Trash2, ScanLine, ChevronRight } from 'lucide-react';
 import AssetScanModal, { ScannedAsset } from '@/Components/shared/AssetScanModal';
+import PiecePickerModal, { AssetPieceData } from '@/Components/shared/PiecePickerModal';
 
 interface Option {
     value: string;
@@ -23,6 +24,7 @@ interface DonatableAsset {
     description: string | null;
     quantity: number;
     remaining_quantity: number;
+    pieces: AssetPieceData[];
 }
 
 interface DisposalsCreateProps {
@@ -36,7 +38,6 @@ interface DisposalsCreateProps {
 interface DonationLine {
     asset_id: string;
     quantity: string;
-    piece_number?: number | null;
     piece_ids?: number[];
 }
 
@@ -60,10 +61,9 @@ export default function DisposalsCreate({
     ];
 
     const [scanning, setScanning] = useState(false);
+    const [piecePickerLine, setPiecePickerLine] = useState<number | null>(null);
     const [extraAssets, setExtraAssets] = useState<DonatableAsset[]>([]);
 
-    // Current asset + whatever other donatable log assets the controller
-    // sent along, combined so the line-item picker can look either up.
     const allDonatableAssets: DonatableAsset[] = useMemo(
         () => [
             {
@@ -73,6 +73,7 @@ export default function DisposalsCreate({
                 description: asset.description,
                 quantity: asset.quantity ?? 1,
                 remaining_quantity: assetQuantity,
+                pieces: (asset as any).pieces ?? [],
             },
             ...availableAssets,
             ...extraAssets.filter(
@@ -88,7 +89,7 @@ export default function DisposalsCreate({
     );
 
     function handleAssetScanned(scanned: ScannedAsset) {
-        setExtraAssets((prev) => (prev.some((a) => a.id === scanned.id) ? prev : [...prev, scanned]));
+        setExtraAssets((prev) => (prev.some((a) => a.id === scanned.id) ? prev : [...prev, scanned as any]));
 
         setData((prevData) => {
             const alreadyIndex = prevData.lines.findIndex((l) => l.asset_id === String(scanned.id));
@@ -98,12 +99,7 @@ export default function DisposalsCreate({
             const emptyIndex = prevData.lines.findIndex((l) => !l.asset_id);
             const newLine: DonationLine = {
                 asset_id: String(scanned.id),
-                // A piece scan represents exactly ONE unit — not the asset's
-                // overall remaining count. Using remaining_quantity here was
-                // part of the same bug: it let a single scanned piece silently
-                // claim quantity that belonged to other, still-undisposed pieces.
                 quantity: isPieceScan ? '1' : String(scanned.remaining_quantity),
-                piece_number: scanned.piece_number ?? null,
                 piece_ids: isPieceScan ? [scanned.piece_id as number] : undefined,
             };
 
@@ -123,9 +119,7 @@ export default function DisposalsCreate({
     const { data, setData, post, processing, errors } = useForm({
         disposal_type: disposalTypes[0]?.value ?? '',
         quantity: String(assetQuantity),
-        // Donation line items — this asset is pre-added as the first line
-        // since the user got here by clicking "Process" on it specifically.
-        lines: [{ asset_id: String(asset.id), quantity: String(assetQuantity) }] as DonationLine[],
+        lines: [{ asset_id: String(asset.id), quantity: String(assetQuantity), piece_ids: undefined as number[] | undefined }] as DonationLine[],
         requester_name: '',
         donee_position: '',
         purpose_statement: '',
@@ -165,25 +159,19 @@ export default function DisposalsCreate({
         return (errors as Record<string, string>)[`lines.${index}.${field}`];
     }
 
-    function updateLine(index: number, field: keyof DonationLine, value: string) {
+    function updateLine(index: number, field: 'asset_id' | 'quantity', value: string) {
         const next = [...data.lines];
         if (field === 'asset_id') {
-            next[index] = { ...next[index], [field]: value, piece_number: undefined, piece_ids: undefined } as DonationLine;
-            const selected = assetsById.get(value);
-            if (selected && !next[index].quantity) {
-                next[index].quantity = String(selected.remaining_quantity);
-            }
-        } else if (field === 'quantity') {
-            next[index] = { ...next[index], quantity: value, piece_number: undefined, piece_ids: undefined };
+            next[index] = { asset_id: value, quantity: '', piece_ids: undefined as number[] | undefined };
         } else {
-            next[index] = { ...next[index], [field]: value };
+            // field === 'quantity'
+            next[index] = { ...next[index], quantity: value, piece_ids: undefined as number[] | undefined };
         }
-
         setData('lines', next);
     }
 
     function addLine() {
-        setData('lines', [...data.lines, { asset_id: '', quantity: '' }]);
+        setData('lines', [...data.lines, { asset_id: '', quantity: '', piece_ids: undefined }]);
     }
 
     function removeLine(index: number) {
@@ -199,6 +187,15 @@ export default function DisposalsCreate({
                 .filter(Boolean),
         );
         return allDonatableAssets.filter((a) => !chosenElsewhere.has(String(a.id)));
+    }
+
+    // Derive piece_numbers from piece_ids for display
+    function selectedPieceNumbers(line: DonationLine, selectedAsset: DonatableAsset): number[] {
+        if (!line.piece_ids?.length) return [];
+        return selectedAsset.pieces
+            .filter((p) => line.piece_ids!.includes(p.id))
+            .map((p) => p.piece_number)
+            .sort((a, b) => a - b);
     }
 
     const submit: FormEventHandler = (e) => {
@@ -227,6 +224,10 @@ export default function DisposalsCreate({
             post(route('disposals.store', asset.id));
         }
     };
+
+    // The line currently open in the piece picker
+    const pickerLine = piecePickerLine !== null ? data.lines[piecePickerLine] : null;
+    const pickerAsset = pickerLine ? assetsById.get(pickerLine.asset_id) : null;
 
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">Process Disposal</h2>}>
@@ -265,10 +266,16 @@ export default function DisposalsCreate({
                             {data.lines.map((line, index) => {
                                 const selectedAsset = assetsById.get(line.asset_id);
                                 const options = availableOptionsFor(index);
+                                const hasPieces = (selectedAsset?.pieces?.length ?? 0) > 0;
+                                const pieceNums = selectedAsset ? selectedPieceNumbers(line, selectedAsset) : [];
+                                const remainingAfter = selectedAsset
+                                    ? selectedAsset.remaining_quantity - Number(line.quantity)
+                                    : 0;
 
                                 return (
                                     <div key={index} className="rounded-lg border border-gray-200 bg-white p-3">
-                                        <div className="grid gap-3 sm:grid-cols-[1fr_120px_auto] sm:items-end">
+                                        <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+                                            {/* Asset selector */}
                                             <div>
                                                 <Label htmlFor={`line-asset-${index}`}>Asset</Label>
                                                 <select
@@ -281,62 +288,83 @@ export default function DisposalsCreate({
                                                     <option value="" disabled>Select an asset…</option>
                                                     {options.map((a) => (
                                                         <option key={a.id} value={a.id}>
-                                                            {a.asset_code} — {a.species ?? a.description ?? 'Log'} ({a.remaining_quantity} on hand)
+                                                            {a.asset_code}
                                                         </option>
                                                     ))}
                                                 </select>
                                                 <InputError message={lineError(index, 'asset_id')} />
-
-                                                {typeof line.piece_number !== 'undefined' && line.piece_number !== null && selectedAsset && (
-                                                    <div className="mt-2">
-                                                        <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
-                                                            Piece {line.piece_number} / {selectedAsset.quantity ?? 1}
-                                                        </span>
-                                                    </div>
-                                                )}
                                             </div>
-                                            <div>
-                                                <Label htmlFor={`line-qty-${index}`}>Quantity</Label>
-                                                <Input
-                                                    id={`line-qty-${index}`}
-                                                    type="number"
-                                                    min={1}
-                                                    max={selectedAsset?.remaining_quantity}
-                                                    value={line.quantity}
-                                                    onChange={(e) => updateLine(index, 'quantity', e.target.value)}
-                                                    required
-                                                />
+
+                                            {/* Piece picker button OR quantity fallback */}
+                                            <div className="min-w-[140px]">
+                                                <Label>Pieces</Label>
+                                                {hasPieces ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => selectedAsset && setPiecePickerLine(index)}
+                                                        disabled={!selectedAsset}
+                                                        className="mt-1 flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+                                                    >
+                                                        <span className={line.piece_ids?.length ? 'text-gray-900' : 'text-gray-400'}>
+                                                            {line.piece_ids?.length
+                                                                ? `${line.piece_ids.length} piece${line.piece_ids.length !== 1 ? 's' : ''} selected`
+                                                                : 'Select pieces…'}
+                                                        </span>
+                                                        <ChevronRight className="h-4 w-4 text-gray-400" />
+                                                    </button>
+                                                ) : (
+                                                    <Input
+                                                        type="number"
+                                                        min={1}
+                                                        max={selectedAsset?.remaining_quantity}
+                                                        value={line.quantity}
+                                                        onChange={(e) => updateLine(index, "quantity", e.target.value)}
+                                                        disabled={!selectedAsset} 
+                                                        placeholder={!selectedAsset ? "Select an asset first" : ""}
+                                                        required
+                                                    />
+                                                )}
                                                 <InputError message={lineError(index, 'quantity')} />
                                             </div>
+
+                                            {/* Remove */}
                                             {data.lines.length > 1 && (
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
+                                                    className="mb-0.5 self-end"
                                                     onClick={() => removeLine(index)}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             )}
                                         </div>
-                                        {selectedAsset &&
-                                            Number(line.quantity) > 0 &&
-                                            Number(line.quantity) < selectedAsset.remaining_quantity && (
-                                                <p className="mt-2 text-xs text-amber-700">
-                                                    The remaining {selectedAsset.remaining_quantity - Number(line.quantity)} pc(s) of{' '}
-                                                    {selectedAsset.asset_code} will stay available for future disposal.
-                                                </p>
-                                            )}
+
+                                        {/* Selected piece badges */}
+                                        {pieceNums.length > 0 && selectedAsset && (
+                                            <div className="mt-2 flex flex-wrap gap-1">
+                                                {pieceNums.map((n) => (
+                                                    <span
+                                                        key={n}
+                                                        className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white"
+                                                    >
+                                                        Piece {n}/{selectedAsset.quantity}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Remainder warning */}
+                                        {selectedAsset && Number(line.quantity) > 0 && remainingAfter > 0 && (
+                                            <p className="mt-2 text-xs text-amber-700">
+                                                The remaining {remainingAfter} pc(s) of {selectedAsset.asset_code} will stay available for future disposal.
+                                            </p>
+                                        )}
                                     </div>
                                 );
                             })}
 
-                            {data.lines.length < allDonatableAssets.length && (
-                                <Button type="button" variant="outline" size="sm" onClick={addLine}>
-                                    <Plus className="mr-1.5 h-3.5 w-3.5" />
-                                    Add Another Asset
-                                </Button>
-                            )}
                             {data.lines.length < allDonatableAssets.length && (
                                 <Button type="button" variant="outline" size="sm" onClick={addLine}>
                                     <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -674,6 +702,26 @@ export default function DisposalsCreate({
                 onClose={() => setScanning(false)}
                 onFound={handleAssetScanned}
             />
+            {piecePickerLine !== null && pickerAsset && (
+                <PiecePickerModal
+                    show
+                    assetCode={pickerAsset.asset_code}
+                    totalPieces={pickerAsset.quantity}
+                    pieces={pickerAsset.pieces}
+                    selectedIds={data.lines[piecePickerLine].piece_ids ?? []}
+                    onClose={() => setPiecePickerLine(null)}
+                    onConfirm={(ids) => {
+                        const next = [...data.lines];
+                        next[piecePickerLine] = {
+                            ...next[piecePickerLine],
+                            piece_ids: ids,
+                            quantity: String(ids.length),
+                        };
+                        setData('lines', next);
+                        setPiecePickerLine(null);
+                    }}
+                />
+            )}
         </AuthenticatedLayout>
     );
 }

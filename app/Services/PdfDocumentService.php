@@ -112,8 +112,7 @@ class PdfDocumentService
 
         $path = $this->storePdf($pdf->output(), 'donations', 'deed-'.$primaryAsset->asset_code);
 
-        \App\Models\Donation::whereIn('disposal_id', $disposals->pluck('id'))
-            ->update(['deed_of_donation_path' => $path]);
+        $donation->update(['deed_of_donation_path' => $path]);
 
         return $path;
     }

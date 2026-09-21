@@ -3,12 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Donation extends Model
 {
     protected $fillable = [
-        'disposal_id',
         'requester_name',
         'organization_type',
         'organization_type_other',
@@ -42,9 +41,9 @@ class Donation extends Model
         ];
     }
 
-    public function disposal(): BelongsTo
+    public function disposals(): HasMany
     {
-        return $this->belongsTo(Disposal::class);
+        return $this->hasMany(Disposal::class);
     }
 
     public function fullAddress(): string

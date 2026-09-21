@@ -8,8 +8,9 @@ import { Head, Link, useForm } from "@inertiajs/react";
 import { FormEventHandler, useMemo, useState } from "react";
 import CoordinatesPickerModal from "@/Components/shared/CoordinatesPickerModal";
 import { IncidentLocationMap } from "@/Components/shared/IncidentLocationMap";
-import { MapPin, Plus, Trash2, ScanLine } from "lucide-react";
+import { MapPin, Plus, Trash2, ScanLine, ChevronRight } from "lucide-react";
 import AssetScanModal, { ScannedAsset } from "@/Components/shared/AssetScanModal";
+import PiecePickerModal, { AssetPieceData } from "@/Components/shared/PiecePickerModal";
 
 interface Option {
     value: string;
@@ -25,6 +26,7 @@ interface DonatableAsset {
     remaining_quantity: number;
     municipality_of_origin: string;
     incident?: { place_of_apprehension: string } | null;
+    pieces: AssetPieceData[];
 }
 
 interface CreateBatchDonationProps {
@@ -36,7 +38,6 @@ interface CreateBatchDonationProps {
 interface DonationLine {
     asset_id: string;
     quantity: string;
-    piece_numbers?: number[];
     piece_ids?: number[];
 }
 
@@ -57,6 +58,7 @@ export default function CreateBatchDonation({
     barangaysByMunicipality,
 }: CreateBatchDonationProps) {
     const [scanning, setScanning] = useState(false);
+    const [piecePickerLine, setPiecePickerLine] = useState<number | null>(null);
     const [extraAssets, setExtraAssets] = useState<DonatableAsset[]>([]);
 
     const allAssets = useMemo(
@@ -70,7 +72,7 @@ export default function CreateBatchDonation({
     );
 
     const { data, setData, post, processing, errors } = useForm({
-        lines: [{ asset_id: "", quantity: "" }] as DonationLine[],
+        lines: [{ asset_id: "", quantity: "", piece_ids: undefined as number[] | undefined }] as DonationLine[],
         requester_name: "",
         donee_position: "",
         purpose_statement: "",
@@ -93,45 +95,30 @@ export default function CreateBatchDonation({
 
     const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
 
-    function lineError(
-        index: number,
-        field: "asset_id" | "quantity",
-    ): string | undefined {
+    function lineError(index: number, field: "asset_id" | "quantity"): string | undefined {
         return (errors as Record<string, string>)[`lines.${index}.${field}`];
     }
 
-   function updateLine(index: number, field: keyof DonationLine, value: string) {
+    function updateLine(index: number, field: 'asset_id' | 'quantity', value: string) {
         const next = [...data.lines];
-        if (field === "asset_id") {
-            next[index] = { ...next[index], [field]: value, piece_ids: undefined, piece_numbers: undefined } as DonationLine;
-            const asset = assetsById.get(value);
-            if (asset && !next[index].quantity) {
-                next[index].quantity = String(asset.remaining_quantity);
-            }
-        } else if (field === "quantity") {
-            // A manual quantity edit breaks the 1:1 mapping to scanned pieces —
-            // fall back to the plain, non-piece-tracked quantity flow.
-            next[index] = { ...next[index], quantity: value, piece_ids: undefined, piece_numbers: undefined };
+        if (field === 'asset_id') {
+            next[index] = { asset_id: value, quantity: '', piece_ids: undefined as number[] | undefined };
         } else {
-            next[index] = { ...next[index], [field]: value };
+            // field === 'quantity'
+            next[index] = { ...next[index], quantity: value, piece_ids: undefined as number[] | undefined };
         }
-
-        setData("lines", next);
+        setData('lines', next);
     }
 
     function addLine() {
-        setData("lines", [...data.lines, { asset_id: "", quantity: "" }]);
+        setData("lines", [...data.lines, { asset_id: "", quantity: "", piece_ids: undefined }]);
     }
 
     function removeLine(index: number) {
         if (data.lines.length === 1) return;
-        setData(
-            "lines",
-            data.lines.filter((_, i) => i !== index),
-        );
+        setData("lines", data.lines.filter((_, i) => i !== index));
     }
 
-    // Prevent picking the same asset twice across different lines.
     function availableOptionsFor(currentIndex: number): DonatableAsset[] {
         const chosenElsewhere = new Set(
             data.lines
@@ -142,12 +129,19 @@ export default function CreateBatchDonation({
         return allAssets.filter((a) => !chosenElsewhere.has(String(a.id)));
     }
 
+    function selectedPieceNumbers(line: DonationLine, selectedAsset: DonatableAsset): number[] {
+        if (!line.piece_ids?.length) return [];
+        return selectedAsset.pieces
+            .filter((p) => line.piece_ids!.includes(p.id))
+            .map((p) => p.piece_number)
+            .sort((a, b) => a - b);
+    }
+
     function handleAssetScanned(scanned: ScannedAsset) {
-        setExtraAssets((prev) => (prev.some((a) => a.id === scanned.id) ? prev : [...prev, scanned]));
+        setExtraAssets((prev) => (prev.some((a) => a.id === scanned.id) ? prev : [...prev, scanned as any]));
 
         setData((prevData) => {
             const pieceId = scanned.piece_id ?? null;
-            const pieceNum = scanned.piece_number ?? null;
             const existingIndex = prevData.lines.findIndex((l) => l.asset_id === String(scanned.id));
 
             if (existingIndex !== -1) {
@@ -155,34 +149,22 @@ export default function CreateBatchDonation({
                 const existing = nextLines[existingIndex];
                 const existingIds = existing.piece_ids ?? [];
 
-                if (pieceId !== null && existingIds.includes(pieceId)) {
-                    // Same physical piece scanned twice in this session — ignore.
-                    return prevData;
-                }
+                if (pieceId !== null && existingIds.includes(pieceId)) return prevData;
 
                 const nextIds = pieceId !== null ? [...existingIds, pieceId] : existingIds;
-                const nextNumbers = pieceNum !== null
-                    ? [...(existing.piece_numbers ?? []), pieceNum]
-                    : existing.piece_numbers;
-
                 nextLines[existingIndex] = {
                     ...existing,
-                    // Quantity is locked to the number of scanned pieces so it
-                    // can never drift from what was actually verified via QR.
                     quantity: pieceId !== null ? String(nextIds.length) : existing.quantity,
-                    piece_ids: nextIds,
-                    piece_numbers: nextNumbers,
+                    piece_ids: nextIds.length ? nextIds : undefined,
                 };
-
                 return { ...prevData, lines: nextLines };
             }
 
             const emptyIndex = prevData.lines.findIndex((l) => !l.asset_id);
             const newLine: DonationLine = {
                 asset_id: String(scanned.id),
-                quantity: '1',
+                quantity: "1",
                 piece_ids: pieceId !== null ? [pieceId] : undefined,
-                piece_numbers: pieceNum !== null ? [pieceNum] : undefined,
             };
 
             const nextLines = [...prevData.lines];
@@ -191,7 +173,6 @@ export default function CreateBatchDonation({
             } else {
                 nextLines.push(newLine);
             }
-
             return { ...prevData, lines: nextLines };
         });
 
@@ -209,21 +190,18 @@ export default function CreateBatchDonation({
         const lineSummaries = data.lines
             .map((line) => {
                 const asset = assetsById.get(line.asset_id);
-                return asset
-                    ? `${line.quantity || "?"} pc(s) of ${asset.asset_code}`
-                    : null;
+                return asset ? `${line.quantity || "?"} pc(s) of ${asset.asset_code}` : null;
             })
             .filter(Boolean)
             .join(", ");
 
-        if (
-            confirm(
-                `Confirm donation of ${lineSummaries} to ${data.requester_name || "this recipient"}? This cannot be undone.`,
-            )
-        ) {
+        if (confirm(`Confirm donation of ${lineSummaries} to ${data.requester_name || "this recipient"}? This cannot be undone.`)) {
             post(route("disposals.donate.store"));
         }
     };
+
+    const pickerLine = piecePickerLine !== null ? data.lines[piecePickerLine] : null;
+    const pickerAsset = pickerLine ? assetsById.get(pickerLine.asset_id) : null;
 
     return (
         <AuthenticatedLayout
@@ -246,147 +224,116 @@ export default function CreateBatchDonation({
                     <form onSubmit={submit} className="space-y-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-lg">
-                                    Assets to Donate
-                                </CardTitle>
+                                <CardTitle className="text-lg">Assets to Donate</CardTitle>
                                 <p className="text-sm text-gray-600">
-                                    Choose one or more assets and how many
-                                    pieces of each go to this recipient.
+                                    Choose one or more assets and select which pieces go to this recipient.
                                 </p>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {data.lines.map((line, index) => {
-                                    const selectedAsset = assetsById.get(
-                                        line.asset_id,
-                                    );
+                                    const selectedAsset = assetsById.get(line.asset_id);
                                     const options = availableOptionsFor(index);
+                                    const hasPieces = (selectedAsset?.pieces?.length ?? 0) > 0;
+                                    const pieceNums = selectedAsset ? selectedPieceNumbers(line, selectedAsset) : [];
+                                    const remainingAfter = selectedAsset
+                                        ? selectedAsset.remaining_quantity - Number(line.quantity)
+                                        : 0;
 
                                     return (
-                                        <div
-                                            key={index}
-                                            className="rounded-lg border border-gray-200 p-4"
-                                        >
-                                            <div className="grid gap-4 sm:grid-cols-[1fr_140px_auto] sm:items-end">
+                                        <div key={index} className="rounded-lg border border-gray-200 p-4">
+                                            <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+                                                {/* Asset selector */}
                                                 <div>
-                                                    <Label
-                                                        htmlFor={`asset-${index}`}
-                                                    >
-                                                        Asset
-                                                        {(line.piece_numbers?.length ?? 0) > 0 && selectedAsset && (
-                                                            <div className="mt-2">
-                                                                <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
-                                                                    {line.piece_numbers!.length === 1
-                                                                        ? `Piece ${line.piece_numbers![0]} / ${selectedAsset.quantity ?? 1}`
-                                                                        : `Pieces ${[...line.piece_numbers!].sort((a, b) => a - b).join(', ')} / ${selectedAsset.quantity ?? 1}`}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </Label>
+                                                    <Label htmlFor={`asset-${index}`}>Asset</Label>
                                                     <select
                                                         id={`asset-${index}`}
                                                         value={line.asset_id}
-                                                        onChange={(e) =>
-                                                            updateLine(
-                                                                index,
-                                                                "asset_id",
-                                                                e.target.value,
-                                                            )
-                                                        }
+                                                        onChange={(e) => updateLine(index, "asset_id", e.target.value)}
                                                         className={selectClass}
                                                         required
                                                     >
-                                                        <option
-                                                            value=""
-                                                            disabled
-                                                        >
-                                                            Select an asset…
-                                                        </option>
+                                                        <option value="" disabled>Select an asset…</option>
                                                         {options.map((a) => (
-                                                            <option
-                                                                key={a.id}
-                                                                value={a.id}
-                                                            >
-                                                                {a.asset_code} —{" "}
-                                                                {a.species ??
-                                                                    a.description ??
-                                                                    "Log"}
-                                                                {" "}
+                                                            <option key={a.id} value={a.id}>
+                                                                {a.asset_code}
                                                             </option>
                                                         ))}
                                                     </select>
-                                                    <InputError
-                                                        message={lineError(
-                                                            index,
-                                                            "asset_id",
-                                                        )}
-                                                    />
+                                                    <InputError message={lineError(index, "asset_id")} />
+                                                </div>
 
+                                                {/* Piece picker button OR quantity fallback */}
+                                                <div className="min-w-[150px]">
+                                                    <Label>Pieces</Label>
+                                                    {hasPieces ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => selectedAsset && setPiecePickerLine(index)}
+                                                            disabled={!selectedAsset}
+                                                            className="mt-1 flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+                                                        >
+                                                            <span className={line.piece_ids?.length ? "text-gray-900" : "text-gray-400"}>
+                                                                {line.piece_ids?.length
+                                                                    ? `${line.piece_ids.length} piece${line.piece_ids.length !== 1 ? "s" : ""} selected`
+                                                                    : "Select pieces…"}
+                                                            </span>
+                                                            <ChevronRight className="h-4 w-4 text-gray-400" />
+                                                        </button>
+                                                    ) : (
+                                                        <Input
+                                                            type="number"
+                                                            min={1}
+                                                            max={selectedAsset?.remaining_quantity}
+                                                            value={line.quantity}
+                                                            onChange={(e) => updateLine(index, "quantity", e.target.value)}
+                                                            disabled={!selectedAsset}   // ← add this
+                                                            placeholder={!selectedAsset ? "Select an asset first" : ""} 
+                                                            required
+                                                        />
+                                                    )}
+                                                    <InputError message={lineError(index, "quantity")} />
                                                 </div>
-                                                <div>
-                                                    <Label
-                                                        htmlFor={`quantity-${index}`}
-                                                    >
-                                                        Quantity
-                                                    </Label>
-                                                    <Input
-                                                        id={`quantity-${index}`}
-                                                        type="number"
-                                                        min={1}
-                                                        max={
-                                                            selectedAsset?.remaining_quantity
-                                                        }
-                                                        value={line.quantity}
-                                                        onChange={(e) =>
-                                                            updateLine(
-                                                                index,
-                                                                "quantity",
-                                                                e.target.value,
-                                                            )
-                                                        }
-                                                        required
-                                                    />
-                                                    <InputError
-                                                        message={lineError(
-                                                            index,
-                                                            "quantity",
-                                                        )}
-                                                    />
-                                                </div>
+
+                                                {/* Remove */}
                                                 {data.lines.length > 1 && (
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
                                                         size="sm"
-                                                        onClick={() =>
-                                                            removeLine(index)
-                                                        }
+                                                        className="mb-0.5 self-end"
+                                                        onClick={() => removeLine(index)}
                                                     >
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 )}
                                             </div>
-                                            {selectedAsset && (() => {
-                                                const totalAssigned = data.lines
-                                                    .filter((l) => l.asset_id === String(selectedAsset.id))
-                                                    .reduce((s, l) => s + (Number(l.quantity) || 0), 0);
-                                                const remaining = selectedAsset.remaining_quantity - totalAssigned;
-                                                return totalAssigned > 0 && remaining >= 0 ? (
-                                                    <p className="mt-2 text-xs text-amber-700">
-                                                        The remaining {remaining} pc(s) of {selectedAsset.asset_code} will stay available for future disposal.
-                                                    </p>
-                                                ) : null;
-                                            })()}
+
+                                            {/* Selected piece badges */}
+                                            {pieceNums.length > 0 && selectedAsset && (
+                                                <div className="mt-2 flex flex-wrap gap-1">
+                                                    {pieceNums.map((n) => (
+                                                        <span
+                                                            key={n}
+                                                            className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white"
+                                                        >
+                                                            Piece {n}/{selectedAsset.quantity}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Remainder warning */}
+                                            {selectedAsset && Number(line.quantity) > 0 && remainingAfter > 0 && (
+                                                <p className="mt-2 text-xs text-amber-700">
+                                                    The remaining {remainingAfter} pc(s) of {selectedAsset.asset_code} will stay available for future disposal.
+                                                </p>
+                                            )}
                                         </div>
                                     );
                                 })}
 
-                                {data.lines.length < assets.length && (
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={addLine}
-                                    >
+                                {data.lines.length < allAssets.length && (
+                                    <Button type="button" variant="outline" size="sm" onClick={addLine}>
                                         <Plus className="mr-1.5 h-3.5 w-3.5" />
                                         Add Another Asset
                                     </Button>
@@ -400,478 +347,255 @@ export default function CreateBatchDonation({
 
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-lg">
-                                    Recipient
-                                </CardTitle>
+                                <CardTitle className="text-lg">Recipient</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div>
-                                    <Label htmlFor="organization_type">
-                                        Organization Type
-                                    </Label>
+                                    <Label htmlFor="organization_type">Organization Type</Label>
                                     <select
                                         id="organization_type"
                                         value={data.organization_type}
-                                        onChange={(e) =>
-                                            setData(
-                                                "organization_type",
-                                                e.target.value,
-                                            )
-                                        }
+                                        onChange={(e) => setData("organization_type", e.target.value)}
                                         className={selectClass}
                                     >
                                         {ORG_TYPES.map((o) => (
-                                            <option
-                                                key={o.value}
-                                                value={o.value}
-                                            >
-                                                {o.label}
-                                            </option>
+                                            <option key={o.value} value={o.value}>{o.label}</option>
                                         ))}
                                     </select>
-                                    <InputError
-                                        message={errors.organization_type}
-                                    />
+                                    <InputError message={errors.organization_type} />
                                 </div>
 
                                 {data.organization_type === "other" && (
                                     <div>
-                                        <Label htmlFor="organization_type_other">
-                                            Specify Type
-                                        </Label>
+                                        <Label htmlFor="organization_type_other">Specify Type</Label>
                                         <Input
                                             id="organization_type_other"
                                             value={data.organization_type_other}
-                                            onChange={(e) =>
-                                                setData(
-                                                    "organization_type_other",
-                                                    e.target.value,
-                                                )
-                                            }
+                                            onChange={(e) => setData("organization_type_other", e.target.value)}
                                         />
-                                        <InputError
-                                            message={
-                                                errors.organization_type_other
-                                            }
-                                        />
-                                    </div>
-                                )}
-
-                                {data.organization_type !== "individual" && (
-                                    <div>
-                                        <Label htmlFor="agency_name">
-                                            Agency / Organization Name
-                                        </Label>
-                                        <Input
-                                            id="agency_name"
-                                            value={data.agency_name}
-                                            onChange={(e) =>
-                                                setData(
-                                                    "agency_name",
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
-                                        <InputError
-                                            message={errors.agency_name}
-                                        />
+                                        <InputError message={errors.organization_type_other} />
                                     </div>
                                 )}
 
                                 <div>
-                                    <Label htmlFor="agency_name">
-                                        Donee Office / Institution Name
-                                    </Label>
+                                    <Label htmlFor="agency_name">Donee Office / Institution Name</Label>
                                     <Input
                                         id="agency_name"
                                         placeholder="Agency / Institution Name"
                                         value={data.agency_name}
-                                        onChange={(e) =>
-                                            setData(
-                                                "agency_name",
-                                                e.target.value,
-                                            )
-                                        }
+                                        onChange={(e) => setData("agency_name", e.target.value)}
                                         required
                                     />
                                     <p className="mt-1 text-xs text-gray-500">
-                                        Printed in the Deed of Donation's
-                                        signature block (the "DONEE OFFICE"
-                                        heading).
+                                        Printed in the Deed of Donation's signature block (the "DONEE OFFICE" heading).
                                     </p>
                                     <InputError message={errors.agency_name} />
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="requester_name">
-                                        Representative Name
-                                    </Label>
+                                    <Label htmlFor="requester_name">Representative Name</Label>
                                     <Input
                                         id="requester_name"
                                         value={data.requester_name}
-                                        onChange={(e) =>
-                                            setData(
-                                                "requester_name",
-                                                e.target.value,
-                                            )
-                                        }
+                                        onChange={(e) => setData("requester_name", e.target.value)}
                                         required
                                     />
-                                    <InputError
-                                        message={errors.requester_name}
-                                    />
+                                    <InputError message={errors.requester_name} />
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="donee_position">
-                                        Representative's Position / Title
-                                    </Label>
+                                    <Label htmlFor="donee_position">Representative's Position / Title</Label>
                                     <Input
                                         id="donee_position"
                                         placeholder="Donee Position"
                                         value={data.donee_position}
-                                        onChange={(e) =>
-                                            setData(
-                                                "donee_position",
-                                                e.target.value,
-                                            )
-                                        }
+                                        onChange={(e) => setData("donee_position", e.target.value)}
                                         required
                                     />
                                     <p className="mt-1 text-xs text-gray-500">
-                                        Printed on the Deed of Donation, e.g.
-                                        "represented by [name], [position]".
+                                        Printed on the Deed of Donation, e.g. "represented by [name], [position]".
                                     </p>
-                                    <InputError
-                                        message={errors.donee_position}
-                                    />
+                                    <InputError message={errors.donee_position} />
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="purpose_statement">
-                                        Purpose / Need Statement
-                                    </Label>
+                                    <Label htmlFor="purpose_statement">Purpose / Need Statement</Label>
                                     <Input
                                         id="purpose_statement"
                                         placeholder="e.g. for the improvement and renovation of the office space"
                                         value={data.purpose_statement}
-                                        onChange={(e) =>
-                                            setData(
-                                                "purpose_statement",
-                                                e.target.value,
-                                            )
-                                        }
+                                        onChange={(e) => setData("purpose_statement", e.target.value)}
                                         required
                                     />
                                     <p className="mt-1 text-xs text-gray-500">
-                                        Describes why the donee needs the lumber
-                                        — appears in the Deed's WITNESSETH
-                                        clause.
+                                        Describes why the donee needs the lumber — appears in the Deed's WITNESSETH clause.
                                     </p>
-                                    <InputError
-                                        message={errors.purpose_statement}
-                                    />
+                                    <InputError message={errors.purpose_statement} />
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="confiscation_order_reference">
-                                        Confiscation Order Reference (optional)
-                                    </Label>
+                                    <Label htmlFor="confiscation_order_reference">Confiscation Order Reference (optional)</Label>
                                     <Input
                                         id="confiscation_order_reference"
-                                        placeholder=""
-                                        value={
-                                            data.confiscation_order_reference
-                                        }
-                                        onChange={(e) =>
-                                            setData(
-                                                "confiscation_order_reference",
-                                                e.target.value,
-                                            )
-                                        }
+                                        value={data.confiscation_order_reference}
+                                        onChange={(e) => setData("confiscation_order_reference", e.target.value)}
                                     />
-                                    <InputError
-                                        message={
-                                            errors.confiscation_order_reference
-                                        }
-                                    />
+                                    <InputError message={errors.confiscation_order_reference} />
                                 </div>
 
-                                {/* Address block: Municipality, Barangay, Street */}
                                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                                     <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
                                         Donee Address
                                     </p>
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div>
-                                            <Label htmlFor="municipality">
-                                                Municipality
-                                            </Label>
+                                            <Label htmlFor="municipality">Municipality</Label>
                                             <select
                                                 id="municipality"
                                                 value={data.municipality}
-                                                onChange={(e) =>
-                                                    handleMunicipalityChange(
-                                                        e.target.value,
-                                                    )
-                                                }
+                                                onChange={(e) => handleMunicipalityChange(e.target.value)}
                                                 className={selectClass}
                                                 required
                                             >
                                                 {municipalities.map((m) => (
-                                                    <option
-                                                        key={m.value}
-                                                        value={m.value}
-                                                    >
-                                                        {m.label}
-                                                    </option>
+                                                    <option key={m.value} value={m.value}>{m.label}</option>
                                                 ))}
                                             </select>
-                                            <InputError
-                                                message={errors.municipality}
-                                            />
+                                            <InputError message={errors.municipality} />
                                         </div>
                                         <div>
-                                            <Label htmlFor="barangay">
-                                                Barangay
-                                            </Label>
+                                            <Label htmlFor="barangay">Barangay</Label>
                                             <select
                                                 id="barangay"
                                                 value={data.barangay}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "barangay",
-                                                        e.target.value,
-                                                    )
-                                                }
+                                                onChange={(e) => setData("barangay", e.target.value)}
                                                 className={selectClass}
                                                 required
                                             >
-                                                <option value="" disabled>
-                                                    Select barangay…
-                                                </option>
-                                                {(
-                                                    barangaysByMunicipality[
-                                                        data.municipality
-                                                    ] ?? []
-                                                ).map((brgy) => (
-                                                    <option
-                                                        key={brgy}
-                                                        value={brgy}
-                                                    >
-                                                        {brgy}
-                                                    </option>
+                                                <option value="" disabled>Select barangay…</option>
+                                                {(barangaysByMunicipality[data.municipality] ?? []).map((brgy) => (
+                                                    <option key={brgy} value={brgy}>{brgy}</option>
                                                 ))}
                                             </select>
-                                            <InputError
-                                                message={errors.barangay}
-                                            />
+                                            <InputError message={errors.barangay} />
                                         </div>
                                     </div>
                                     <div className="mt-4">
-                                        <Label htmlFor="street">
-                                            Street / House No.
-                                        </Label>
+                                        <Label htmlFor="street">Street / House No.</Label>
                                         <Input
                                             id="street"
                                             placeholder="e.g. Purok 3, Zone 2"
                                             value={data.street}
-                                            onChange={(e) =>
-                                                setData(
-                                                    "street",
-                                                    e.target.value,
-                                                )
-                                            }
+                                            onChange={(e) => setData("street", e.target.value)}
                                         />
                                         <InputError message={errors.street} />
                                     </div>
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="delivery_coordinates">
-                                        Delivery Location
-                                    </Label>
+                                    <Label htmlFor="delivery_coordinates">Delivery Location</Label>
                                     <div className="flex gap-2">
                                         <Input
                                             id="delivery_coordinates"
                                             placeholder="e.g. 13.5833, 124.2333"
                                             value={data.delivery_coordinates}
-                                            onChange={(e) =>
-                                                setData(
-                                                    "delivery_coordinates",
-                                                    e.target.value,
-                                                )
-                                            }
+                                            onChange={(e) => setData("delivery_coordinates", e.target.value)}
                                         />
                                         <Button
                                             type="button"
                                             variant="outline"
-                                            onClick={() =>
-                                                setShowCoordinatesPicker(true)
-                                            }
+                                            onClick={() => setShowCoordinatesPicker(true)}
                                         >
                                             <MapPin className="mr-1.5 h-4 w-4" />
                                             Pick on Map
                                         </Button>
                                     </div>
-                                    <InputError
-                                        message={errors.delivery_coordinates}
-                                    />
+                                    <InputError message={errors.delivery_coordinates} />
 
                                     {data.delivery_coordinates && (
                                         <div className="mt-3">
                                             <IncidentLocationMap
-                                                coordinates={
-                                                    data.delivery_coordinates
-                                                }
-                                                placeName={
-                                                    data.requester_name ||
-                                                    "Donation delivery point"
-                                                }
+                                                coordinates={data.delivery_coordinates}
+                                                placeName={data.requester_name || "Donation delivery point"}
                                             />
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Deed of Donation signatories */}
                                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                                     <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
                                         Deed of Donation Signatories
                                     </p>
                                     <p className="mb-3 text-xs text-gray-500">
-                                        Leave any of these blank to use the
-                                        office's standing default for this
-                                        document.
+                                        Leave any of these blank to use the office's standing default for this document.
                                     </p>
 
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div>
-                                            <Label htmlFor="donor_representative_name">
-                                                OIC / PENR Officer Name
-                                            </Label>
+                                            <Label htmlFor="donor_representative_name">OIC / PENR Officer Name</Label>
                                             <Input
                                                 id="donor_representative_name"
                                                 placeholder="Donor Representative Name"
-                                                value={
-                                                    data.donor_representative_name
-                                                }
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "donor_representative_name",
-                                                        e.target.value,
-                                                    )
-                                                }
+                                                value={data.donor_representative_name}
+                                                onChange={(e) => setData("donor_representative_name", e.target.value)}
                                             />
-                                            <InputError
-                                                message={
-                                                    errors.donor_representative_name
-                                                }
-                                            />
+                                            <InputError message={errors.donor_representative_name} />
                                         </div>
                                         <div>
-                                            <Label htmlFor="donor_representative_title">
-                                                OIC / PENR Officer Title
-                                            </Label>
+                                            <Label htmlFor="donor_representative_title">OIC / PENR Officer Title</Label>
                                             <Input
                                                 id="donor_representative_title"
                                                 placeholder="Donor Representative Title"
-                                                value={
-                                                    data.donor_representative_title
-                                                }
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "donor_representative_title",
-                                                        e.target.value,
-                                                    )
-                                                }
+                                                value={data.donor_representative_title}
+                                                onChange={(e) => setData("donor_representative_title", e.target.value)}
                                             />
-                                            <InputError
-                                                message={
-                                                    errors.donor_representative_title
-                                                }
-                                            />
+                                            <InputError message={errors.donor_representative_title} />
                                         </div>
                                     </div>
 
                                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                                         <div>
-                                            <Label htmlFor="witness_1_name">
-                                                Witness 1 Name
-                                            </Label>
+                                            <Label htmlFor="witness_1_name">Witness 1 Name</Label>
                                             <Input
                                                 id="witness_1_name"
                                                 placeholder="WITNESS 1 Name"
                                                 value={data.witness_1_name}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "witness_1_name",
-                                                        e.target.value,
-                                                    )
-                                                }
+                                                onChange={(e) => setData("witness_1_name", e.target.value)}
                                             />
-                                            <InputError
-                                                message={errors.witness_1_name}
-                                            />
+                                            <InputError message={errors.witness_1_name} />
                                         </div>
                                         <div>
-                                            <Label htmlFor="witness_1_title">
-                                                Witness 1 Title
-                                            </Label>
+                                            <Label htmlFor="witness_1_title">Witness 1 Title</Label>
                                             <Input
                                                 id="witness_1_title"
                                                 placeholder="Witness 1 Title"
                                                 value={data.witness_1_title}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "witness_1_title",
-                                                        e.target.value,
-                                                    )
-                                                }
+                                                onChange={(e) => setData("witness_1_title", e.target.value)}
                                             />
-                                            <InputError
-                                                message={errors.witness_1_title}
-                                            />
+                                            <InputError message={errors.witness_1_title} />
                                         </div>
                                     </div>
 
                                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                                         <div>
-                                            <Label htmlFor="witness_2_name">
-                                                Witness 2 Name
-                                            </Label>
+                                            <Label htmlFor="witness_2_name">Witness 2 Name</Label>
                                             <Input
                                                 id="witness_2_name"
                                                 placeholder="Witness 2 Name"
                                                 value={data.witness_2_name}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "witness_2_name",
-                                                        e.target.value,
-                                                    )
-                                                }
+                                                onChange={(e) => setData("witness_2_name", e.target.value)}
                                             />
-                                            <InputError
-                                                message={errors.witness_2_name}
-                                            />
+                                            <InputError message={errors.witness_2_name} />
                                         </div>
                                         <div>
-                                            <Label htmlFor="witness_2_title">
-                                                Witness 2 Title
-                                            </Label>
+                                            <Label htmlFor="witness_2_title">Witness 2 Title</Label>
                                             <Input
                                                 id="witness_2_title"
                                                 placeholder="Witness 2 Title"
                                                 value={data.witness_2_title}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "witness_2_title",
-                                                        e.target.value,
-                                                    )
-                                                }
+                                                onChange={(e) => setData("witness_2_title", e.target.value)}
                                             />
-                                            <InputError
-                                                message={errors.witness_2_title}
-                                            />
+                                            <InputError message={errors.witness_2_title} />
                                         </div>
                                     </div>
                                 </div>
@@ -881,9 +605,7 @@ export default function CreateBatchDonation({
                                     <Input
                                         id="notes"
                                         value={data.notes}
-                                        onChange={(e) =>
-                                            setData("notes", e.target.value)
-                                        }
+                                        onChange={(e) => setData("notes", e.target.value)}
                                     />
                                 </div>
                             </CardContent>
@@ -894,9 +616,7 @@ export default function CreateBatchDonation({
                                 Confirm Donation
                             </Button>
                             <Link href={route("disposals.index")}>
-                                <Button type="button" variant="outline">
-                                    Cancel
-                                </Button>
+                                <Button type="button" variant="outline">Cancel</Button>
                             </Link>
                         </div>
                     </form>
@@ -914,6 +634,26 @@ export default function CreateBatchDonation({
                 onClose={() => setScanning(false)}
                 onFound={handleAssetScanned}
             />
+            {piecePickerLine !== null && pickerAsset && (
+                <PiecePickerModal
+                    show
+                    assetCode={pickerAsset.asset_code}
+                    totalPieces={pickerAsset.quantity}
+                    pieces={pickerAsset.pieces}
+                    selectedIds={data.lines[piecePickerLine].piece_ids ?? []}
+                    onClose={() => setPiecePickerLine(null)}
+                    onConfirm={(ids) => {
+                        const next = [...data.lines];
+                        next[piecePickerLine] = {
+                            ...next[piecePickerLine],
+                            piece_ids: ids,
+                            quantity: String(ids.length),
+                        };
+                        setData("lines", next);
+                        setPiecePickerLine(null);
+                    }}
+                />
+            )}
         </AuthenticatedLayout>
     );
 }

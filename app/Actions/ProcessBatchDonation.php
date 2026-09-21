@@ -96,6 +96,26 @@ class ProcessBatchDonation
             $batchId = (string) Str::uuid();
             $disposals = collect();
 
+            // Create ONE donation for the whole batch
+            $donation = Donation::create([
+                'requester_name'               => $donationDetails['requester_name'] ?? 'Unknown Requester',
+                'organization_type'            => $donationDetails['organization_type'] ?? null,
+                'organization_type_other'      => $donationDetails['organization_type_other'] ?? null,
+                'agency_name'                  => $donationDetails['agency_name'] ?? null,
+                'municipality'                 => $donationDetails['municipality'] ?? null,
+                'barangay'                     => $donationDetails['barangay'] ?? null,
+                'street'                       => $donationDetails['street'] ?? null,
+                'donee_position'               => $donationDetails['donee_position'] ?? null,
+                'purpose_statement'            => $donationDetails['purpose_statement'] ?? null,
+                'confiscation_order_reference' => $donationDetails['confiscation_order_reference'] ?? null,
+                'donor_representative_name'    => $donationDetails['donor_representative_name'] ?? null,
+                'donor_representative_title'   => $donationDetails['donor_representative_title'] ?? null,
+                'witness_1_name'               => $donationDetails['witness_1_name'] ?? null,
+                'witness_1_title'              => $donationDetails['witness_1_title'] ?? null,
+                'witness_2_name'               => $donationDetails['witness_2_name'] ?? null,
+                'witness_2_title'              => $donationDetails['witness_2_title'] ?? null,
+            ]);
+
             foreach ($lines as $line) {
                 $asset = $assets->get($line['asset_id'])->fresh();
                 $remaining = $asset->remainingQuantity();
@@ -109,14 +129,15 @@ class ProcessBatchDonation
                 }
 
                 $disposal = Disposal::create([
-                    'asset_id' => $asset->id,
+                    'asset_id'          => $asset->id,
+                    'donation_id'       => $donation->id,   // ← link to shared donation
                     'donation_batch_id' => $batchId,
-                    'disposal_type' => DisposalType::Donation,
-                    'quantity' => $quantity,
-                    'volume_bd_ft' => $volumeForThisDisposal,
-                    'details' => $donationDetails,
-                    'processed_by' => $user->id,
-                    'processed_at' => now(),
+                    'disposal_type'     => DisposalType::Donation,
+                    'quantity'          => $quantity,
+                    'volume_bd_ft'      => $volumeForThisDisposal,
+                    'details'           => $donationDetails,
+                    'processed_by'      => $user->id,
+                    'processed_at'      => now(),
                 ]);
 
                 if (! empty($pieceIds)) {
@@ -133,27 +154,6 @@ class ProcessBatchDonation
                     $asset->increment('disposed_volume_bd_ft', $volumeForThisDisposal);
                 }
                 $asset->refresh();
-
-                $donation = Donation::create([
-                    'disposal_id' => $disposal->id,
-                    'requester_name' => $donationDetails['requester_name'] ?? 'Unknown Requester',
-                    'organization_type' => $donationDetails['organization_type'] ?? null,
-                    'organization_type_other' => $donationDetails['organization_type_other'] ?? null,
-                    'agency_name' => $donationDetails['agency_name'] ?? null,
-                    'municipality' => $donationDetails['municipality'] ?? null,
-                    'barangay' => $donationDetails['barangay'] ?? null,
-                    'street' => $donationDetails['street'] ?? null,
-
-                    'donee_position' => $donationDetails['donee_position'] ?? null,
-                    'purpose_statement' => $donationDetails['purpose_statement'] ?? null,
-                    'confiscation_order_reference' => $donationDetails['confiscation_order_reference'] ?? null,
-                    'donor_representative_name' => $donationDetails['donor_representative_name'] ?? null,
-                    'donor_representative_title' => $donationDetails['donor_representative_title'] ?? null,
-                    'witness_1_name' => $donationDetails['witness_1_name'] ?? null,
-                    'witness_1_title' => $donationDetails['witness_1_title'] ?? null,
-                    'witness_2_name' => $donationDetails['witness_2_name'] ?? null,
-                    'witness_2_title' => $donationDetails['witness_2_title'] ?? null,
-                ]);
 
                 if ($asset->isFullyDisposed()) {
                     $this->lifecycleService->transition(
@@ -173,17 +173,14 @@ class ProcessBatchDonation
                     );
                 }
 
-                $disposals->push($disposal->fresh(['donation', 'asset']));
+                $disposals->push($disposal->fresh(['asset']));
             }
 
-            // One Deed of Donation PDF for the whole batch — every asset in
-            // $disposals gets its own row in the document, rather than each
-            // asset getting its own separate PDF.
-            $this->pdfDocumentService->generateDeedOfDonation($disposals, $disposals->first()->donation);
+            $this->pdfDocumentService->generateDeedOfDonation($disposals, $donation);
 
             $this->auditLogService->log('donation.batch_created', null, null, [
                 'donation_batch_id' => $batchId,
-                'asset_ids' => collect($lines)->pluck('asset_id')->all(),
+                'asset_ids'         => collect($lines)->pluck('asset_id')->all(),
             ], $user->id);
 
             return $disposals;

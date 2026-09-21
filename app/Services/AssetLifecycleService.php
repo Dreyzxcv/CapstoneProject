@@ -42,7 +42,7 @@ class AssetLifecycleService
             AssetStatus::ForDisposal,
         ],
         AssetStatus::ForDisposal->value => [
-            AssetStatus::DonationPendingJevOut,
+            AssetStatus::DonationPendingJevOut, 
             AssetStatus::PendingRelease,
             AssetStatus::Decayed,
             AssetStatus::Fabricated,
