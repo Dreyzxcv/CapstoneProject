@@ -56,6 +56,13 @@ export default function Authenticated({
     const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
     const [showingAccountMenu, setShowingAccountMenu] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(
+        () =>
+            route().current('settings.*') ||
+            route().current('users.*') ||
+            route().current('market-prices.*') ||
+            route().current('about')
+    );
 
     useEffect(() => {
         const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
@@ -144,29 +151,43 @@ export default function Authenticated({
                 },
             ],
         },
-        {
-            label: 'Administration',
-            items: [
-                {
-                    href: route('settings.index'),
-                    label: 'Settings',
-                    active:
-                        route().current('settings.*') ||
-                        route().current('users.*') ||
-                        route().current('market-prices.*'),
-                    show:
-                        hasPermission(permissions, 'users.manage') ||
-                        hasPermission(permissions, 'market_prices.manage'),
-                    icon: <Settings className={iconClass} />,
-                },
-            ],
-        },
     ]
         .map((section) => ({
             ...section,
             items: section.items.filter((item) => item.show),
         }))
         .filter((section) => section.items.length > 0);
+
+    const isSettingsActive =
+        route().current('settings.*') ||
+        route().current('users.*') ||
+        route().current('market-prices.*') ||
+        route().current('about');
+
+    const showSettings =
+        hasPermission(permissions, 'users.manage') ||
+        hasPermission(permissions, 'market_prices.manage');
+
+    const settingsChildren = [
+        {
+            href: route('users.index'),
+            label: 'Users',
+            active: route().current('users.*'),
+            show: hasPermission(permissions, 'users.manage'),
+        },
+        {
+            href: route('market-prices.index'),
+            label: 'Market Prices',
+            active: route().current('market-prices.*'),
+            show: hasPermission(permissions, 'market_prices.manage'),
+        },
+        {
+            href: route('about'),
+            label: 'About',
+            active: route().current('about'),
+            show: true,
+        },
+    ].filter((i) => i.show);
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -292,6 +313,61 @@ export default function Authenticated({
                                 </div>
                             </div>
                         ))}
+
+                        {/* Administration — collapsible settings group */}
+                        {showSettings && (
+                            <div>
+                                <p className={'mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 ' + (collapsed ? 'lg:hidden' : '')}>
+                                    Administration
+                                </p>
+                                <div className="space-y-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSettingsOpen((v) => !v)}
+                                        title={collapsed ? 'Settings' : undefined}
+                                        className={
+                                            'flex w-full items-center gap-3 rounded-md border-l-[3px] py-2 pl-[9px] pr-3 text-sm font-medium transition duration-150 ease-in-out ' +
+                                            (collapsed ? 'lg:justify-center lg:gap-0 lg:pl-[9px] lg:pr-[9px]' : '') +
+                                            ' ' +
+                                            (isSettingsActive
+                                                ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+                                                : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-emerald-700')
+                                        }
+                                    >
+                                        <Settings className={iconClass} />
+                                        <span className={collapsed ? 'lg:hidden' : ''}>Settings</span>
+                                        {!collapsed && (
+                                            <ChevronDown
+                                                className={
+                                                    'ml-auto h-3.5 w-3.5 shrink-0 transition-transform duration-200 ' +
+                                                    (settingsOpen ? 'rotate-180' : '')
+                                                }
+                                            />
+                                        )}
+                                    </button>
+
+                                    {settingsOpen && !collapsed && (
+                                        <div className="ml-4 space-y-1 border-l border-gray-100 pl-3">
+                                            {settingsChildren.map((child) => (
+                                                <Link
+                                                    key={child.href}
+                                                    href={child.href}
+                                                    onClick={() => setShowingNavigationDropdown(false)}
+                                                    className={
+                                                        'flex items-center gap-3 rounded-md py-1.5 px-2 text-sm font-medium transition duration-150 ease-in-out ' +
+                                                        (child.active
+                                                            ? 'text-emerald-700 bg-emerald-50'
+                                                            : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-700')
+                                                    }
+                                                >
+                                                    {child.label}
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </nav>
 
                     {/* ── Account — desktop ── */}
