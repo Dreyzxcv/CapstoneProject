@@ -37,7 +37,7 @@ export default function About() {
             <div className="mx-auto max-w-3xl space-y-6 px-4 sm:px-6 lg:px-8">
                 <Card className="border-0 shadow-sm">
                     <CardContent className="pt-6 text-center">
-                        <h1 className="text-lg font-bold text-emerald-900">LogTrack Insight</h1>
+                        <h1 className="text-lg font-bold text-emerald-900">ForesTrack</h1>
                         <p className="mt-1 text-sm text-gray-500">
                             A QR-Based Forest Asset Inventory System with Data Analytics
                         </p>

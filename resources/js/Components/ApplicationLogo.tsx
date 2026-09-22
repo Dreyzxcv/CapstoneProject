@@ -7,7 +7,7 @@ export default function ApplicationLogo({
     return (
         <img
             src="/images/logtrack-logo.png"
-            alt="LogTrack Insight"
+            alt="ForesTrack"
             className={className}
             {...props}
         />

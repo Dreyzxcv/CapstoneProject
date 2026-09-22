@@ -196,7 +196,7 @@ export default function Authenticated({
                 <Link href={route('dashboard')} className="flex items-center gap-3">
                     <ApplicationLogo className="block h-8 w-auto fill-current text-emerald-800" />
                     <span className="flex flex-col leading-tight">
-                        <span className="text-sm font-bold text-emerald-900">LogTrack Insight</span>
+                        <span className="text-sm font-bold text-emerald-900">ForesTrack</span>
                         <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
                             DENR-PENRO Catanduanes
                         </span>
@@ -259,7 +259,7 @@ export default function Authenticated({
                                 }
                             >
                                 <span className="text-sm font-bold text-emerald-900">
-                                    LogTrack Insight
+                                    ForesTrack
                                 </span>
                                 <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
                                     DENR-PENRO Catanduanes

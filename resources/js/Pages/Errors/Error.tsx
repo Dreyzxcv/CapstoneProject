@@ -39,7 +39,7 @@ export default function Error({ status }: { status: number }) {
             <Link href="/" className="mb-8 flex items-center gap-3">
                 <ApplicationLogo className="h-9 w-auto fill-current text-[#1F5C43]" />
                 <span className="flex flex-col leading-tight">
-                    <span className="font-serif text-base font-semibold text-[#123B2C]">LogTrack Insight</span>
+                    <span className="font-serif text-base font-semibold text-[#123B2C]">ForesTrack</span>
                     <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#5B7A69]">
                         DENR-PENRO Catanduanes
                     </span>
