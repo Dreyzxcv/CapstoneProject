@@ -580,6 +580,20 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
                         onChange={(e) => updatePiece(assetIndex, pieceIndex, { description: e.target.value })}
                         placeholder="e.g. squared, rough-cut, with bark"
                     />
+                    {/* Copy from previous piece shortcut */}
+                    {pieceIndex > 0 && asset.pieces[pieceIndex - 1]?.description && (
+                        <button
+                            type="button"
+                            className="text-xs text-emerald-700 hover:underline"
+                            onClick={() =>
+                                updatePiece(assetIndex, pieceIndex, {
+                                    description: asset.pieces[pieceIndex - 1].description,
+                                })
+                            }
+                        >
+                            Same as Piece {pieceIndex} description
+                        </button>
+                    )}
                     <InputError message={pieceError(assetIndex, pieceIndex, 'description')} />
                 </div>
 

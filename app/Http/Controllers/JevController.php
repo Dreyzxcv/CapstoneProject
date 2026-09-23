@@ -10,6 +10,7 @@ use App\Models\Jev;
 use App\Enums\AssetStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,7 +20,39 @@ class JevController extends Controller
     {
         $this->authorize('viewAny', Jev::class);
 
-        $jevs = Jev::latest()->paginate(25);
+        // JEV IN — from jevs table
+        $jevIn = Jev::select([
+                'id',
+                'asset_code',
+                'asset_type',
+                'jev_number',
+                'jev_date',
+                'amount',
+                'created_at',
+            ])
+            ->selectRaw("'IN' as jev_type")
+            ->latest();
+
+        // JEV OUT — from disposal_jevs table, joined to disposals → assets
+        $jevOut = \App\Models\DisposalJev::select([
+                'disposal_jevs.id',
+                'assets.asset_code',
+                'assets.type as asset_type',
+                'disposal_jevs.jev_number',
+                'disposal_jevs.uploaded_at as jev_date',
+                DB::raw('NULL as amount'),
+                'disposal_jevs.created_at',
+            ])
+            ->selectRaw("'OUT' as jev_type")
+            ->join('disposals', 'disposals.id', '=', 'disposal_jevs.disposal_id')
+            ->join('assets', 'assets.id', '=', 'disposals.asset_id')
+            ->latest('disposal_jevs.created_at');
+
+        // Union both, paginate
+        $jevs = $jevIn
+            ->unionAll($jevOut->getQuery())
+            ->latest('created_at')
+            ->paginate(25);
 
         $pendingAssets = Asset::where('current_status', AssetStatus::ClearedForAccounting)
             ->whereNotExists(function ($query) {
@@ -35,9 +68,13 @@ class JevController extends Controller
 
         $disposalsAwaitingJevOut = \App\Models\Donation::query()
             ->whereHas('disposals', fn ($q) => $q->whereDoesntHave('disposalJev'))
-            ->with(['disposals' => fn ($q) => $q->with('asset')])
+            ->with(['disposals' => fn ($q) => $q->with(['asset', 'disposalJev'])])
             ->latest()
-            ->get();
+            ->get()
+            ->filter(fn ($donation) =>
+                $donation->disposals->every(fn ($d) => $d->disposalJev === null)
+            )
+            ->values();
 
         return Inertia::render('Jev/Index', [
             'jevs'                    => $jevs,

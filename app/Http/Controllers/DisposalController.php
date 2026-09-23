@@ -218,7 +218,7 @@ class DisposalController extends Controller
     {
         $issueDisposalJevOut->execute($disposal, $request->validated(), $request->user());
 
-        return back()->with('success', 'JEV Out number recorded. Awaiting MES upload confirmation.');
+        return back()->with('success', 'JEV Out issued successfully.');
     }
 
     public function uploadJevOut(UploadDisposalJevOutRequest $request, Disposal $disposal, UploadDisposalJevOut $uploadDisposalJevOut): RedirectResponse

@@ -42,7 +42,7 @@ export default function About() {
                             A QR-Based Forest Asset Inventory System with Data Analytics
                         </p>
                         <p className="mt-4 text-sm leading-relaxed text-gray-600">
-                            LogTrack Insight replaces the manual, paper-based tracking of confiscated forest
+                            ForesTrack replaces the manual, paper-based tracking of confiscated forest
                             assets, logs, equipment, and vehicles at DENR-PENRO Catanduanes with a
                             centralized, QR-code-driven platform. Each confiscated asset is assigned a unique
                             QR code linking to its live digital profile, letting authorized personnel instantly

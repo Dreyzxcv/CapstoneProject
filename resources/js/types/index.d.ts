@@ -140,6 +140,7 @@ export interface Jev {
     jev_date: string | null;
     particulars: string | null;
     amount: string | null;
+    jev_type: 'IN' | 'OUT';
     created_at: string;
     updated_at: string;
 }

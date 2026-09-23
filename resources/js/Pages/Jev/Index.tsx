@@ -159,6 +159,7 @@ export default function JevIndex({ jevs, pendingAssets, disposalsAwaitingJevOut 
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Asset Code</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Type</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">JEV No.</th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">JEV Type</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Date</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Amount</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
@@ -168,7 +169,7 @@ export default function JevIndex({ jevs, pendingAssets, disposalsAwaitingJevOut 
                                 <tbody className="divide-y divide-gray-100">
                                     {jevs.data.length === 0 && (
                                         <tr>
-                                            <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                                            <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
                                                 No JEVs found.
                                             </td>
                                         </tr>
@@ -178,6 +179,13 @@ export default function JevIndex({ jevs, pendingAssets, disposalsAwaitingJevOut 
                                             <td className="px-4 py-3 font-medium text-gray-800">{jev.asset_code}</td>
                                             <td className="px-4 py-3 capitalize text-gray-600">{jev.asset_type}</td>
                                             <td className="px-4 py-3 text-gray-700">{jev.jev_number ?? '—'}</td>
+                                            <td className="px-4 py-3">
+                                                {jev.jev_type === 'IN' ? (
+                                                    <Badge className="bg-blue-100 text-blue-700 border-blue-200">IN</Badge>
+                                                ) : (
+                                                    <Badge className="bg-rose-100 text-rose-700 border-rose-200">OUT</Badge>
+                                                )}
+                                            </td>
                                             <td className="px-4 py-3 text-gray-500">
                                                 {jev.jev_date
                                                     ? new Date(jev.jev_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })

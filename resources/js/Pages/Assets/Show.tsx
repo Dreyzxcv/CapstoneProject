@@ -717,26 +717,6 @@ export default function AssetsShow({
     const stickerSpecies = asset.species ?? "—";
     const stickerPcs = asset.quantity ?? 1;
 
-    const donationAwaitingJevOut = disposals.find(
-        (d) => d.disposal_type === "donation" && d.donation && !d.disposal_jev,
-    );
-
-    const donationAwaitingJevOutUpload = disposals.find(
-        (d) =>
-            d.disposal_type === "donation" &&
-            d.donation &&
-            d.disposal_jev &&
-            !d.disposal_jev.uploaded_at,
-    );
-
-    const donationsWithJevOut = disposals.filter(
-        (d) =>
-            d.disposal_type === "donation" &&
-            d.donation &&
-            d.disposal_jev &&
-            d.disposal_jev.uploaded_at,
-    );
-
     function CustodianReviewPanel({
         asset,
         documentReviewStatus,
@@ -1321,6 +1301,17 @@ export default function AssetsShow({
                             <CardTitle className="text-base">Actions</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
+                            {!['stored', 'intake_recorded', 'documents_uploaded', 'pending_custody_review'].includes(asset.current_status) && (
+                                <a
+                                    href={route("assets.stickers.pdf", asset.id)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    <Button variant="outline" className="w-full mt-1 mb-2">
+                                        Print Stickers
+                                    </Button>
+                                </a>
+                            )}
                             {can.markStored && (
                                 <Button
                                     className="w-full"
@@ -1378,18 +1369,8 @@ export default function AssetsShow({
                                         No actions available for your role at
                                         this stage.
                                     </p>
-                                )}
-                            {qrSvg && (
-                                <a
-                                    href={route("assets.stickers.pdf", asset.id)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    <Button variant="outline" className="w-full">
-                                        Print Stickers
-                                    </Button>
-                                </a>
-                            )}
+                                )
+                            }
                             {receiptUrl && (
                                 <a
                                     href={receiptUrl}
