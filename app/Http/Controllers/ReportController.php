@@ -33,6 +33,8 @@ class ReportController extends Controller
             $trendMonths = 6;
         }
 
+        $mapMonth = $request->input('map_month', 'all');
+        $mapYear  = $request->input('map_year', 'all');
         $chartMonth = $request->input('month', 'all');
         $chartYear  = $request->input('year', 'all');
 
@@ -86,7 +88,11 @@ class ReportController extends Controller
         return Inertia::render('Reports/Index', [
             'summary' => [
                 'total'       => Asset::count(),
-                'inStorage'   => Asset::where('current_status', AssetStatus::Stored)->count(),
+                'inStorage' => Asset::whereNotIn('current_status', collect(AssetStatus::cases())
+                    ->filter(fn ($s) => $s->isTerminal())
+                    ->map(fn ($s) => $s->value)
+                    ->all()
+                )->count(),
                 'forDisposal' => Asset::where('current_status', AssetStatus::ForDisposal)->count(),
                 'underTrial'  => Asset::where('current_status', AssetStatus::UnderTrial)->count(),
             ],
@@ -106,6 +112,7 @@ class ReportController extends Controller
                 ->limit(10)
                 ->get(),
             'trends'              => $this->buildMonthlyTrends($baseQuery, $trendMonths),
+            'mapFilters' => ['month' => $mapMonth, 'year' => $mapYear],
             'trendMonths'         => $trendMonths,
             'chartFilters'        => ['month' => $chartMonth, 'year' => $chartYear],
             'availableChartYears' => $availableChartYears,

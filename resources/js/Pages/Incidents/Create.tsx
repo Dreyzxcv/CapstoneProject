@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { FormEventHandler, useMemo, useState } from 'react';
-import { Plus, Shield, Trash2, Truck, X } from 'lucide-react';
+import { FormEventHandler, useEffect, useMemo, useState } from 'react';
+import { Plus, Shield, Trash2, Truck, X, Monitor } from 'lucide-react';
 import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 
 interface Option {
@@ -457,6 +457,7 @@ export default function IncidentsCreate({ types, modes, municipalities, nextAsse
 
     const availableTypes = (currentIndex: number) =>
         types.filter((t) => !usedTypes(currentIndex).includes(t.value));
+
 
     // ── Piece form — rendered inside each asset card ──────────────────────────
 

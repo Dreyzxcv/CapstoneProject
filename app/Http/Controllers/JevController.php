@@ -20,33 +20,39 @@ class JevController extends Controller
     {
         $this->authorize('viewAny', Jev::class);
 
-        // JEV IN — from jevs table
         $jevIn = Jev::select([
-                'id',
-                'asset_code',
-                'asset_type',
-                'jev_number',
-                'jev_date',
-                'amount',
-                'created_at',
-            ])
-            ->selectRaw("'IN' as jev_type")
-            ->latest();
+            'jevs.id',
+            'jevs.asset_code',
+            'jevs.asset_type',
+            'jevs.jev_number',
+            'jevs.jev_date',
+            'jevs.amount',
+            'jevs.created_at',
+            'assets.aap_number',
+            'assets.id as asset_id',
+        ])
+        ->selectRaw("'IN' as jev_type")
+        ->leftJoin('assets', function ($join) {
+            $join->on('assets.asset_code', '=', 'jevs.asset_code')
+                ->whereColumn('assets.type', 'jevs.asset_type');
+        })
+        ->latest('jevs.created_at');
 
-        // JEV OUT — from disposal_jevs table, joined to disposals → assets
         $jevOut = \App\Models\DisposalJev::select([
-                'disposal_jevs.id',
-                'assets.asset_code',
-                'assets.type as asset_type',
-                'disposal_jevs.jev_number',
-                'disposal_jevs.uploaded_at as jev_date',
-                DB::raw('NULL as amount'),
-                'disposal_jevs.created_at',
-            ])
-            ->selectRaw("'OUT' as jev_type")
-            ->join('disposals', 'disposals.id', '=', 'disposal_jevs.disposal_id')
-            ->join('assets', 'assets.id', '=', 'disposals.asset_id')
-            ->latest('disposal_jevs.created_at');
+            'disposal_jevs.id',
+            'assets.asset_code',
+            'assets.type as asset_type',
+            'disposal_jevs.jev_number',
+            'disposal_jevs.uploaded_at as jev_date',
+            DB::raw('NULL as amount'),
+            'disposal_jevs.created_at',
+            'assets.aap_number',
+            'assets.id as asset_id',
+        ])
+        ->selectRaw("'OUT' as jev_type")
+        ->join('disposals', 'disposals.id', '=', 'disposal_jevs.disposal_id')
+        ->join('assets', 'assets.id', '=', 'disposals.asset_id')
+        ->latest('disposal_jevs.created_at');
 
         // Union both, paginate
         $jevs = $jevIn

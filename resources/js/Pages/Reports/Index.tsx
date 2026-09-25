@@ -9,8 +9,13 @@ import {
     BarChart,
     CartesianGrid,
     Cell,
+    ComposedChart,
     LabelList,
     Legend,
+    Line,
+    Pie,
+    PieChart,
+    ReferenceLine,
     ResponsiveContainer,
     Tooltip,
     XAxis,
@@ -30,9 +35,12 @@ import {
     Clock,
     ArrowRight,
     MapPin,
+    BarChart2,
+    PieChart as PieChartIcon,
+    Image,
 } from 'lucide-react';
 import { IncidentsMap, IncidentLocation } from '@/Components/shared/IncidentsMap';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 
 interface TrendPoint {
@@ -56,6 +64,7 @@ interface ReportsIndexProps {
     trends: TrendPoint[];
     trendMonths: number;
     chartFilters: { month: string; year: string };
+    mapFilters: { month: string; year: string };
     availableChartYears: number[];
     typeLabels: Record<string, string>;
     statusLabels: Record<string, string>;
@@ -81,8 +90,6 @@ const TYPE_COLORS: Record<string, string> = {
     vehicle: '#2563eb',
 };
 
-// Bar colors keyed by the human-readable label returned from the backend
-// (e.g. "Log / Lumber", "Equipment / Tools", "Conveyance / Vehicle")
 const TYPE_LABEL_COLORS: Record<string, { fill: string; gradientId: string }> = {
     'Log / Lumber':          { fill: '#047857', gradientId: 'grad-log' },
     'Equipment / Tools':     { fill: '#d97706', gradientId: 'grad-equipment' },
@@ -90,14 +97,12 @@ const TYPE_LABEL_COLORS: Record<string, { fill: string; gradientId: string }> = 
 };
 const FALLBACK_BAR_COLOR = '#6b7280';
 
-// Municipality chart uses a single teal gradient cycling shade by index
 const MUNI_SHADES = [
     '#047857', '#059669', '#0d9488', '#0891b2',
     '#1d4ed8', '#4f46e5', '#7c3aed', '#a21caf',
     '#be185d', '#be123c', '#b45309', '#4d7c0f',
 ];
 
-/** Gradient defs block — inject once inside the SVG via recharts customization */
 function GradientDefs() {
     return (
         <defs>
@@ -120,7 +125,6 @@ function GradientDefs() {
     );
 }
 
-// Summary card config: icon, colors, description, link
 const SUMMARY_CONFIG = {
     total: {
         label: 'Total Assets',
@@ -170,6 +174,8 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
     );
 }
 
+const TREND_BAR_KEYS = ['log', 'equipment', 'vehicle'];
+
 function TrendTooltip({
     active,
     payload,
@@ -182,16 +188,30 @@ function TrendTooltip({
     typeLabels: Record<string, string>;
 }) {
     if (!active || !payload?.length) return null;
-    const total = payload.reduce((sum, p) => sum + p.value, 0);
+    // Only count the stacked bar series (not the line overlay) for the total
+    const bars  = payload.filter(p => TREND_BAR_KEYS.includes(p.dataKey));
+    const total = bars.reduce((sum, p) => sum + p.value, 0);
     return (
         <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-md">
             <p className="font-medium text-gray-700">{label}</p>
-            {payload.map((p) => (
+            {bars.map((p) => (
                 <p key={p.dataKey} style={{ color: p.color }} className="mt-0.5">
                     {typeLabels[p.dataKey] ?? p.dataKey}: {p.value}
                 </p>
             ))}
             <p className="mt-1 border-t border-gray-100 pt-1 font-medium text-gray-700">Total: {total}</p>
+        </div>
+    );
+}
+
+function PieTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: { percent: number } }> }) {
+    if (!active || !payload?.length) return null;
+    const item = payload[0];
+    return (
+        <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-md">
+            <p className="font-medium text-gray-700">{item.name}</p>
+            <p className="mt-0.5 text-gray-600">{item.value} asset{item.value === 1 ? '' : 's'}</p>
+            <p className="text-gray-400">{(item.payload.percent * 100).toFixed(1)}%</p>
         </div>
     );
 }
@@ -219,7 +239,6 @@ function escapeXml(value: string): string {
         .replace(/'/g, '&apos;');
 }
 
-/** Groups recent activity entries into Today / Yesterday / Earlier */
 function groupActivity(entries: ReportsIndexProps['recentActivity']) {
     const now = new Date();
     const todayStr = now.toDateString();
@@ -243,6 +262,54 @@ function groupActivity(entries: ReportsIndexProps['recentActivity']) {
     return groups.filter((g) => g.entries.length > 0);
 }
 
+/** Export a recharts wrapper div as a PNG by serialising its SVG */
+function exportChartAsPng(containerRef: React.RefObject<HTMLDivElement | null>, filename: string) {
+    const svg = containerRef.current?.querySelector('svg');
+    if (!svg) return;
+
+    const serialiser = new XMLSerializer();
+    const svgStr = serialiser.serializeToString(svg);
+    const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    const img = new window.Image();
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const scale = 2; // retina
+        canvas.width = svg.clientWidth * scale;
+        canvas.height = svg.clientHeight * scale;
+        const ctx = canvas.getContext('2d')!;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+    img.src = url;
+}
+
+/** Small "Export PNG" button placed in chart card headers */
+function ExportPngButton({ onClick }: { onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            title="Export as PNG"
+            className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm transition hover:bg-gray-50 hover:text-gray-800"
+        >
+            <Image className="h-3.5 w-3.5" />
+            PNG
+        </button>
+    );
+}
+
 export default function ReportsIndex({
     summary,
     byType,
@@ -250,6 +317,7 @@ export default function ReportsIndex({
     trends,
     trendMonths,
     chartFilters,
+    mapFilters,
     availableChartYears,
     typeLabels,
     statusLabels,
@@ -259,49 +327,115 @@ export default function ReportsIndex({
 }: ReportsIndexProps) {
     usePoll(10000, { only: ['summary', 'byType', 'byMunicipality', 'trends', 'recentActivity'] });
 
+    // ── Chart / breakdown filters ─────────────────────────────────────────
     const [chartMonth, setChartMonth] = useState<string>(chartFilters.month);
     const [chartYear, setChartYear] = useState<string>(chartFilters.year);
+
+    // ── Map filters — initialised from URL via prop ───────────────────────
+    const [mapMonth, setMapMonth] = useState<string>(mapFilters.month);
+    const [mapYear, setMapYear]   = useState<string>(mapFilters.year);
+
     const [showAttributeTable, setShowAttributeTable] = useState(false);
 
+    // ── Type chart view toggle ────────────────────────────────────────────
+    const [typeChartView, setTypeChartView] = useState<'bar' | 'pie'>('bar');
+
+    // ── Chart refs for PNG export ─────────────────────────────────────────
+    const trendChartRef      = useRef<HTMLDivElement>(null);
+    const typeChartRef       = useRef<HTMLDivElement>(null);
+    const muniChartRef       = useRef<HTMLDivElement>(null);
+
+    // ── Last-updated ticker ───────────────────────────────────────────────
+    const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+    const [tickLabel, setTickLabel]     = useState<string>('just now');
+
+    // Reset ticker every time a poll cycle fires (summary changes)
+    useEffect(() => {
+        setLastUpdated(new Date());
+    }, [summary.total, recentActivity.length]);
+
+    useEffect(() => {
+        function update() {
+            const seconds = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
+            if (seconds < 10) setTickLabel('just now');
+            else if (seconds < 60) setTickLabel(`${seconds}s ago`);
+            else setTickLabel(`${Math.floor(seconds / 60)}m ago`);
+        }
+        update();
+        const id = setInterval(update, 5000);
+        return () => clearInterval(id);
+    }, [lastUpdated]);
+
+    // ── Chart filter handler ──────────────────────────────────────────────
     function handleChartFilterChange(nextMonth: string, nextYear: string) {
         setChartMonth(nextMonth);
         setChartYear(nextYear);
         router.get(
             route('reports.index'),
-            { month: nextMonth, year: nextYear, months: trendMonths },
+            { month: nextMonth, year: nextYear, months: trendMonths, map_month: mapMonth, map_year: mapYear },
             { preserveState: true, preserveScroll: true, only: ['byType', 'byMunicipality', 'chartFilters'] },
         );
     }
 
+    // ── Map filter handler — syncs to URL ─────────────────────────────────
+    function handleMapFilterChange(nextMonth: string, nextYear: string) {
+        setMapMonth(nextMonth);
+        setMapYear(nextYear);
+        router.get(
+            route('reports.index'),
+            { month: chartMonth, year: chartYear, months: trendMonths, map_month: nextMonth, map_year: nextYear },
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
+    }
+
+    function handleMonthsChange(months: number) {
+        router.get(
+            route('reports.index'),
+            { months, map_month: mapMonth, map_year: mapYear },
+            { preserveState: true, preserveScroll: true, only: ['trends', 'trendMonths'] },
+        );
+    }
+
+    // ── Derived data ──────────────────────────────────────────────────────
     const typeChartData = byType.map((row) => ({
         name: row.label,
         typeValue: row.type,
         count: row.count,
     }));
 
-    const municipalityChartData = byMunicipality.map((row) => ({
-        name: row.municipality_of_origin,
-        count: row.count,
+    const totalTypeCount = typeChartData.reduce((s, d) => s + d.count, 0);
+
+    // Pie data with percentage
+    const pieData = typeChartData.map((d) => ({
+        name: d.name,
+        value: d.count,
+        percent: totalTypeCount > 0 ? d.count / totalTypeCount : 0,
+        fill: TYPE_LABEL_COLORS[d.name]?.fill ?? FALLBACK_BAR_COLOR,
     }));
 
-    function goToAssetsByType(typeValue: string) {
-        router.visit(route('assets.index', { type: typeValue }));
-    }
+    const municipalityChartData = byMunicipality.map((row, index) => ({
+        name: row.municipality_of_origin,
+        count: row.count,
+        rank: index + 1,
+        isTop: index === 0,
+    }));
 
-    function goToAssetsByMunicipality(municipality: string) {
-        router.visit(route('assets.index', { search: municipality }));
-    }
+    // Trend average line value
+    const trendAverage = useMemo(() => {
+        if (!trends.length) return 0;
+        return Math.round(trends.reduce((s, t) => s + t.total, 0) / trends.length);
+    }, [trends]);
 
-    function handleMonthsChange(months: number) {
-        router.get(
-            route('reports.index'),
-            { months },
-            { preserveState: true, preserveScroll: true, only: ['trends', 'trendMonths'] },
-        );
-    }
-
-    const [mapMonth, setMapMonth] = useState<string>('all');
-    const [mapYear, setMapYear] = useState<string>('all');
+    // % change: last month vs second-to-last
+    // Returns a number (Infinity when prev=0 and last>0 = "new"), or null when both zero
+    const trendPctChange = useMemo(() => {
+        if (trends.length < 2) return null;
+        const last = trends[trends.length - 1].total;
+        const prev = trends[trends.length - 2].total;
+        if (last === 0 && prev === 0) return null;
+        if (prev === 0) return Infinity; // new activity this month
+        return Math.round(((last - prev) / prev) * 100);
+    }, [trends]);
 
     const availableYears = useMemo(() => {
         const years = new Set<number>();
@@ -315,7 +449,6 @@ export default function ReportsIndex({
 
     const filteredIncidentLocations = useMemo(() => {
         if (mapMonth === 'all' && mapYear === 'all') return incidentLocations;
-
         return incidentLocations.filter((incident) => {
             if (!incident.date_of_apprehension) return false;
             const date = new Date(incident.date_of_apprehension);
@@ -324,6 +457,14 @@ export default function ReportsIndex({
             return true;
         });
     }, [incidentLocations, mapMonth, mapYear]);
+
+    function goToAssetsByType(typeValue: string) {
+        router.visit(route('assets.index', { type: typeValue }));
+    }
+
+    function goToAssetsByMunicipality(municipality: string) {
+        router.visit(route('assets.index', { search: municipality }));
+    }
 
     function handleExportKml() {
         const placemarks = filteredIncidentLocations
@@ -381,7 +522,54 @@ export default function ReportsIndex({
 
     const activityGroups = useMemo(() => groupActivity(recentActivity), [recentActivity]);
     const hasChartFilter = chartMonth !== 'all' || chartYear !== 'all';
-    const hasMapFilter = mapMonth !== 'all' || mapYear !== 'all';
+    const hasMapFilter   = mapMonth !== 'all' || mapYear !== 'all';
+
+    // Custom label for the top trend bar showing % change
+    const TrendPctLabel = useCallback(
+        (props: { x?: number; y?: number; width?: number; index?: number }) => {
+            const { x = 0, y = 0, width = 0, index = 0 } = props;
+            if (index !== trends.length - 1 || trendPctChange === null) return null;
+            const isNew    = !isFinite(trendPctChange);
+            const isUp     = trendPctChange >= 0;
+            const color    = isUp ? '#ef4444' : '#10b981';
+            const labelStr = isNew ? 'New ▲' : `${isUp ? '+' : ''}${trendPctChange}%`;
+            return (
+                <text
+                    x={x + width / 2}
+                    y={y - 6}
+                    textAnchor="middle"
+                    fill={color}
+                    fontSize={10}
+                    fontWeight={700}
+                >
+                    {labelStr}
+                </text>
+            );
+        },
+        [trends.length, trendPctChange],
+    );
+
+    // Custom label for municipality bars: prepend rank number
+    const MuniRankLabel = useCallback(
+        (props: { x?: number; y?: number; width?: number; height?: number; value?: number; index?: number }) => {
+            const { x = 0, y = 0, height = 0, index = 0 } = props;
+            const rank = (index + 1).toString();
+            return (
+                <text
+                    x={x - 6}
+                    y={y + height / 2}
+                    textAnchor="end"
+                    dominantBaseline="middle"
+                    fill="#9ca3af"
+                    fontSize={10}
+                    fontWeight={600}
+                >
+                    #{rank}
+                </text>
+            );
+        },
+        [],
+    );
 
     return (
         <AuthenticatedLayout
@@ -447,7 +635,7 @@ export default function ReportsIndex({
                                 {hasMapFilter && (
                                     <button
                                         type="button"
-                                        onClick={() => { setMapMonth('all'); setMapYear('all'); }}
+                                        onClick={() => handleMapFilterChange('all', 'all')}
                                         className="ml-2 font-medium text-emerald-600 hover:underline"
                                     >
                                         Clear filter
@@ -458,7 +646,7 @@ export default function ReportsIndex({
                         <div className="flex flex-wrap items-center gap-2">
                             <select
                                 value={mapMonth}
-                                onChange={(e) => setMapMonth(e.target.value)}
+                                onChange={(e) => handleMapFilterChange(e.target.value, mapYear)}
                                 className="h-8 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                             >
                                 <option value="all">All Months</option>
@@ -468,7 +656,7 @@ export default function ReportsIndex({
                             </select>
                             <select
                                 value={mapYear}
-                                onChange={(e) => setMapYear(e.target.value)}
+                                onChange={(e) => handleMapFilterChange(mapMonth, e.target.value)}
                                 className="h-8 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                             >
                                 <option value="all">All Years</option>
@@ -500,52 +688,96 @@ export default function ReportsIndex({
                 <Card>
                     <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <CardTitle className="text-base font-semibold text-gray-900">Confiscations Over Time</CardTitle>
+                            <CardTitle className="text-base font-semibold text-gray-900">
+                                Confiscations Over Time
+                                {trendPctChange !== null && (
+                                    <span
+                                        className={`ml-2 text-sm font-semibold ${trendPctChange >= 0 ? 'text-red-500' : 'text-emerald-600'}`}
+                                    >
+                                        {!isFinite(trendPctChange)
+                                            ? '▲ New this month'
+                                            : `${trendPctChange >= 0 ? '▲' : '▼'} ${Math.abs(trendPctChange)}% vs last month`}
+                                    </span>
+                                )}
+                            </CardTitle>
                             <p className="text-sm text-gray-500">Monthly intake volume, broken down by asset type.</p>
                         </div>
-                        <div className="flex gap-1.5">
-                            {[3, 6, 12].map((m) => (
-                                <button
-                                    key={m}
-                                    onClick={() => handleMonthsChange(m)}
-                                    className={
-                                        'rounded-full px-3 py-1 text-xs font-semibold transition ' +
-                                        (trendMonths === m
-                                            ? 'bg-emerald-700 text-white'
-                                            : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')
-                                    }
-                                >
-                                    {m}M
-                                </button>
-                            ))}
+                        <div className="flex items-center gap-2">
+                            <ExportPngButton
+                                onClick={() => exportChartAsPng(trendChartRef, `trend-chart-${trendMonths}m.png`)}
+                            />
+                            <div className="flex gap-1.5">
+                                {[3, 6, 12].map((m) => (
+                                    <button
+                                        key={m}
+                                        onClick={() => handleMonthsChange(m)}
+                                        className={
+                                            'rounded-full px-3 py-1 text-xs font-semibold transition ' +
+                                            (trendMonths === m
+                                                ? 'bg-emerald-700 text-white'
+                                                : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')
+                                        }
+                                    >
+                                        {m}M
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent className="h-72 pt-2">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={trends} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                                <CartesianGrid vertical={false} stroke="#e5e7eb" />
-                                <XAxis
-                                    dataKey="month"
-                                    tick={{ fontSize: 11, fill: '#6b7280' }}
-                                    axisLine={{ stroke: '#e5e7eb' }}
-                                    tickLine={false}
-                                />
-                                <YAxis
-                                    allowDecimals={false}
-                                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                                    axisLine={false}
-                                    tickLine={false}
-                                />
-                                <Tooltip content={<TrendTooltip typeLabels={typeLabels} />} cursor={{ fill: '#f3f4f6' }} />
-                                <Legend
-                                    formatter={(value) => typeLabels[value as string] ?? value}
-                                    wrapperStyle={{ fontSize: 12 }}
-                                />
-                                <Bar dataKey="log" stackId="a" fill={TYPE_COLORS.log} maxBarSize={48} />
-                                <Bar dataKey="equipment" stackId="a" fill={TYPE_COLORS.equipment} maxBarSize={48} />
-                                <Bar dataKey="vehicle" stackId="a" fill={TYPE_COLORS.vehicle} radius={[6, 6, 0, 0]} maxBarSize={48} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        <div ref={trendChartRef} className="h-full w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart data={trends} margin={{ top: 16, right: 8, left: -16, bottom: 0 }}>
+                                    <CartesianGrid vertical={false} stroke="#e5e7eb" />
+                                    <XAxis
+                                        dataKey="month"
+                                        tick={{ fontSize: 11, fill: '#6b7280' }}
+                                        axisLine={{ stroke: '#e5e7eb' }}
+                                        tickLine={false}
+                                    />
+                                    <YAxis
+                                        allowDecimals={false}
+                                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+                                    <Tooltip content={<TrendTooltip typeLabels={typeLabels} />} cursor={{ fill: '#f3f4f6' }} />
+                                    <Legend
+                                        formatter={(value) => value === 'total' ? 'Total (line)' : (typeLabels[value as string] ?? value)}
+                                        wrapperStyle={{ fontSize: 12 }}
+                                    />
+                                    {/* Average reference line */}
+                                    {trendAverage > 0 && (
+                                        <ReferenceLine
+                                            y={trendAverage}
+                                            stroke="#9ca3af"
+                                            strokeDasharray="4 3"
+                                            label={{
+                                                value: `Avg ${trendAverage}`,
+                                                position: 'insideTopRight',
+                                                fontSize: 10,
+                                                fill: '#9ca3af',
+                                            }}
+                                        />
+                                    )}
+                                    <Bar dataKey="log" stackId="a" fill={TYPE_COLORS.log} maxBarSize={48} />
+                                    <Bar dataKey="equipment" stackId="a" fill={TYPE_COLORS.equipment} maxBarSize={48} />
+                                    <Bar dataKey="vehicle" stackId="a" fill={TYPE_COLORS.vehicle} radius={[6, 6, 0, 0]} maxBarSize={48}>
+                                        {/* % change label on the last bar only */}
+                                        <LabelList content={<TrendPctLabel />} />
+                                    </Bar>
+                                    {/* Total line overlay */}
+                                    <Line
+                                        type="monotone"
+                                        dataKey="total"
+                                        stroke="#6366f1"
+                                        strokeWidth={2}
+                                        dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }}
+                                        activeDot={{ r: 5 }}
+                                    />
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -585,6 +817,8 @@ export default function ReportsIndex({
                     </div>
 
                     <div className="grid gap-6 lg:grid-cols-2">
+
+                        {/* Assets by Type */}
                         <Card>
                             <CardHeader className="pb-2">
                                 <div className="flex items-start justify-between">
@@ -592,14 +826,40 @@ export default function ReportsIndex({
                                         <CardTitle className="text-base font-semibold text-gray-900">Assets by Type</CardTitle>
                                         <p className="text-xs text-gray-500">Click a bar to filter the asset list.</p>
                                     </div>
-                                    {typeChartData.some((d) => d.count > 0) && (
-                                        <div className="text-right">
-                                            <p className="text-2xl font-bold tabular-nums text-gray-900">
-                                                {typeChartData.reduce((s, d) => s + d.count, 0).toLocaleString()}
-                                            </p>
-                                            <p className="text-xs text-gray-400">total assets</p>
+                                    <div className="flex items-center gap-2">
+                                        {typeChartData.some((d) => d.count > 0) && (
+                                            <div className="text-right">
+                                                <p className="text-2xl font-bold tabular-nums text-gray-900">
+                                                    {totalTypeCount.toLocaleString()}
+                                                </p>
+                                                <p className="text-xs text-gray-400">total assets</p>
+                                            </div>
+                                        )}
+                                        <div className="flex flex-col gap-1">
+                                            <ExportPngButton
+                                                onClick={() => exportChartAsPng(typeChartRef, 'assets-by-type.png')}
+                                            />
+                                            {/* Bar / Pie toggle */}
+                                            <div className="flex overflow-hidden rounded-md border border-gray-200">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTypeChartView('bar')}
+                                                    title="Bar chart"
+                                                    className={`flex items-center justify-center px-2 py-1 text-xs transition ${typeChartView === 'bar' ? 'bg-emerald-700 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                                                >
+                                                    <BarChart2 className="h-3.5 w-3.5" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTypeChartView('pie')}
+                                                    title="Pie chart"
+                                                    className={`flex items-center justify-center px-2 py-1 text-xs transition ${typeChartView === 'pie' ? 'bg-emerald-700 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                                                >
+                                                    <PieChartIcon className="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
                             </CardHeader>
                             <CardContent className="pt-2">
@@ -609,53 +869,88 @@ export default function ReportsIndex({
                                         <p className="text-sm text-gray-400">No data for this period.</p>
                                     </div>
                                 ) : (
-                                    <div className="h-64">
+                                    <div className="h-64" ref={typeChartRef}>
                                         <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={typeChartData} margin={{ top: 24, right: 8, left: -16, bottom: 0 }}>
-                                                <GradientDefs />
-                                                <CartesianGrid vertical={false} stroke="#e5e7eb" />
-                                                <XAxis
-                                                    dataKey="name"
-                                                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                                                    axisLine={{ stroke: '#e5e7eb' }}
-                                                    tickLine={false}
-                                                />
-                                                <YAxis
-                                                    allowDecimals={false}
-                                                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                                                    axisLine={false}
-                                                    tickLine={false}
-                                                />
-                                                <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f8fafc' }} />
-                                                <Bar
-                                                    dataKey="count"
-                                                    radius={[6, 6, 0, 0]}
-                                                    maxBarSize={64}
-                                                    cursor="pointer"
-                                                    onClick={(data) => goToAssetsByType((data as unknown as { typeValue: string }).typeValue)}
-                                                >
-                                                    <LabelList
-                                                        dataKey="count"
-                                                        position="top"
-                                                        style={{ fontSize: 12, fontWeight: 700, fill: '#374151' }}
+                                            {typeChartView === 'bar' ? (
+                                                <BarChart data={typeChartData} margin={{ top: 24, right: 8, left: -16, bottom: 0 }}>
+                                                    <GradientDefs />
+                                                    <CartesianGrid vertical={false} stroke="#e5e7eb" />
+                                                    <XAxis
+                                                        dataKey="name"
+                                                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                                                        axisLine={{ stroke: '#e5e7eb' }}
+                                                        tickLine={false}
                                                     />
-                                                    {typeChartData.map((entry) => {
-                                                        const cfg = TYPE_LABEL_COLORS[entry.name];
-                                                        return (
-                                                            <Cell
-                                                                key={entry.name}
-                                                                fill={cfg ? `url(#${cfg.gradientId})` : FALLBACK_BAR_COLOR}
-                                                            />
-                                                        );
-                                                    })}
-                                                </Bar>
-                                            </BarChart>
+                                                    <YAxis
+                                                        allowDecimals={false}
+                                                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                                                        axisLine={false}
+                                                        tickLine={false}
+                                                    />
+                                                    <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f8fafc' }} />
+                                                    <Bar
+                                                        dataKey="count"
+                                                        radius={[6, 6, 0, 0]}
+                                                        maxBarSize={64}
+                                                        cursor="pointer"
+                                                        onClick={(data) => goToAssetsByType((data as unknown as { typeValue: string }).typeValue)}
+                                                    >
+                                                        <LabelList
+                                                            dataKey="count"
+                                                            position="top"
+                                                            style={{ fontSize: 12, fontWeight: 700, fill: '#374151' }}
+                                                            formatter={(value: unknown) => {
+                                                                const n = Number(value);
+                                                                return totalTypeCount > 0
+                                                                    ? `${n} (${Math.round((n / totalTypeCount) * 100)}%)`
+                                                                    : n;
+                                                            }}
+                                                        />
+                                                        {typeChartData.map((entry) => {
+                                                            const cfg = TYPE_LABEL_COLORS[entry.name];
+                                                            return (
+                                                                <Cell
+                                                                    key={entry.name}
+                                                                    fill={cfg ? `url(#${cfg.gradientId})` : FALLBACK_BAR_COLOR}
+                                                                />
+                                                            );
+                                                        })}
+                                                    </Bar>
+                                                </BarChart>
+                                            ) : (
+                                                <PieChart>
+                                                    <Pie
+                                                        data={pieData}
+                                                        cx="50%"
+                                                        cy="50%"
+                                                        innerRadius="45%"
+                                                        outerRadius="70%"
+                                                        paddingAngle={3}
+                                                        dataKey="value"
+                                                        cursor="pointer"
+                                                        onClick={(data) => {
+                                                            const entry = typeChartData.find((d) => d.name === data.name);
+                                                            if (entry) goToAssetsByType(entry.typeValue);
+                                                        }}
+                                                        label={({ name, percent }: { name?: string; percent?: number }) =>
+                                                            `${(name ?? '').split(' / ')[0]} ${((percent ?? 0) * 100).toFixed(0)}%`
+                                                        }
+                                                        labelLine={false}
+                                                    >
+                                                        {pieData.map((entry, index) => (
+                                                            <Cell key={index} fill={entry.fill} />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip content={<PieTooltip />} />
+                                                </PieChart>
+                                            )}
                                         </ResponsiveContainer>
                                     </div>
                                 )}
                             </CardContent>
                         </Card>
 
+                        {/* Confiscations by Municipality */}
                         <Card>
                             <CardHeader className="pb-2">
                                 <div className="flex items-start justify-between">
@@ -663,14 +958,19 @@ export default function ReportsIndex({
                                         <CardTitle className="text-base font-semibold text-gray-900">Confiscations by Municipality</CardTitle>
                                         <p className="text-xs text-gray-500">Click a bar to filter the asset list.</p>
                                     </div>
-                                    {municipalityChartData.some((d) => d.count > 0) && (
-                                        <div className="text-right">
-                                            <p className="text-2xl font-bold tabular-nums text-gray-900">
-                                                {municipalityChartData.reduce((s, d) => s + d.count, 0).toLocaleString()}
-                                            </p>
-                                            <p className="text-xs text-gray-400">total assets</p>
-                                        </div>
-                                    )}
+                                    <div className="flex flex-col items-end gap-1">
+                                        {municipalityChartData.some((d) => d.count > 0) && (
+                                            <div className="text-right">
+                                                <p className="text-2xl font-bold tabular-nums text-gray-900">
+                                                    {municipalityChartData.reduce((s, d) => s + d.count, 0).toLocaleString()}
+                                                </p>
+                                                <p className="text-xs text-gray-400">total assets</p>
+                                            </div>
+                                        )}
+                                        <ExportPngButton
+                                            onClick={() => exportChartAsPng(muniChartRef, 'by-municipality.png')}
+                                        />
+                                    </div>
                                 </div>
                             </CardHeader>
                             <CardContent className="pt-2">
@@ -680,13 +980,15 @@ export default function ReportsIndex({
                                         <p className="text-sm text-gray-400">No data for this period.</p>
                                     </div>
                                 ) : (
-                                    // Height grows with number of municipalities so bars never feel cramped
-                                    <div style={{ height: Math.max(240, municipalityChartData.length * 36 + 16) }}>
+                                    <div
+                                        ref={muniChartRef}
+                                        style={{ height: Math.max(240, municipalityChartData.length * 36 + 16) }}
+                                    >
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart
                                                 data={municipalityChartData}
                                                 layout="vertical"
-                                                margin={{ top: 4, right: 48, left: 8, bottom: 4 }}
+                                                margin={{ top: 4, right: 48, left: 24, bottom: 4 }}
                                             >
                                                 <GradientDefs />
                                                 <CartesianGrid horizontal={false} stroke="#e5e7eb" />
@@ -713,15 +1015,22 @@ export default function ReportsIndex({
                                                     cursor="pointer"
                                                     onClick={(data) => goToAssetsByMunicipality((data as unknown as { name: string }).name)}
                                                 >
+                                                    {/* Rank label on the left of each bar */}
+                                                    <LabelList content={<MuniRankLabel />} />
                                                     <LabelList
                                                         dataKey="count"
                                                         position="right"
                                                         style={{ fontSize: 11, fontWeight: 700, fill: '#374151' }}
                                                     />
-                                                    {municipalityChartData.map((_, index) => (
+                                                    {municipalityChartData.map((entry, index) => (
                                                         <Cell
                                                             key={index}
-                                                            fill={`url(#grad-muni-${index % MUNI_SHADES.length})`}
+                                                            fill={
+                                                                entry.isTop
+                                                                    ? '#047857' // top municipality always gets the full emerald
+                                                                    : `url(#grad-muni-${index % MUNI_SHADES.length})`
+                                                            }
+                                                            opacity={entry.isTop ? 1 : 0.8}
                                                         />
                                                     ))}
                                                 </Bar>
@@ -741,7 +1050,8 @@ export default function ReportsIndex({
                             <div>
                                 <CardTitle className="text-base font-semibold text-gray-900">Recent Activity</CardTitle>
                                 <p className="mt-0.5 text-xs text-gray-400">
-                                    Auto-refreshes every 10 seconds · {recentActivity.length} recent event{recentActivity.length === 1 ? '' : 's'}
+                                    Updated <span className="font-medium text-gray-500">{tickLabel}</span>
+                                    {' · '}{recentActivity.length} recent event{recentActivity.length === 1 ? '' : 's'}
                                 </p>
                             </div>
                             <Link href={route('audit-logs.index')} className="flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline">

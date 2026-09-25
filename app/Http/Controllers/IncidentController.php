@@ -15,9 +15,19 @@ use Inertia\Response;
 
 class IncidentController extends Controller
 {
-    public function create(Request $request): Response
+    public function create(Request $request): Response|RedirectResponse
     {
         abort_unless($request->user()?->can('incidents.create'), 403);
+
+        $userAgent = $request->userAgent() ?? '';
+        $isMobile = (bool) preg_match(
+            '/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i',
+            $userAgent
+        );
+
+        if ($isMobile) {
+            return Inertia::render('Incidents/MobileBlock');
+        }
 
         return Inertia::render('Incidents/Create', [
             'types' => collect(AssetType::cases())->map(fn ($t) => [
