@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -17,6 +20,24 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        RateLimiter::for('qr-scan', function (Request $request) {
+            return Limit::perMinute(30)->by(
+                $request->user()?->getAuthIdentifier() ?? $request->ip()
+            );
+        });
+
+        RateLimiter::for('report-export', function (Request $request) {
+            return Limit::perMinute(10)->by(
+                $request->user()?->getAuthIdentifier() ?? $request->ip()
+            );
+        });
+
+        RateLimiter::for('file-upload', function (Request $request) {
+            return Limit::perMinute(20)->by(
+                $request->user()?->getAuthIdentifier() ?? $request->ip()
+            );
+        });
+
         if (str_starts_with(config('app.url'), 'https://')) {
             URL::forceScheme('https');
         }
