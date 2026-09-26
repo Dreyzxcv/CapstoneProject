@@ -151,6 +151,12 @@ class DocumentController extends Controller
                 ->update(['aap_number' => $aapNumber]);
         }
 
+        if ($type === DocumentType::StcpDocument) {
+            $stcpNumber = $request->validated('stcp_number');
+            Asset::where('asset_code', $asset->asset_code)
+                ->update(['stcp_number' => $stcpNumber]);
+        }
+
         foreach ($siblingIds as $siblingId) {
             Document::create([
                 'attachable_type' => Asset::class,

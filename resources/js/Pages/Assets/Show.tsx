@@ -26,6 +26,7 @@ import { StatusHistoryEntry } from "@/types";
 
 interface ShowProps {
     asset: Asset & {
+        stcp_number: string | null;
         custody_review_status: "pending" | "approved" | "returned" | null;
         custody_review_submitted_at: string | null;
         custody_review_remarks: string | null;
@@ -581,6 +582,17 @@ export default function AssetsShow({
     const [editingAap, setEditingAap] = useState(false);
     const aapForm = useForm({ aap_number: asset.aap_number ?? "" });
 
+    const [editingStcp, setEditingStcp] = useState(false);
+    const stcpForm = useForm({ stcp_number: asset.stcp_number ?? "" });
+
+    function submitStcp(e: FormEvent) {
+        e.preventDefault();
+        stcpForm.post(route("assets.stcp-number.update", asset.id), {
+            preserveScroll: true,
+            onSuccess: () => setEditingStcp(false),
+        });
+    }
+
     function submitAap(e: FormEvent) {
         e.preventDefault();
         aapForm.post(route("assets.aap-number.update", asset.id), {
@@ -851,66 +863,70 @@ export default function AssetsShow({
                                 <span className="font-medium">Mode:</span>{" "}
                                 {asset.mode}
                             </p>
-                            <div>
-                                <span className="font-medium">AAP No.:</span>{" "}
-                                {editingAap ? (
-                                    <form
-                                        onSubmit={submitAap}    
-                                        className="mt-1 flex items-center gap-2"
-                                    >
-                                        <Input
-                                            value={aapForm.data.aap_number}
-                                            onChange={(e) =>
-                                                aapForm.setData(
-                                                    "aap_number",
-                                                    e.target.value,
-                                                )
-                                            }
-                                            placeholder="e.g. AAP-2026-0042"
-                                            className="max-w-xs"
-                                            autoFocus
-                                        />
-                                        <Button
-                                            type="submit"
-                                            size="sm"
-                                            disabled={aapForm.processing}
-                                        >
-                                            Save
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => setEditingAap(false)}
-                                        >
-                                            Cancel
-                                        </Button>
-                                    </form>
-                                ) : (
-                                    <>
-                                        {asset.aap_number ?? (
-                                            <span className="text-gray-400">
-                                                Not yet received
-                                            </span>
-                                        )}
-                                        {can.updateAap && asset.aap_number && (
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setEditingAap(true)
-                                                }
-                                                className="ml-2 text-xs font-medium text-emerald-700 hover:underline"
-                                            >
-                                                Edit
-                                            </button>
-                                        )}
-                                    </>
-                                )}
-                                <InputError
-                                    message={aapForm.errors.aap_number}
-                                    className="mt-1"
-                                />
-                            </div>
+                            {asset.mode === "turned_over" ? (
+                                <div>
+                                    <span className="font-medium">STCP No.:</span>{" "}
+                                    {editingStcp ? (
+                                        <form onSubmit={submitStcp} className="mt-1 flex items-center gap-2">
+                                            <Input
+                                                value={stcpForm.data.stcp_number}
+                                                onChange={(e) => stcpForm.setData("stcp_number", e.target.value)}
+                                                placeholder="e.g. STCP-2026-0001"
+                                                className="max-w-xs"
+                                                autoFocus
+                                            />
+                                            <Button type="submit" size="sm" disabled={stcpForm.processing}>Save</Button>
+                                            <Button type="button" size="sm" variant="outline" onClick={() => setEditingStcp(false)}>Cancel</Button>
+                                        </form>
+                                    ) : (
+                                        <>
+                                            {asset.stcp_number ?? <span className="text-gray-400">Not yet received</span>}
+                                            {can.updateAap && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditingStcp(true)}
+                                                    className="ml-2 text-xs font-medium text-emerald-700 hover:underline"
+                                                >
+                                                    Edit
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                    <InputError message={stcpForm.errors.stcp_number} className="mt-1" />
+                                </div>
+                            ) : (
+                                // ── AAP No. (apprehended only) ────────────────────────
+                                <div>
+                                    <span className="font-medium">AAP No.:</span>{" "}
+                                    {editingAap ? (
+                                        <form onSubmit={submitAap} className="mt-1 flex items-center gap-2">
+                                            <Input
+                                                value={aapForm.data.aap_number}
+                                                onChange={(e) => aapForm.setData("aap_number", e.target.value)}
+                                                placeholder="e.g. AAP-2026-0042"
+                                                className="max-w-xs"
+                                                autoFocus
+                                            />
+                                            <Button type="submit" size="sm" disabled={aapForm.processing}>Save</Button>
+                                            <Button type="button" size="sm" variant="outline" onClick={() => setEditingAap(false)}>Cancel</Button>
+                                        </form>
+                                    ) : (
+                                        <>
+                                            {asset.aap_number ?? <span className="text-gray-400">Not yet received</span>}
+                                            {can.updateAap && asset.aap_number && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditingAap(true)}
+                                                    className="ml-2 text-xs font-medium text-emerald-700 hover:underline"
+                                                >
+                                                    Edit
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                    <InputError message={aapForm.errors.aap_number} className="mt-1" />
+                                </div>
+                            )}
                             {asset.jev?.jev_number && (
                                 <p>
                                     <span className="font-medium">JEV No. (IN):</span>{" "}

@@ -65,7 +65,14 @@ export function QrScanner() {
 
             await html5QrCode.start(
                 { facingMode: 'environment' },
-                { fps: 10, qrbox: { width: 240, height: 240 } },
+                {
+                    fps: 10,
+                    qrbox: (viewfinderWidth, viewfinderHeight) => {
+                        const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7;
+                        return { width: size, height: size };
+                    },
+                    aspectRatio: 0.75, 
+                },
                 handleDecoded,
                 () => {},
             );

@@ -21,7 +21,7 @@ class QrScanController extends Controller
         return Inertia::render('Scan/Index');
     }
 
-    public function resolve(Request $request, string $token): Response
+    public function resolve(Request $request, string $token, AuditLogService $auditLog): Response
     {
         if (! $request->hasValidSignature()) {
             abort(403, 'Invalid or expired QR code.');
@@ -32,20 +32,41 @@ class QrScanController extends Controller
         if ($assetPiece) {
             $asset = $assetPiece->asset;
             $pieceNumber = $assetPiece->piece_number;
+            $assetPieceId = $assetPiece->id;
         } else {
             $asset = Asset::where('qr_code_token', $token)->firstOrFail();
             $pieceNumber = null;
+            $assetPieceId = null;
         }
 
-        // Auth and active-account checks are handled by the route's
-        // middleware group ('auth', 'verified', 'active') before this
-        // method ever runs.
         $this->authorize('view', $asset);
 
+        $recentScan = QrScan::where('asset_id', $asset->id)
+            ->where('scanned_by', $request->user()->id)
+            ->where('scanned_at', '>=', now()->subMinutes(5))
+            ->exists();
+
+        if (! $recentScan) {
+            QrScan::create([
+                'asset_id'           => $asset->id,
+                'asset_piece_id'     => $assetPieceId,
+                'scanned_by'         => $request->user()->id,
+                'scan_location_note' => null,
+                'resulting_status'   => $asset->current_status,
+                'scanned_at'         => now(),
+            ]);
+
+            $auditLog->log('qr.scanned', $asset, null, [
+                'token'          => substr($token, 0, 8).'...',
+                'asset_piece_id' => $assetPieceId,
+                'auto'           => true,
+            ]);
+        }
+
         return Inertia::render('Scan/Result', [
-            'asset' => $asset->load(['acknowledgementReceipt', 'statusHistory.changedBy']),
-            'token' => $token,
-            'piece_number' => $pieceNumber,
+            'asset'        => $asset->load(['acknowledgementReceipt', 'statusHistory.changedBy']),
+            'token'        => $token,
+            'piece'        => $assetPiece,
         ]);
     }
 

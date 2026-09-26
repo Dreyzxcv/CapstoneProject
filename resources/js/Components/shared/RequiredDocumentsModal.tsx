@@ -33,13 +33,15 @@ export default function RequiredDocumentsModal({
     canUpload,
     canVerify,
 }: RequiredDocumentsModalProps) {
-    const uploadForm = useForm<{ document_type: string; file: File | null; aap_number: string }>({
+    const uploadForm = useForm<{ document_type: string; file: File | null; aap_number: string; stcp_number: string }>({
         document_type: '',
         file: null,
         aap_number: '',
+        stcp_number: '',
     });
 
 const [aapNumber, setAapNumber] = useState('');
+const [stcpNumber, setStcpNumber] = useState('');
 
     const verifyForm = useForm<{ decision: string; remarks: string }>({
         decision: '',
@@ -84,6 +86,7 @@ const [aapNumber, setAapNumber] = useState('');
             document_type: pendingUpload.type,
             file: pendingUpload.file,
             aap_number: pendingUpload.type === 'aap_document' ? aapNumber : '',
+            stcp_number: pendingUpload.type === 'stcp_document' ? stcpNumber : '',
         });
         uploadForm.post(route('assets.required-documents.store', assetId), {
             forceFormData: true,
@@ -93,6 +96,7 @@ const [aapNumber, setAapNumber] = useState('');
                 URL.revokeObjectURL(pendingUpload.previewUrl);
                 setPendingUpload(null);
                 setAapNumber('');
+                setStcpNumber('');
             },
         });
     }
@@ -298,6 +302,24 @@ const [aapNumber, setAapNumber] = useState('');
                                                 </div>
                                             )}
 
+                                            {pendingUpload.type === 'stcp_document' && (
+                                                <div className="mt-3">
+                                                    <label className="block text-xs font-medium text-emerald-800 mb-1">
+                                                        STCP Number <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={stcpNumber}
+                                                        onChange={(e) => setStcpNumber(e.target.value)}
+                                                        placeholder="e.g. STCP-2026-0001"
+                                                        className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                                    />
+                                                    {uploadForm.errors.stcp_number && (
+                                                        <p className="mt-1 text-xs text-red-600">{uploadForm.errors.stcp_number}</p>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             <div className="mt-3 flex gap-2">
                                                 <Button
                                                     type="button"
@@ -305,7 +327,8 @@ const [aapNumber, setAapNumber] = useState('');
                                                     onClick={confirmUpload}
                                                     disabled={
                                                         uploadForm.processing ||
-                                                        (pendingUpload.type === 'aap_document' && !aapNumber.trim())
+                                                        (pendingUpload.type === 'aap_document' && !aapNumber.trim()) ||
+                                                        (pendingUpload.type === 'stcp_document' && !stcpNumber.trim())
                                                     }
                                                 >
                                                     {uploadForm.processing ? 'Uploading…' : 'Confirm Upload'}

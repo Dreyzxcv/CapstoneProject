@@ -24,6 +24,12 @@ class UploadRequiredDocumentRequest extends FormRequest
                 'string',
                 'max:100',
             ],
+            'stcp_number'   => [
+                Rule::requiredIf($this->input('document_type') === 'stcp_document'),
+                'nullable',
+                'string',
+                'max:100',
+            ],
         ];
     }
 }

@@ -21,6 +21,7 @@ class Asset extends Model
         'asset_code',
         'item_number',
         'aap_number',
+        'stcp_number',
         'type',
         'species',
         'aap_review_requested',

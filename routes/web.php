@@ -35,6 +35,8 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/assets/{asset}/mark-stored', [AssetController::class, 'markStored'])->name('assets.mark-stored');
     Route::post('/assets/{asset}/submit-aap-review', [AssetController::class, 'submitAapForReview'])
         ->name('assets.submit-aap-review');
+    Route::post('/assets/{asset}/stcp-number', [AssetController::class, 'updateStcpNumber'])
+        ->name('assets.stcp-number.update');
 
     Route::get('/jev', [JevController::class, 'index'])->name('jev.index');
     Route::get('/assets/{asset}/jev', [JevController::class, 'show'])

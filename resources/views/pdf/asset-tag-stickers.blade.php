@@ -62,7 +62,12 @@
 
     <table class="item-table">
         <tr><th>Asset ID</th><td>{{ $pieceAsset->asset_code }}</td></tr>
-        <tr><th>AAP No.</th><td>{{ $entry['aap_number'] ?: '—' }}</td></tr>
+        @if($pieceAsset->mode->value === 'turned_over')
+            <tr><th>STCP No.</th><td>{{ $pieceAsset->stcp_number ?: '—' }}</td></tr>
+        @else
+            <tr><th>AAP No.</th><td>{{ $entry['aap_number'] ?: '—' }}</td></tr>
+        @endif
+
         <tr><th>Type</th><td>{{ ucfirst($pieceAsset->type->value) }}</td></tr>
 
         @if($pieceAsset->type->value === 'log')
@@ -94,7 +99,7 @@
         <tr>
             <td class="qr-cell"><img src="{{ $qrDataUri }}" alt="QR code"></td>
             <td class="doc-cell">
-                <p><strong>Date Apprehended:</strong> {{ $pieceAsset->incident?->date_of_apprehension?->format('M d, Y') ?? '—' }}</p>
+                <p><strong>{{ $pieceAsset->mode->value === 'turned_over' ? 'Date Turned Over:' : 'Date Apprehended:' }}</strong> {{ $pieceAsset->incident?->date_of_apprehension?->format('M d, Y') ?? '—' }}</p>
                 <p><strong>Place:</strong> {{ $pieceAsset->incident?->place_of_apprehension ?? $pieceAsset->location_apprehended ?? '—' }}</p>
                 <p><strong>Municipality:</strong> {{ $pieceAsset->municipality_of_origin }}</p>
             </td>

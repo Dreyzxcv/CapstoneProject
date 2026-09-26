@@ -65,6 +65,7 @@ export interface Asset {
     asset_code: string;
     item_number: number;
     aap_number: string | null;
+    stcp_number: string | null;
     type: string;
     species: string | null;
     vehicle_type?: string | null;

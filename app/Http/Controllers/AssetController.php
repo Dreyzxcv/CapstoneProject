@@ -13,6 +13,7 @@ use App\Actions\SubmitForCustodyReview;
 use App\Actions\ResolveCustodyReview;
 use Illuminate\Support\Facades\Storage;
 use App\Services\PdfDocumentService;
+use App\Http\Requests\UpdateStcpNumberRequest;
 use App\Enums\AssetMode;
 use App\Enums\AssetStatus;
 use App\Enums\AssetType;
@@ -249,6 +250,7 @@ class AssetController extends Controller
                 'Winch / Cable Puller', 'Hand Tools (Axe, Bolo, Wedge)', 'Others',
             ],
             'modes' => collect(AssetMode::cases())->map(fn ($m) => [
+                'value' => $m->value,
                 'label' => $m->label(),
             ]),
             'hasAllRequiredDocuments' => $asset->hasAllRequiredDocuments(),
@@ -330,6 +332,18 @@ class AssetController extends Controller
         $auditLog->log('asset.aap_number_updated', $asset, $before, $asset->fresh()->only('aap_number'), $request->user()->id);
 
         return back()->with('success', 'AAP No. updated.');
+    }
+
+    public function updateStcpNumber(UpdateStcpNumberRequest $request, Asset $asset, \App\Services\AuditLogService $auditLog): RedirectResponse
+    {
+        $before = $asset->only('stcp_number');
+
+        Asset::where('asset_code', $asset->asset_code)
+            ->update(['stcp_number' => $request->validated('stcp_number')]);
+
+        $auditLog->log('asset.stcp_number_updated', $asset, $before, $asset->fresh()->only('stcp_number'), $request->user()->id);
+
+        return back()->with('success', 'STCP No. updated.');
     }
 
     public function markStored(Asset $asset, MarkAssetStored $action): RedirectResponse
