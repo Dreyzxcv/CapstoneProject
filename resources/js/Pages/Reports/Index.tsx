@@ -188,7 +188,6 @@ function TrendTooltip({
     typeLabels: Record<string, string>;
 }) {
     if (!active || !payload?.length) return null;
-    // Only count the stacked bar series (not the line overlay) for the total
     const bars  = payload.filter(p => TREND_BAR_KEYS.includes(p.dataKey));
     const total = bars.reduce((sum, p) => sum + p.value, 0);
     return (
@@ -262,7 +261,6 @@ function groupActivity(entries: ReportsIndexProps['recentActivity']) {
     return groups.filter((g) => g.entries.length > 0);
 }
 
-/** Export a recharts wrapper div as a PNG by serialising its SVG */
 function exportChartAsPng(containerRef: React.RefObject<HTMLDivElement | null>, filename: string) {
     const svg = containerRef.current?.querySelector('svg');
     if (!svg) return;
@@ -275,7 +273,7 @@ function exportChartAsPng(containerRef: React.RefObject<HTMLDivElement | null>, 
     const img = new window.Image();
     img.onload = () => {
         const canvas = document.createElement('canvas');
-        const scale = 2; // retina
+        const scale = 2;
         canvas.width = svg.clientWidth * scale;
         canvas.height = svg.clientHeight * scale;
         const ctx = canvas.getContext('2d')!;
@@ -295,7 +293,6 @@ function exportChartAsPng(containerRef: React.RefObject<HTMLDivElement | null>, 
     img.src = url;
 }
 
-/** Small "Export PNG" button placed in chart card headers */
 function ExportPngButton({ onClick }: { onClick: () => void }) {
     return (
         <button
@@ -327,29 +324,20 @@ export default function ReportsIndex({
 }: ReportsIndexProps) {
     usePoll(10000, { only: ['summary', 'byType', 'byMunicipality', 'trends', 'recentActivity'] });
 
-    // ── Chart / breakdown filters ─────────────────────────────────────────
     const [chartMonth, setChartMonth] = useState<string>(chartFilters.month);
     const [chartYear, setChartYear] = useState<string>(chartFilters.year);
-
-    // ── Map filters — initialised from URL via prop ───────────────────────
     const [mapMonth, setMapMonth] = useState<string>(mapFilters.month);
     const [mapYear, setMapYear]   = useState<string>(mapFilters.year);
-
     const [showAttributeTable, setShowAttributeTable] = useState(false);
-
-    // ── Type chart view toggle ────────────────────────────────────────────
     const [typeChartView, setTypeChartView] = useState<'bar' | 'pie'>('bar');
 
-    // ── Chart refs for PNG export ─────────────────────────────────────────
-    const trendChartRef      = useRef<HTMLDivElement>(null);
-    const typeChartRef       = useRef<HTMLDivElement>(null);
-    const muniChartRef       = useRef<HTMLDivElement>(null);
+    const trendChartRef = useRef<HTMLDivElement>(null);
+    const typeChartRef  = useRef<HTMLDivElement>(null);
+    const muniChartRef  = useRef<HTMLDivElement>(null);
 
-    // ── Last-updated ticker ───────────────────────────────────────────────
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
     const [tickLabel, setTickLabel]     = useState<string>('just now');
 
-    // Reset ticker every time a poll cycle fires (summary changes)
     useEffect(() => {
         setLastUpdated(new Date());
     }, [summary.total, recentActivity.length]);
@@ -366,7 +354,6 @@ export default function ReportsIndex({
         return () => clearInterval(id);
     }, [lastUpdated]);
 
-    // ── Chart filter handler ──────────────────────────────────────────────
     function handleChartFilterChange(nextMonth: string, nextYear: string) {
         setChartMonth(nextMonth);
         setChartYear(nextYear);
@@ -377,7 +364,6 @@ export default function ReportsIndex({
         );
     }
 
-    // ── Map filter handler — syncs to URL ─────────────────────────────────
     function handleMapFilterChange(nextMonth: string, nextYear: string) {
         setMapMonth(nextMonth);
         setMapYear(nextYear);
@@ -396,7 +382,6 @@ export default function ReportsIndex({
         );
     }
 
-    // ── Derived data ──────────────────────────────────────────────────────
     const typeChartData = byType.map((row) => ({
         name: row.label,
         typeValue: row.type,
@@ -405,7 +390,6 @@ export default function ReportsIndex({
 
     const totalTypeCount = typeChartData.reduce((s, d) => s + d.count, 0);
 
-    // Pie data with percentage
     const pieData = typeChartData.map((d) => ({
         name: d.name,
         value: d.count,
@@ -420,20 +404,24 @@ export default function ReportsIndex({
         isTop: index === 0,
     }));
 
-    // Trend average line value
+    // FIX 1: wider Y-axis so municipality names don't get clipped
+    const muniYAxisWidth = useMemo(() => {
+        if (!municipalityChartData.length) return 96;
+        const longest = Math.max(...municipalityChartData.map((d) => d.name.length));
+        return Math.min(Math.max(longest * 8, 110), 180);
+    }, [municipalityChartData]);
+
     const trendAverage = useMemo(() => {
         if (!trends.length) return 0;
         return Math.round(trends.reduce((s, t) => s + t.total, 0) / trends.length);
     }, [trends]);
 
-    // % change: last month vs second-to-last
-    // Returns a number (Infinity when prev=0 and last>0 = "new"), or null when both zero
     const trendPctChange = useMemo(() => {
         if (trends.length < 2) return null;
         const last = trends[trends.length - 1].total;
         const prev = trends[trends.length - 2].total;
         if (last === 0 && prev === 0) return null;
-        if (prev === 0) return Infinity; // new activity this month
+        if (prev === 0) return Infinity;
         return Math.round(((last - prev) / prev) * 100);
     }, [trends]);
 
@@ -524,14 +512,14 @@ export default function ReportsIndex({
     const hasChartFilter = chartMonth !== 'all' || chartYear !== 'all';
     const hasMapFilter   = mapMonth !== 'all' || mapYear !== 'all';
 
-    // Custom label for the top trend bar showing % change
     const TrendPctLabel = useCallback(
         (props: { x?: number; y?: number; width?: number; index?: number }) => {
             const { x = 0, y = 0, width = 0, index = 0 } = props;
             if (index !== trends.length - 1 || trendPctChange === null) return null;
             const isNew    = !isFinite(trendPctChange);
             const isUp     = trendPctChange >= 0;
-            const color    = isUp ? '#ef4444' : '#10b981';
+            // FIX 3: amber for new/up instead of red — a confiscation spike is notable, not alarming
+            const color    = isNew ? '#d97706' : isUp ? '#d97706' : '#10b981';
             const labelStr = isNew ? 'New ▲' : `${isUp ? '+' : ''}${trendPctChange}%`;
             return (
                 <text
@@ -549,7 +537,6 @@ export default function ReportsIndex({
         [trends.length, trendPctChange],
     );
 
-    // Custom label for municipality bars: prepend rank number
     const MuniRankLabel = useCallback(
         (props: { x?: number; y?: number; width?: number; height?: number; value?: number; index?: number }) => {
             const { x = 0, y = 0, height = 0, index = 0 } = props;
@@ -691,8 +678,9 @@ export default function ReportsIndex({
                             <CardTitle className="text-base font-semibold text-gray-900">
                                 Confiscations Over Time
                                 {trendPctChange !== null && (
+                                    // FIX 3: amber instead of red for upward trend
                                     <span
-                                        className={`ml-2 text-sm font-semibold ${trendPctChange >= 0 ? 'text-red-500' : 'text-emerald-600'}`}
+                                        className={`ml-2 text-sm font-semibold ${trendPctChange >= 0 ? 'text-amber-500' : 'text-emerald-600'}`}
                                     >
                                         {!isFinite(trendPctChange)
                                             ? '▲ New this month'
@@ -746,7 +734,6 @@ export default function ReportsIndex({
                                         formatter={(value) => value === 'total' ? 'Total (line)' : (typeLabels[value as string] ?? value)}
                                         wrapperStyle={{ fontSize: 12 }}
                                     />
-                                    {/* Average reference line */}
                                     {trendAverage > 0 && (
                                         <ReferenceLine
                                             y={trendAverage}
@@ -763,10 +750,8 @@ export default function ReportsIndex({
                                     <Bar dataKey="log" stackId="a" fill={TYPE_COLORS.log} maxBarSize={48} />
                                     <Bar dataKey="equipment" stackId="a" fill={TYPE_COLORS.equipment} maxBarSize={48} />
                                     <Bar dataKey="vehicle" stackId="a" fill={TYPE_COLORS.vehicle} radius={[6, 6, 0, 0]} maxBarSize={48}>
-                                        {/* % change label on the last bar only */}
                                         <LabelList content={<TrendPctLabel />} />
                                     </Bar>
-                                    {/* Total line overlay */}
                                     <Line
                                         type="monotone"
                                         dataKey="total"
@@ -826,6 +811,7 @@ export default function ReportsIndex({
                                         <CardTitle className="text-base font-semibold text-gray-900">Assets by Type</CardTitle>
                                         <p className="text-xs text-gray-500">Click a bar to filter the asset list.</p>
                                     </div>
+                                    {/* FIX 2: count + PNG + toggle all in one aligned row */}
                                     <div className="flex items-center gap-2">
                                         {typeChartData.some((d) => d.count > 0) && (
                                             <div className="text-right">
@@ -835,29 +821,27 @@ export default function ReportsIndex({
                                                 <p className="text-xs text-gray-400">total assets</p>
                                             </div>
                                         )}
-                                        <div className="flex flex-col gap-1">
-                                            <ExportPngButton
-                                                onClick={() => exportChartAsPng(typeChartRef, 'assets-by-type.png')}
-                                            />
-                                            {/* Bar / Pie toggle */}
-                                            <div className="flex overflow-hidden rounded-md border border-gray-200">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setTypeChartView('bar')}
-                                                    title="Bar chart"
-                                                    className={`flex items-center justify-center px-2 py-1 text-xs transition ${typeChartView === 'bar' ? 'bg-emerald-700 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
-                                                >
-                                                    <BarChart2 className="h-3.5 w-3.5" />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setTypeChartView('pie')}
-                                                    title="Pie chart"
-                                                    className={`flex items-center justify-center px-2 py-1 text-xs transition ${typeChartView === 'pie' ? 'bg-emerald-700 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
-                                                >
-                                                    <PieChartIcon className="h-3.5 w-3.5" />
-                                                </button>
-                                            </div>
+                                        <ExportPngButton
+                                            onClick={() => exportChartAsPng(typeChartRef, 'assets-by-type.png')}
+                                        />
+                                        {/* Bar / Pie toggle — same row as PNG */}
+                                        <div className="flex overflow-hidden rounded-md border border-gray-200">
+                                            <button
+                                                type="button"
+                                                onClick={() => setTypeChartView('bar')}
+                                                title="Bar chart"
+                                                className={`flex items-center justify-center px-2 py-1 text-xs transition ${typeChartView === 'bar' ? 'bg-emerald-700 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                                            >
+                                                <BarChart2 className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setTypeChartView('pie')}
+                                                title="Pie chart"
+                                                className={`flex items-center justify-center px-2 py-1 text-xs transition ${typeChartView === 'pie' ? 'bg-emerald-700 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                                            >
+                                                <PieChartIcon className="h-3.5 w-3.5" />
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -953,12 +937,13 @@ export default function ReportsIndex({
                         {/* Confiscations by Municipality */}
                         <Card>
                             <CardHeader className="pb-2">
+                                {/* FIX 4: municipality header matches type card layout — count + PNG in same row */}
                                 <div className="flex items-start justify-between">
                                     <div>
                                         <CardTitle className="text-base font-semibold text-gray-900">Confiscations by Municipality</CardTitle>
                                         <p className="text-xs text-gray-500">Click a bar to filter the asset list.</p>
                                     </div>
-                                    <div className="flex flex-col items-end gap-1">
+                                    <div className="flex items-center gap-2">
                                         {municipalityChartData.some((d) => d.count > 0) && (
                                             <div className="text-right">
                                                 <p className="text-2xl font-bold tabular-nums text-gray-900">
@@ -988,7 +973,7 @@ export default function ReportsIndex({
                                             <BarChart
                                                 data={municipalityChartData}
                                                 layout="vertical"
-                                                margin={{ top: 4, right: 48, left: 24, bottom: 4 }}
+                                                margin={{ top: 4, right: 48, left: 40, bottom: 4 }}
                                             >
                                                 <GradientDefs />
                                                 <CartesianGrid horizontal={false} stroke="#e5e7eb" />
@@ -999,10 +984,11 @@ export default function ReportsIndex({
                                                     axisLine={false}
                                                     tickLine={false}
                                                 />
+                                                {/* FIX 1: dynamic width so long names don't get clipped */}
                                                 <YAxis
                                                     type="category"
                                                     dataKey="name"
-                                                    width={96}
+                                                    width={muniYAxisWidth}
                                                     tick={{ fontSize: 11, fill: '#374151' }}
                                                     axisLine={false}
                                                     tickLine={false}
@@ -1015,7 +1001,6 @@ export default function ReportsIndex({
                                                     cursor="pointer"
                                                     onClick={(data) => goToAssetsByMunicipality((data as unknown as { name: string }).name)}
                                                 >
-                                                    {/* Rank label on the left of each bar */}
                                                     <LabelList content={<MuniRankLabel />} />
                                                     <LabelList
                                                         dataKey="count"
@@ -1027,7 +1012,7 @@ export default function ReportsIndex({
                                                             key={index}
                                                             fill={
                                                                 entry.isTop
-                                                                    ? '#047857' // top municipality always gets the full emerald
+                                                                    ? '#047857'
                                                                     : `url(#grad-muni-${index % MUNI_SHADES.length})`
                                                             }
                                                             opacity={entry.isTop ? 1 : 0.8}
