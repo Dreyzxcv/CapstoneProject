@@ -82,6 +82,9 @@ class ResolveCustodyReview
                 link: route('assets.show', $asset),
                 type: 'custody_review',
                 assetId: $asset->id,
+                status: $decision === 'approved'
+                    ? AssetStatus::ReceiptSigned->value
+                    : AssetStatus::DocumentsUploaded->value,
             );
         }
     }

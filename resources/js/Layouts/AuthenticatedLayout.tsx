@@ -23,6 +23,7 @@ import {
     Settings,
     Info,
     Receipt,
+    CircleCheck,
 } from 'lucide-react';
 
 function hasPermission(permissions: string[], permission: string): boolean {
@@ -35,6 +36,7 @@ type NavItem = {
     active: boolean;
     show: boolean;
     icon: ReactNode;
+    count: number;
 };
 
 type NavSection = {
@@ -48,15 +50,16 @@ export default function Authenticated({
     header,
     children,
 }: PropsWithChildren<{ header?: ReactNode }>) {
-    usePoll(15000, { only: ['notifications'] });
-    const { auth, flash } = usePage<PageProps>().props;
+    usePoll(15000, { only: ['notifications', 'sidebarTaskCounts'] });
+    const { auth, flash, sidebarTaskCounts } = usePage<PageProps>().props;
     const user = auth.user!;
     const permissions = user.permissions ?? [];
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
     const [showingAccountMenu, setShowingAccountMenu] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
-    const [settingsOpen, setSettingsOpen] = useState(
+    const [successToast, setSuccessToast] = useState<string | null>(null);
+    const [settingsOpen, setSettingsOpen] = useState<boolean>(
         () =>
             route().current('settings.*') ||
             route().current('users.*') ||
@@ -68,6 +71,15 @@ export default function Authenticated({
         const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
         if (stored === '1') setCollapsed(true);
     }, []);
+
+    useEffect(() => {
+        if (!flash?.success) return;
+
+        setSuccessToast(flash.success);
+        const timeout = window.setTimeout(() => setSuccessToast(null), 5000);
+
+        return () => window.clearTimeout(timeout);
+    }, [flash?.success]);
 
     function toggleCollapsed() {
         setCollapsed((prev) => {
@@ -89,6 +101,7 @@ export default function Authenticated({
                     active: route().current('dashboard'),
                     show: true,
                     icon: <LayoutDashboard className={iconClass} />,
+                    count: 0,
                 },
             ],
         },
@@ -101,6 +114,7 @@ export default function Authenticated({
                     active: route().current('assets.*'),
                     show: hasPermission(permissions, 'assets.view'),
                     icon: <Package className={iconClass} />,
+                    count: sidebarTaskCounts?.assets ?? 0,
                 },
                 {
                     href: route('incidents.create'),
@@ -108,6 +122,7 @@ export default function Authenticated({
                     active: route().current('incidents.*'),
                     show: hasPermission(permissions, 'incidents.create'),
                     icon: <ClipboardPlus className={iconClass} />,
+                    count: 0,
                 },
                 {
                     href: route('scan.index'),
@@ -115,6 +130,7 @@ export default function Authenticated({
                     active: route().current('scan.*'),
                     show: hasPermission(permissions, 'assets.scan'),
                     icon: <QrCode className={iconClass} />,
+                    count: 0,
                 },
                 {
                     href: route('jev.index'),
@@ -122,6 +138,7 @@ export default function Authenticated({
                     active: route().current('jev.*'),
                     show: hasPermission(permissions, 'jev.view'),
                     icon: <Receipt className={iconClass} />,
+                    count: sidebarTaskCounts?.jev ?? 0,
                 },
                 {
                     href: route('disposals.index'),
@@ -129,6 +146,7 @@ export default function Authenticated({
                     active: route().current('disposals.*'),
                     show: hasPermission(permissions, 'disposals.view'),
                     icon: <Trash2 className={iconClass} />,
+                    count: sidebarTaskCounts?.disposals ?? 0,
                 },
             ],
         },
@@ -141,6 +159,7 @@ export default function Authenticated({
                     active: route().current('reports.*'),
                     show: hasPermission(permissions, 'reports.view'),
                     icon: <FileBarChart2 className={iconClass} />,
+                    count: 0,
                 },
                 {
                     href: route('audit-logs.index'),
@@ -148,6 +167,7 @@ export default function Authenticated({
                     active: route().current('audit-logs.*'),
                     show: hasPermission(permissions, 'audit.view'),
                     icon: <History className={iconClass} />,
+                    count: 0,
                 },
             ],
         },
@@ -297,8 +317,9 @@ export default function Authenticated({
                                             href={item.href}
                                             onClick={() => setShowingNavigationDropdown(false)}
                                             title={collapsed ? item.label : undefined}
+                                            aria-label={item.count > 0 ? `${item.label}, ${item.count} pending tasks` : undefined}
                                             className={
-                                                'flex items-center gap-3 rounded-md border-l-[3px] py-2 pl-[9px] pr-3 text-sm font-medium transition duration-150 ease-in-out ' +
+                                                'relative flex items-center gap-3 rounded-md border-l-[3px] py-2 pl-[9px] pr-3 text-sm font-medium transition duration-150 ease-in-out ' +
                                                 (collapsed ? 'lg:justify-center lg:gap-0 lg:pl-[9px] lg:pr-[9px]' : '') +
                                                 ' ' +
                                                 (item.active
@@ -308,6 +329,17 @@ export default function Authenticated({
                                         >
                                             {item.icon}
                                             <span className={collapsed ? 'lg:hidden' : ''}>{item.label}</span>
+                                            {item.count > 0 && (
+                                                <span
+                                                    aria-hidden="true"
+                                                    className={
+                                                        'flex min-w-5 items-center justify-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-rose-700 ' +
+                                                        (collapsed ? 'lg:absolute lg:right-1 lg:top-0 lg:min-w-4 lg:px-1' : 'ml-auto')
+                                                    }
+                                                >
+                                                    {item.count > 99 ? '99+' : item.count}
+                                                </span>
+                                            )}
                                         </Link>
                                     ))}
                                 </div>
@@ -524,9 +556,22 @@ export default function Authenticated({
                         </header>
                     )}
 
-                    {flash?.success && (
-                        <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                            {flash.success}
+                    {successToast && (
+                        <div
+                            role="status"
+                            aria-live="polite"
+                            className="fixed right-4 top-20 z-50 flex max-w-sm items-start gap-3 rounded-lg border border-emerald-200 bg-white px-4 py-3 text-sm text-emerald-800 shadow-lg"
+                        >
+                            <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
+                            <span className="flex-1">{successToast}</span>
+                            <button
+                                type="button"
+                                aria-label="Dismiss success message"
+                                onClick={() => setSuccessToast(null)}
+                                className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            >
+                                <X className="h-4 w-4" aria-hidden="true" />
+                            </button>
                         </div>
                     )}
                     {flash?.error && (

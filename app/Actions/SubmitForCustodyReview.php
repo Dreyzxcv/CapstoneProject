@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
 use Spatie\Permission\Models\Role;
+use App\Enums\AssetStatus;
 
 class SubmitForCustodyReview
 {
@@ -54,6 +55,7 @@ class SubmitForCustodyReview
                 link: route('assets.show', $asset),
                 type: 'custody_review',
                 assetId: $asset->id,
+                status: AssetStatus::PendingCustodyReview->value
             );
         }
     }

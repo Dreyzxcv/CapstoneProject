@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\SidebarTaskCountService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -66,6 +67,9 @@ class HandleInertiaRequests extends Middleware
                         ->values()
                     : [],
             ],
+            'sidebarTaskCounts' => fn () => $user
+                ? app(SidebarTaskCountService::class)->countsFor($user)
+                : ['assets' => 0, 'jev' => 0, 'disposals' => 0],
         ];
     }
 }

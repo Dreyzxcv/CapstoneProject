@@ -62,7 +62,7 @@ class NotificationService
         );
     }
 
-    public function notify(User $user, string $title, string $message, ?string $link = null, ?string $type = null, ?int $assetId = null): void
+    public function notify(User $user, string $title, string $message, ?string $link = null, ?string $type = null, ?int $assetId = null, ?string $status = null,): void
     {
         Notification::create([
             'user_id'  => $user->id,
@@ -70,7 +70,7 @@ class NotificationService
             'title'    => $title,
             'message'  => $message,
             'link'     => $link,
-            'type'     => $type,
+            'status'   => $status ?? $type,
             'read_at'  => null,
         ]);
     }

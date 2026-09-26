@@ -18,6 +18,11 @@ export type PageProps<
         error?: string;
         info?: string;
     };
+    sidebarTaskCounts: {
+        assets: number;
+        jev: number;
+        disposals: number;
+    };
 };
 
 export interface Incident {
