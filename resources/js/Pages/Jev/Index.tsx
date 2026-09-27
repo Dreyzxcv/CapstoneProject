@@ -7,6 +7,7 @@ interface PendingAsset {
     id: number;
     asset_code: string;
     aap_number: string | null;
+    stcp_number: string | null;
     type: string;
     current_status: string;
 }
@@ -64,7 +65,7 @@ export default function JevIndex({ jevs, pendingAssets, disposalsAwaitingJevOut 
                                         <thead className="bg-amber-50">
                                             <tr>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Asset Code</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">AAP No.</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">AAP/STCP No.</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Type</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
                                                 <th className="px-4 py-3" />
@@ -74,7 +75,7 @@ export default function JevIndex({ jevs, pendingAssets, disposalsAwaitingJevOut 
                                             {pendingAssets.map((asset) => (
                                                 <tr key={asset.id} className="hover:bg-amber-50/40">
                                                     <td className="px-4 py-3 font-medium text-gray-800">{asset.asset_code}</td>
-                                                    <td className="px-4 py-3 text-gray-500">{asset.aap_number ?? '—'}</td>
+                                                    <td className="px-4 py-3 text-gray-500">{asset.aap_number ?? asset.stcp_number ?? '—'}</td>
                                                     <td className="px-4 py-3 capitalize text-gray-600">{asset.type}</td>
                                                     <td className="px-4 py-3">
                                                         <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200">
@@ -159,7 +160,7 @@ export default function JevIndex({ jevs, pendingAssets, disposalsAwaitingJevOut 
                                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">AAP No.</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">AAP/STCP No.</th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Type</th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">JEV No.</th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">JEV Type</th>
@@ -179,7 +180,7 @@ export default function JevIndex({ jevs, pendingAssets, disposalsAwaitingJevOut 
                                         )}
                                         {jevs.data.map((jev) => (
                                             <tr key={jev.id} className="hover:bg-gray-50">
-                                                <td className="px-4 py-3 font-medium text-gray-800">{jev.aap_number ?? '—'}</td>
+                                                <td className="px-4 py-3 font-medium text-gray-800">{jev.aap_number ?? jev.stcp_number ?? '—'}</td>
                                                 <td className="px-4 py-3 capitalize text-gray-600">{jev.asset_type}</td>
                                                 <td className="px-4 py-3 text-gray-700">{jev.jev_number ?? '—'}</td>
                                                 <td className="px-4 py-3">
