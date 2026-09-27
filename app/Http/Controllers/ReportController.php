@@ -355,7 +355,7 @@ class ReportController extends Controller
         $query = \App\Models\Donation::query()
             ->with([
                 'disposals:id,donation_id,asset_id,disposal_type,quantity,volume_bd_ft,details,processed_at,processed_by',
-                'disposals.asset:id,asset_code,species,type,description',
+                'disposals.asset:id,asset_code,aap_number,species,type,description',
                 'disposals.disposalJev',
                 'disposals.processedBy:id,name',
             ])
