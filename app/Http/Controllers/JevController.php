@@ -29,6 +29,7 @@ class JevController extends Controller
             'jevs.amount',
             'jevs.created_at',
             'assets.aap_number',
+            'assets.stcp_number',
             'assets.id as asset_id',
         ])
         ->selectRaw("'IN' as jev_type")
@@ -47,6 +48,7 @@ class JevController extends Controller
             DB::raw('NULL as amount'),
             'disposal_jevs.created_at',
             'assets.aap_number',
+            'assets.stcp_number',
             'assets.id as asset_id',
         ])
         ->selectRaw("'OUT' as jev_type")
@@ -68,7 +70,7 @@ class JevController extends Controller
                     ->whereColumn('jevs.asset_type', 'assets.type');
             })
             ->latest()
-            ->get(['id', 'asset_code', 'aap_number', 'type', 'current_status'])
+            ->get(['id', 'asset_code', 'aap_number', 'stcp_number', 'type', 'current_status'])
             ->unique(fn ($a) => $a->asset_code . '-' . ($a->type instanceof \App\Enums\AssetType ? $a->type->value : $a->type))
             ->values();
 
