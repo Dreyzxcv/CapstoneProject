@@ -111,7 +111,7 @@ export default function Authenticated({
                 {
                     href: route('assets.index'),
                     label: 'Assets',
-                    active: route().current('assets.*'),
+                    active: route().current('assets.*') && !route().current('assets.jev.*'),
                     show: hasPermission(permissions, 'assets.view'),
                     icon: <Package className={iconClass} />,
                     count: sidebarTaskCounts?.assets ?? 0,
@@ -135,7 +135,7 @@ export default function Authenticated({
                 {
                     href: route('jev.index'),
                     label: 'JEV',
-                    active: route().current('jev.*'),
+                    active: route().current('jev.*') || route().current('assets.jev.*'),
                     show: hasPermission(permissions, 'jev.view'),
                     icon: <Receipt className={iconClass} />,
                     count: sidebarTaskCounts?.jev ?? 0,
