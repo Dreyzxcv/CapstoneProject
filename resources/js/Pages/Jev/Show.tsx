@@ -43,13 +43,13 @@ function PiecesTable({ asset }: { asset: Props['asset'] }) {
                                     <th className="pb-2 pr-4">L × W × H (cm)</th>
                                     <th className="pb-2 pr-4">Vol (bd ft)</th>
                                     <th className="pb-2 pr-4">Vol (cu m)</th>
+                                    <th className="pb-2 pr-4">Est. Value (₱)</th>
                                 </>
                             )}
                             {isVehicle && (
                                 <>
                                     <th className="pb-2 pr-4">Vehicle Type</th>
                                     <th className="pb-2 pr-4">Plate No.</th>
-                                    <th className="pb-2 pr-4">Serial No.</th>
                                 </>
                             )}
                             {isEquipment && (
@@ -61,7 +61,6 @@ function PiecesTable({ asset }: { asset: Props['asset'] }) {
                             {!isLog && !isVehicle && !isEquipment && (
                                 <th className="pb-2 pr-4">Species / Description</th>
                             )}
-                            <th className="pb-2 pr-4">Est. Value (₱)</th>
                             <th className="pb-2">Status</th>
                         </tr>
                     </thead>
@@ -79,13 +78,17 @@ function PiecesTable({ asset }: { asset: Props['asset'] }) {
                                         </td>
                                         <td className="py-2 pr-4">{piece.volume_bd_ft ?? '—'}</td>
                                         <td className="py-2 pr-4">{piece.volume_cu_m ?? '—'}</td>
+                                        <td className="py-2 pr-4">
+                                            {piece.estimated_value
+                                                ? `₱ ${Number(piece.estimated_value).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+                                                : '—'}
+                                        </td>
                                     </>
                                 )}
                                 {isVehicle && (
                                     <>
                                         <td className="py-2 pr-4">{piece.vehicle_type ?? '—'}</td>
                                         <td className="py-2 pr-4">{piece.plate_number ?? '—'}</td>
-                                        <td className="py-2 pr-4">{piece.serial_number ?? '—'}</td>
                                     </>
                                 )}
                                 {isEquipment && (
@@ -97,11 +100,6 @@ function PiecesTable({ asset }: { asset: Props['asset'] }) {
                                 {!isLog && !isVehicle && !isEquipment && (
                                     <td className="py-2 pr-4">{piece.species ?? piece.description ?? '—'}</td>
                                 )}
-                                <td className="py-2 pr-4">
-                                    {piece.estimated_value
-                                        ? `₱ ${Number(piece.estimated_value).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
-                                        : '—'}
-                                </td>
                                 <td className="py-2">
                                     {piece.disposed_at
                                         ? <Badge variant="outline" className="text-xs text-red-500 border-red-200">Disposed</Badge>
@@ -144,10 +142,10 @@ export default function JevShow({ asset, jev, can }: Props) {
             header={
                 <div className="flex items-center gap-3">
                     <Link
-                        href={route('assets.show', asset.id)}
+                        href={route('jev.index')}
                         className="text-sm text-gray-500 hover:text-gray-700"
                     >
-                        ← {asset.asset_code}
+                        ← Back
                     </Link>
                     <span className="text-gray-400">/</span>
                     <h2 className="text-xl font-semibold text-gray-800">
