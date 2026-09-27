@@ -143,6 +143,7 @@ export interface Jev {
     asset_id: number | null;
     asset_code: string;
     aap_number: string | null;
+    stcp_number: string | null;
     asset_type: string;
     jev_number: string | null;
     jev_date: string | null;
