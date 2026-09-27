@@ -63,6 +63,25 @@ class DashboardController extends Controller
             ->whereIn('current_status', $statuses)
             ->count();
 
+        $activeStatuses = [
+            AssetStatus::IntakeRecorded->value,
+            AssetStatus::PendingCustodyReview->value,
+            AssetStatus::ReceiptSigned->value,
+            AssetStatus::Stored->value,
+            AssetStatus::UnderTrial->value,
+            AssetStatus::ClearedForAccounting->value,
+            AssetStatus::ForDisposal->value,
+        ];
+
+        $disposedStatuses = [
+            AssetStatus::Donated->value,
+            AssetStatus::Decayed->value,
+            AssetStatus::Fabricated->value,
+            AssetStatus::Released->value,
+            AssetStatus::Forfeited->value,
+            AssetStatus::Damaged->value,
+        ];
+
         return match ($normalizedRole) {
             'System Admin' => [
                 'title' => 'System Administration',
@@ -172,66 +191,48 @@ class DashboardController extends Controller
             ],
             'PENRO Management' => [
                 'title' => 'Management Overview',
-                'description' => 'Executive view of inventory, compliance, and municipality trends',
+                'description' => 'Executive view of the full asset pipeline, compliance health, and disposal outcomes.',
                 'cards' => [
+                    [
+                        'label' => 'Total inventory',
+                        'value' => (clone $baseQuery)->count(),
+                        'description' => 'All assets ever recorded in the system',
+                    ],
+                    [
+                        'label' => 'Active in pipeline',
+                        'value' => $countByStatuses($activeStatuses),
+                        'description' => 'Assets currently moving through workflow stages',
+                    ],
                     [
                         'label' => 'Under trial',
                         'value' => $countByStatuses([AssetStatus::UnderTrial->value]),
-                        'description' => 'Assets currently tied to court or legal action',
+                        'description' => 'Assets held pending legal or court resolution',
                     ],
                     [
                         'label' => 'Disposed',
-                        'value' => $countByStatuses([
-                            AssetStatus::Donated->value,
-                            AssetStatus::Decayed->value,
-                            AssetStatus::Fabricated->value,
-                            AssetStatus::Released->value,
-                            AssetStatus::Forfeited->value,
-                            AssetStatus::Damaged->value,
-                        ]),
-                        'description' => 'Completed disposition cases',
-                    ],
-                    [
-                        'label' => 'Stored inventory',
-                        'value' => $countByStatuses([AssetStatus::Stored->value]),
-                        'description' => 'Active assets on hand in custody',
+                        'value' => $countByStatuses($disposedStatuses),
+                        'description' => 'Cases fully closed out through disposition',
                     ],
                 ],
-            ],
-            default => [
-                'title' => 'Inventory Dashboard',
-                'description' => 'Full asset inventory and activity feed',
-                'cards' => [
-                    [
-                        'label' => 'Active assets',
-                        'value' => $countByStatuses([
-                            AssetStatus::IntakeRecorded->value,
-                            AssetStatus::PendingCustodyReview->value,
-                            AssetStatus::ReceiptSigned->value,
-                            AssetStatus::Stored->value,
-                            AssetStatus::UnderTrial->value,
-                            AssetStatus::ClearedForAccounting->value,
-                            AssetStatus::ForDisposal->value,
-                        ]),
-                        'description' => 'Assets currently in active workflow',
-                    ],
-                    [
-                        'label' => 'Completed',
-                        'value' => $countByStatuses([
-                            AssetStatus::Donated->value,
-                            AssetStatus::Decayed->value,
-                            AssetStatus::Fabricated->value,
-                            AssetStatus::Released->value,
-                            AssetStatus::Forfeited->value,
-                            AssetStatus::Damaged->value,
-                        ]),
-                        'description' => 'Assets closed out from active workflow',
-                    ],
-                    [
-                        'label' => 'Total assets',
-                        'value' => (clone $baseQuery)->count(),
-                        'description' => 'Overall inventory volume',
-                    ],
+            
+                // Pipeline stage breakdown — used by the frontend for bottleneck detection
+                'pipeline' => [
+                    ['key' => 'stored',                   'label' => 'Stored',            'value' => $countByStatuses([AssetStatus::Stored->value])],
+                    ['key' => 'receipt_signed',            'label' => 'Doc Verified',      'value' => $countByStatuses([AssetStatus::ReceiptSigned->value])],
+                    ['key' => 'pending_custody_review',    'label' => 'Custody Review',    'value' => $countByStatuses([AssetStatus::PendingCustodyReview->value])],
+                    ['key' => 'cleared_for_accounting',    'label' => 'Tagged',            'value' => $countByStatuses([AssetStatus::ClearedForAccounting->value])],
+                    ['key' => 'for_disposal',              'label' => 'For Disposal',      'value' => $countByStatuses([AssetStatus::ForDisposal->value])],
+                    ['key' => 'under_trial',               'label' => 'Under Trial',       'value' => $countByStatuses([AssetStatus::UnderTrial->value])],
+                ],
+            
+                // Disposition breakdown — used for the outcome summary
+                'dispositionBreakdown' => [
+                    ['key' => 'donated',     'label' => 'Donated',     'value' => $countByStatuses([AssetStatus::Donated->value])],
+                    ['key' => 'released',    'label' => 'Released',    'value' => $countByStatuses([AssetStatus::Released->value])],
+                    ['key' => 'forfeited',   'label' => 'Forfeited',   'value' => $countByStatuses([AssetStatus::Forfeited->value])],
+                    ['key' => 'decayed',     'label' => 'Decayed',     'value' => $countByStatuses([AssetStatus::Decayed->value])],
+                    ['key' => 'fabricated',  'label' => 'Fabricated',  'value' => $countByStatuses([AssetStatus::Fabricated->value])],
+                    ['key' => 'damaged',     'label' => 'Damaged',     'value' => $countByStatuses([AssetStatus::Damaged->value])],
                 ],
             ],
         };
