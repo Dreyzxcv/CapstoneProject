@@ -4,7 +4,6 @@ import Modal from '@/Components/Modal';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { PdfBadge } from '@/Components/shared/PdfBadge';
-import { EvidenceUploader } from '@/Components/shared/EvidenceUploader';
 import { documentUrl } from '@/lib/utils';
 import { DocumentItem } from '@/types';
 import { CheckCircle2, XCircle, UploadCloud, Clock, ChevronDown, ChevronUp } from 'lucide-react';
@@ -40,8 +39,9 @@ export default function RequiredDocumentsModal({
         stcp_number: '',
     });
 
-const [aapNumber, setAapNumber] = useState('');
-const [stcpNumber, setStcpNumber] = useState('');
+    const [aapNumber, setAapNumber] = useState('');
+    const [stcpNumber, setStcpNumber] = useState('');
+    const [evidenceType, setEvidenceType] = useState('');
 
     const verifyForm = useForm<{ decision: string; remarks: string }>({
         decision: '',
@@ -51,6 +51,15 @@ const [stcpNumber, setStcpNumber] = useState('');
     const [rejectingId, setRejectingId] = useState<number | null>(null);
     const [pendingUpload, setPendingUpload] = useState<{ type: string; file: File; previewUrl: string; isImage: boolean } | null>(null);
     const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
+
+    const ADDITIONAL_TYPES = [
+    { value: 'confiscation_order',           label: 'Confiscation Order' },
+    { value: 'forfeiture_order',             label: 'Forfeiture Order' },
+    { value: 'regional_confiscation_order',  label: 'Regional Confiscation Order' },
+    { value: 'court_order',                  label: 'Court Order' },
+    { value: 'certificate_of_finality',      label: 'Certificate of Finality' },
+    { value: 'other',                        label: 'Other Supporting Document' },
+];
 
     function latestDocFor(type: string): DocumentItem | undefined {
         return documents
@@ -97,6 +106,7 @@ const [stcpNumber, setStcpNumber] = useState('');
                 setPendingUpload(null);
                 setAapNumber('');
                 setStcpNumber('');
+                setEvidenceType('');
             },
         });
     }
@@ -125,7 +135,8 @@ const [stcpNumber, setStcpNumber] = useState('');
     }
 
     const allVerified = requiredTypes.every((t) => latestDocFor(t.value)?.status === 'verified');
-    const generalEvidence = documents.filter((d) => !d.document_type);
+    const REQUIRED_TYPE_VALUES = new Set(requiredTypes.map((t) => t.value));
+    const generalEvidence = documents.filter((d) => !d.document_type || !REQUIRED_TYPE_VALUES.has(d.document_type));
 
     return (
         <Modal show={show} onClose={onClose} maxWidth="lg">
@@ -394,7 +405,64 @@ const [stcpNumber, setStcpNumber] = useState('');
                         Additional Evidence
                     </p>
 
-                    {canUpload && <EvidenceUploader assetId={assetId} />}
+                    {canUpload && (
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    Document type
+                                </label>
+                                <select
+                                    value={evidenceType}
+                                    onChange={(e) => setEvidenceType(e.target.value)}
+                                    className="h-9 w-full rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                                >
+                                    <option value="">Select type…</option>
+                                    {ADDITIONAL_TYPES.map((t) => (
+                                        <option key={t.value} value={t.value}>{t.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {evidenceType && (
+                                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed border-gray-300 p-3 text-xs text-gray-500 hover:border-emerald-400 hover:text-emerald-600">
+                                    <UploadCloud className="h-4 w-4" />
+                                    Upload file
+                                    <input
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/webp,application/pdf"
+                                        className="hidden"
+                                        onChange={(e) => handleFileSelected(evidenceType, e)}
+                                    />
+                                </label>
+                            )}
+                            {pendingUpload && ADDITIONAL_TYPES.some((t) => t.value === pendingUpload.type) && (
+                                <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3">
+                                    <p className="text-xs font-medium text-emerald-800">Confirm this is the right file:</p>
+                                    <div className="mt-2 flex items-center gap-3">
+                                        {pendingUpload.isImage ? (
+                                            <img src={pendingUpload.previewUrl} className="h-14 w-14 rounded-md object-cover" />
+                                        ) : (
+                                            <PdfBadge className="h-10 w-10 shrink-0" />
+                                        )}
+                                        <p className="min-w-0 flex-1 truncate text-xs text-gray-700">{pendingUpload.file.name}</p>
+                                    </div>
+                                    <div className="mt-3 flex gap-2">
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            onClick={confirmUpload}
+                                            disabled={uploadForm.processing}
+                                        >
+                                            {uploadForm.processing ? 'Uploading…' : 'Confirm Upload'}
+                                        </Button>
+                                        <Button type="button" size="sm" variant="outline" onClick={cancelUpload}>
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {generalEvidence.length > 0 ? (
                         <div className="mt-3 space-y-3">
@@ -424,6 +492,11 @@ const [stcpNumber, setStcpNumber] = useState('');
                                                 <p className="truncate text-xs font-medium text-gray-700">
                                                     {doc.original_name}
                                                 </p>
+                                                {doc.document_type && (
+                                                    <p className="text-xs text-gray-400">
+                                                        {ADDITIONAL_TYPES.find((t) => t.value === doc.document_type)?.label ?? doc.document_type}
+                                                    </p>
+                                                )}
                                                 <div className="mt-1 flex items-center gap-2">
                                                     <Badge
                                                         variant={doc.status === 'verified' ? 'green' : 'amber'}
