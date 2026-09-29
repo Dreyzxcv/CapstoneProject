@@ -26,7 +26,7 @@ Route::get('/', function () {
 Route::middleware(['auth', 'verified', 'active'])->group(function () {
 
     // Dashboard 
-    Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/', DashboardController::class)->name('dashboard');
 
     // Assets 
     Route::resource('assets', AssetController::class)->only(['index', 'create', 'store', 'show']);
@@ -140,6 +140,26 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
 
     // Misc
     Route::get('/about', fn () => Inertia::render('About'))->name('about');
+
+    // DEBUG
+    Route::get('/debug/receipt/{asset}', function (\App\Models\Asset $asset) {
+        $receipt = $asset->acknowledgementReceipt ?? new \App\Models\AcknowledgementReceipt([
+            'asset_id'       => $asset->id,
+            'receipt_number' => 'DEBUG-' . $asset->id,
+            'signed_at'      => now(),
+            'created_at'     => now(),
+        ]);
+
+        $service = app(\App\Services\PdfDocumentService::class);
+        $path = $service->generateAcknowledgementReceipt($asset, $receipt);
+
+        $content = \Illuminate\Support\Facades\Storage::disk('local')->get($path);
+
+        return response($content, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="debug-receipt.pdf"',
+        ]);
+    })->middleware(['auth']);
 });
 
 require __DIR__.'/auth.php';
