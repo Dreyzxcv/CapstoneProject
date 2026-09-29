@@ -6,125 +6,260 @@
 
     <style>
         @page {
-            margin-top: 1.6in;
-            margin-bottom: 1.1in;
-            margin-left: 0.5in;
-            margin-right: 0.5in;
+            margin-top: 1.3in;
+            margin-bottom: 1.0in;
+            margin-left: 0.75in;
+            margin-right: 0.75in;
             size: 8.5in 14in;
         }
 
         body {
             font-family: 'Times New Roman', Times, serif;
-            font-size: 12pt;
-            color: #000;
+            font-size: 10.5pt;
+            color: #111;
+            line-height: 1.4;
         }
 
-        .header-table {
+        /* ── Page header (fixed) ── */
+        .page-header {
+            position: fixed;
+            top: -1.1in;
+            padding: 0;
+            margin: 0;
+        }
+
+        .header-inner {
+            display: table;
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 0;
+            padding-bottom: 6pt;
+            border-bottom: 1.5pt solid #111;
+            padding-left: 0.75in;
+            padding-right: 0.75in;
         }
-        .header-table td { vertical-align: middle; text-align: center; padding: 0; }
-        .header-logo-left, .header-logo-right { width: 15%; }
-        .header-logo-left img, .header-logo-right img { width: 0.92in; height: auto; }
-        .header-title { font-weight: bold; font-size: 12pt; margin: 0; }
-        .header-subtitle { font-size: 12pt; font-weight: normal; margin: 0; }
 
-        h3.receipt-title {
+        .header-inner td { vertical-align: middle; }
+
+        .header-logo-left,
+        .header-logo-right { width: 15%; text-align: center; }
+        .header-logo-left img,
+        .header-logo-right img { width: 0.85in; height: auto; }
+
+        .header-center { text-align: center; padding: 0 6pt; }
+        .header-republic { font-size: 7.5pt; letter-spacing: 0.04em; margin-bottom: 1pt; color: #444; }
+        .header-agency   { font-size: 11.5pt; font-weight: bold; line-height: 1.2; margin-bottom: 1pt; }
+        .header-filipino { font-size: 7.5pt; font-style: italic; color: #555; margin-bottom: 2pt; }
+        .header-office   { font-size: 8.5pt; font-weight: bold; letter-spacing: 0.05em; text-transform: uppercase; color: #333; }
+
+        /* ── Document title ── */
+        .doc-title-block {
             text-align: center;
+            margin: 0 0 10pt;
+            padding-bottom: 8pt;
+            border-bottom: 0.5pt solid #ccc;
+        }
+        .doc-title {
             font-size: 13pt;
             font-weight: bold;
-            margin: 14pt 0 10pt;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin: 0 0 2pt;
+        }
+        .doc-subtitle {
+            font-size: 8.5pt;
+            color: #666;
+            font-style: italic;
+            letter-spacing: 0.03em;
+            margin: 0;
         }
 
-        p.intro, p.custodian-note {
-            text-indent: 0.5in;
+        /* ── Intro paragraph ── */
+        p.intro {
+            text-indent: 0.45in;
             text-align: justify;
-            line-height: 1.3;
-            margin: 0 0 12pt;
+            line-height: 1.5;
+            margin: 0 0 10pt;
+            font-size: 10pt;
         }
 
-        /* ── Fixed-layout items table ── */
+        /* ── Items table ── */
         table.items {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 14pt;
+            margin-bottom: 10pt;
             table-layout: fixed;
+            font-size: 10pt;
+            border: 1pt solid #999;
+        }
+
+        table.items thead tr {
+            background: #e5e7eb;
+            color: #111;
         }
 
         table.items th {
-            border: 1pt solid #000;
-            padding: 4pt 6pt;
+            border: 1pt solid #999;
+            padding: 5pt 7pt;
             font-weight: bold;
             text-align: center;
-            background: #f2f2f2;
-            font-size: 11pt;
+            font-size: 9.5pt;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
         }
 
-        table.items th.col-qty  { width: 18%; }
-        table.items th.col-item { width: 35%; }
-        table.items th.col-desc { width: 47%; }
+        table.items th.col-qty     { width: 13%; }
+        table.items th.col-item    { width: 24%; }
+        table.items th.col-details { width: 63%; }
 
         table.items td {
-            border: 1pt solid #000;
+            border: 1pt solid #999;
             padding: 5pt 7pt;
             vertical-align: top;
-            font-size: 11pt;
-            /* let rows grow with content instead of a fixed height */
+            font-size: 10pt;
         }
 
         table.items td.empty-cell {
-            height: 3in;
+            height: 2.5in;
+            text-align: center;
+            font-style: italic;
+            border: 0.5pt solid #ddd;
         }
 
-        .meta-line { margin: 0 0 4pt; }
-        .meta-line .value {
-            display: inline-block;
-            border-bottom: 1pt solid #000;
-            min-width: 3in;
-            padding-bottom: 1pt;
+        table.items td.qty-cell {
+            text-align: center;
+        }
+        table.items td small {
+            font-size: 8.5pt;
+            font-style: italic;
         }
 
+        /* ── Custodian note ── */
+        p.custodian-note {
+            text-indent: 0.45in;
+            text-align: justify;
+            line-height: 1.5;
+            margin: 0 0 12pt;
+            font-size: 10pt;
+        }
+
+        /* ── Divider ── */
+        .section-divider {
+            border: none;
+            border-top: 0.5pt solid #ccc;
+            margin: 10pt 0;
+        }
+
+        /* ── Meta lines ── */
+        .meta-grid {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8pt;
+        }
+        .meta-row { display: table-row; }
+        .meta-label {
+            display: table-cell;
+            width: 1.8in;
+            font-weight: bold;
+            font-size: 9.5pt;
+            padding: 3pt 8pt 3pt 0;
+            white-space: nowrap;
+            vertical-align: bottom;
+            color: #333;
+            letter-spacing: 0.01em;
+        }
+        .meta-value {
+            display: table-cell;
+            border-bottom: 0.5pt solid #888;
+            padding: 3pt 4pt;
+            vertical-align: bottom;
+            font-size: 10pt;
+        }
+
+        /* ── Signature block ── */
         table.signatures {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 46pt;
+            margin-top: 32pt;
         }
-        table.signatures td { width: 50%; text-align: center; vertical-align: bottom; }
-        .sig-space { height: 30pt; }
-        .sig-line {
-            border-top: 1pt solid #000;
-            margin: 0 20pt;
+        table.signatures td {
+            width: 50%;
+            text-align: center;
+            vertical-align: bottom;
+            padding: 0 16pt;
+        }
+        .sig-name-box {
+            height: 30pt;
+            border-bottom: 0.75pt solid #111;
+            margin: 0 12pt;
+        }
+        .sig-label {
+            font-size: 9pt;
             padding-top: 3pt;
-            font-size: 12pt;
+            font-weight: bold;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        .sig-sublabel {
+            height: 20pt;
+            border-bottom: 0.5pt solid #888;
+            margin: 10pt 12pt 0;
+        }
+        .sig-sublabel-text {
+            font-size: 8.5pt;
+            color: #666;
+            padding-top: 2pt;
+            font-style: italic;
         }
 
-        .witness-title { margin-top: 26pt; margin-bottom: 6pt; font-weight: bold; }
+        /* ── Witnesses ── */
+        .witnesses-section { margin-top: 20pt; }
+        .witnesses-title {
+            font-weight: bold;
+            font-size: 9pt;
+            letter-spacing: 0.06em;
+            margin-bottom: 6pt;
+            text-transform: uppercase;
+            color: #333;
+        }
         table.witnesses { width: 100%; border-collapse: collapse; }
-        table.witnesses td { width: 50%; padding-top: 24pt; }
-        .witness-line { border-top: 1pt solid #000; margin: 0 20pt; }
-
-        .page-header {
-            position: fixed;
-            top: -1.4in;
-            left: 0; right: 0;
+        table.witnesses td { width: 50%; padding: 0 16pt; padding-top: 26pt; }
+        .witness-line {
+            border-top: 0.5pt solid #888;
+            margin: 0 12pt;
+        }
+        .witness-label {
+            font-size: 8.5pt;
+            text-align: center;
+            color: #666;
+            padding-top: 2pt;
+            font-style: italic;
         }
 
+        /* ── Page footer (fixed) ── */
         .page-footer {
             position: fixed;
-            bottom: -1.1in;
-            left: 0; right: 0;
-            font-size: 9pt;
-            font-style: italic;
-            border-top: 1pt solid #ccc;
-            padding-top: 6pt;
+            bottom: -0.85in;
+            left: 0;
+            right: 0;
+            padding: 0 0.75in;
+            border-top: 0.75pt solid #999;
+            padding-top: 4pt;
         }
-        .footer-table { width: 100%; border-collapse: collapse; }
-        .footer-table td { vertical-align: middle; }
-        .footer-contact { text-align: center; }
-        .footer-qr { text-align: right; width: 80pt; }
-        .footer-qr img { width: 68pt; height: 68pt; display: block; margin-left: auto; }
-        .footer-qr p { margin: 2pt 0 0; font-size: 7pt; text-align: center; font-style: normal; }
+        .footer-inner {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .footer-inner td { vertical-align: middle; }
+        .footer-contact {
+            font-size: 7.5pt;
+            color: #666;
+            line-height: 1.5;
+        }
+        .footer-qr { text-align: right; width: 70pt; }
+        .footer-qr img { width: 58pt; height: 58pt; display: block; margin-left: auto; }
+        .footer-qr p { margin: 1pt 0 0; font-size: 6.5pt; text-align: center; color: #777; }
     </style>
 </head>
 
@@ -153,6 +288,7 @@
                 $parentAsset = $first->relationLoaded('asset') ? $first->asset : null;
                 return (object) [
                     'type_label'     => $parentAsset?->type?->label() ?? '—',
+                    'asset_type'     => $parentAsset?->type?->value ?? 'unknown',
                     'species'        => $first->species,
                     'equipment_type' => $first->equipment_type,
                     'vehicle_type'   => $first->vehicle_type,
@@ -167,6 +303,7 @@
 
             return (object) [
                 'type_label'     => $first->type?->label() ?? '—',
+                'asset_type'     => $first->type?->value ?? 'unknown',
                 'species'        => $first->species,
                 'equipment_type' => $first->equipment_type ?? null,
                 'vehicle_type'   => $first->vehicle_type ?? null,
@@ -188,21 +325,49 @@
     );
 @endphp
 
+{{-- ── Fixed page header ── --}}
 <div class="page-header">
-    <table class="header-table">
+    <table class="header-inner">
         <tr>
-            <td class="header-logo-left"><img src="{{ $denrLogo }}"></td>
-            <td style="width:70%;">
-                <div class="header-title">DEPARTMENT OF ENVIRONMENT AND NATURAL RESOURCES</div>
-                <div class="header-subtitle">KAGAWARAN NG KAPALIGIRAN AT LIKAS NA YAMAN</div>
+            <td class="header-logo-left"><img src="{{ $denrLogo }}" alt="DENR Logo"></td>
+            <td class="header-center">
+                <div class="header-republic">Republic of the Philippines</div>
+                <div class="header-agency">Department of Environment and Natural Resources</div>
+                <div class="header-filipino">Kagawaran ng Kapaligiran at Likas na Yaman</div>
+                <div class="header-office">PENRO Catanduanes</div>
             </td>
-            <td class="header-logo-right"><img src="{{ $bagongPilipinasLogo }}"></td>
+            <td class="header-logo-right"><img src="{{ $bagongPilipinasLogo }}" alt="Bagong Pilipinas Logo"></td>
         </tr>
     </table>
 </div>
 
-<h3 class="receipt-title">CUSTODY RECEIPT</h3>
+{{-- ── Fixed page footer ── --}}
+<div class="page-footer">
+    <table class="footer-inner">
+        <tr>
+            <td class="footer-contact">
+                San Isidro Village, Virac, Catanduanes, Philippines<br>
+                penrocatanduanes@denr.gov.ph &nbsp;&nbsp;|&nbsp;&nbsp; (052) 740-5735 &nbsp;&nbsp;|&nbsp;&nbsp; VOIP: 2841
+            </td>
+            @if (!empty($qrPngDataUri))
+            <td class="footer-qr">
+                <img src="{{ $qrPngDataUri }}" alt="QR Code">
+                <p>Scan to verify</p>
+            </td>
+            @endif
+        </tr>
+    </table>
+</div>
 
+{{-- ── Document title ── --}}
+<div class="doc-title-block">
+    <div class="doc-title">Custody Receipt</div>
+    <div class="doc-subtitle">
+        @if($isTurnedOver) Voluntary Turnover @else Apprehension @endif
+    </div>
+</div>
+
+{{-- ── Intro ── --}}
 <p class="intro">
     @if($isTurnedOver)
         I HEREBY ACKNOWLEDGE RECEIPT for temporary safekeeping the following items listed below
@@ -215,132 +380,126 @@
     @endif
 </p>
 
+{{-- ── Items table ── --}}
 <table class="items">
-    <tr>
-        <th class="col-qty">Quantity</th>
-        <th class="col-item">Items</th>
-        <th class="col-desc">Description</th>
-    </tr>
-
-    @forelse($groupedItems as $item)
-    <tr>
-        {{-- Quantity --}}
-        <td style="text-align:center;">
-            {{ $item->quantity }}
-            @if($item->volume_bd_ft)
-                <br><small>{{ number_format($item->volume_bd_ft, 2) }} bd.ft</small>
-            @endif
-            @if($item->volume_cu_m)
-                <br><small>{{ number_format($item->volume_cu_m, 4) }} cu.m</small>
-            @endif
-        </td>
-
-        {{-- Item --}}
-        <td>
-            {{ $item->type_label }}
-            @if($item->species) — {{ $item->species }}
-            @elseif($item->equipment_type) — {{ $item->equipment_type }}
-            @elseif($item->vehicle_type) — {{ $item->vehicle_type }}
-            @endif
-        </td>
-
-        {{-- Description --}}
-        <td>
-            {{ $item->description ?? '—' }}
-            @if($item->plate_number)
-                <br>Plate/Conveyance No.: {{ $item->plate_number }}
-            @endif
-            @if($item->serial_number)
-                <br>Serial No.: {{ $item->serial_number }}
-            @endif
-        </td>
-    </tr>
-    @empty
-    <tr>
-        <td class="empty-cell" colspan="3" style="text-align:center; color:#999;">
-            No items recorded.
-        </td>
-    </tr>
-    @endforelse
+    <thead>
+        <tr>
+            <th class="col-qty">Quantity</th>
+            <th class="col-item">Item / Type</th>
+            <th class="col-details">Details</th>
+        </tr>
+    </thead>
+    <tbody>
+        @forelse($groupedItems as $item)
+        <tr>
+            <td class="qty-cell">
+                {{ $item->quantity }}
+            </td>
+            <td>{{ $item->type_label }}</td>
+            <td>
+                @if(in_array($item->asset_type, ['log', 'wildlife']) && $item->species)
+                    <small>Species:</small> {{ $item->species }}<br>
+                @endif
+                @if($item->volume_bd_ft)
+                    <small>Volume:</small> {{ number_format($item->volume_bd_ft, 2) }} bd.ft
+                    @if($item->volume_cu_m)
+                        / {{ number_format($item->volume_cu_m, 4) }} cu.m
+                    @endif
+                    <br>
+                @elseif($item->volume_cu_m)
+                    <small>Volume:</small> {{ number_format($item->volume_cu_m, 4) }} cu.m<br>
+                @endif
+                @if($item->equipment_type)
+                    <small>Equipment Type:</small> {{ $item->equipment_type }}<br>
+                @endif
+                @if($item->vehicle_type)
+                    <small>Vehicle Type:</small> {{ $item->vehicle_type }}<br>
+                @endif
+                @if($item->description)
+                    <small>Description:</small> {{ $item->description }}<br>
+                @endif
+                @if($item->plate_number)
+                    <small>Plate / Conveyance No.:</small> {{ $item->plate_number }}<br>
+                @endif
+                @if($item->serial_number)
+                    <small>Serial No.:</small> {{ $item->serial_number }}<br>
+                @endif
+                @if(!$item->volume_bd_ft && !$item->volume_cu_m && !$item->species && !$item->equipment_type && !$item->vehicle_type && !$item->description && !$item->plate_number && !$item->serial_number)
+                    —
+                @endif
+            </td>
+        </tr>
+        @empty
+        <tr>
+            <td class="empty-cell" colspan="3">No items recorded.</td>
+        </tr>
+        @endforelse
+    </tbody>
 </table>
 
+{{-- ── Custodian note ── --}}
 <p class="custodian-note">
     As temporary custodian thereof, I shall ensure the safety and be responsible for their loss
     or damage while the same is in my possession and shall not deliver or release to anyone
     except upon orders only of the DENR.
 </p>
 
-<p class="meta-line">
-    {{ $isTurnedOver ? 'Date of Turnover:' : 'Date of Issuance:' }}
-    <span class="value">{{ $receipt->created_at?->format('F d, Y') ?? now()->format('F d, Y') }}</span>
-</p>
+<hr class="section-divider">
 
-<p class="meta-line">
-    Place of Issuance:
-    <span class="value">DENR-PENRO Catanduanes, San Isidro Village, Virac, Catanduanes</span>
-</p>
+{{-- ── Meta info ── --}}
+<div class="meta-grid">
+    <div class="meta-row">
+        <div class="meta-label">{{ $isTurnedOver ? 'Date of Turnover:' : 'Date of Issuance:' }}</div>
+        <div class="meta-value">{{ $receipt->created_at?->format('F d, Y') ?? now()->format('F d, Y') }}</div>
+    </div>
+    <div class="meta-row">
+        <div class="meta-label">Place of Issuance:</div>
+        <div class="meta-value">DENR-PENRO Catanduanes, San Isidro Village, Virac, Catanduanes</div>
+    </div>
+    @if($isTurnedOver)
+    <div class="meta-row">
+        <div class="meta-label">STCP No.:</div>
+        <div class="meta-value">{{ $asset->stcp_number ?? '—' }}</div>
+    </div>
+    @else
+    <div class="meta-row">
+        <div class="meta-label">AAP No.:</div>
+        <div class="meta-value">{{ $asset->aap_number ?? '—' }}</div>
+    </div>
+    @endif
+</div>
 
-@if($isTurnedOver)
-<p class="meta-line">
-    STCP No.:
-    <span class="value">{{ $asset->stcp_number ?? '—' }}</span>
-</p>
-@else
-<p class="meta-line">
-    AAP No.:
-    <span class="value">{{ $asset->aap_number ?? '—' }}</span>
-</p>
-@endif
-
+{{-- ── Signatures ── --}}
 <table class="signatures">
     <tr>
         <td>
-            <div class="sig-space"></div>
-            <div class="sig-line">
-                {{ $isTurnedOver ? 'Receiving Officer' : 'Apprehending Officer' }}
-            </div>
+            <div class="sig-name-box"></div>
+            <div class="sig-label">{{ $isTurnedOver ? 'Receiving Officer' : 'Apprehending Officer' }}</div>
+            <div class="sig-sublabel"></div>
+            <div class="sig-sublabel-text">Rank / Position / Designation</div>
         </td>
         <td>
-            <div class="sig-space"></div>
-            <div class="sig-line">Name and Signature of Custodian</div>
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <div class="sig-space" style="height:16pt;"></div>
-            <div class="sig-line">Rank/Position/Designation</div>
-        </td>
-        <td>
-            <div class="sig-space" style="height:16pt;"></div>
-            <div class="sig-line">Rank/Position/Designation</div>
+            <div class="sig-name-box"></div>
+            <div class="sig-label">Name and Signature of Custodian</div>
+            <div class="sig-sublabel"></div>
+            <div class="sig-sublabel-text">Rank / Position / Designation</div>
         </td>
     </tr>
 </table>
 
-<p class="witness-title">WITNESSES:</p>
-
-<table class="witnesses">
-    <tr>
-        <td><div class="witness-line"></div></td>
-        <td><div class="witness-line"></div></td>
-    </tr>
-</table>
-
-<div class="page-footer">
-    <table class="footer-table">
+{{-- ── Witnesses ── --}}
+<div class="witnesses-section">
+    <div class="witnesses-title">Witnesses:</div>
+    <table class="witnesses">
         <tr>
-            <td class="footer-contact">
-                San Isidro Village, Virac, Catanduanes, Philippines<br>
-                eMail: penrocatanduanes@denr.gov.ph |
-                Tel. no. (052) 740 5735 |
-                VOIP: 2841
+            <td>
+                <div class="witness-line"></div>
+                <div class="witness-label">Signature over Printed Name</div>
             </td>
-            @if (!empty($qrPngDataUri))
-            <td class="footer-qr">
-                <img src="{{ $qrPngDataUri }}" alt="QR Code">
-                <p>Scan to verify</p>
+            <td>
+                <div class="witness-line"></div>
+                <div class="witness-label">Signature over Printed Name</div>
             </td>
-            @endif
         </tr>
     </table>
 </div>
