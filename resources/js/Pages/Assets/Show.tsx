@@ -1202,48 +1202,54 @@ export default function AssetsShow({
                             })()}
 
                             {(() => {
-                                const evidenceDocs = (asset.documents ?? []).filter((d) => !d.document_type);
+                                const requiredTypeValues = new Set(requiredDocumentTypes.map((t) => t.value));
+                                const evidenceDocs = (asset.documents ?? []).filter((d) => !d.document_type || !requiredTypeValues.has(d.document_type));
                                 if (evidenceDocs.length === 0) return null;
                                 return (
                                     <div className="space-y-1.5">
                                         <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                                             Additional Evidence
                                         </p>
-                                        <div className="grid grid-cols-3 gap-2">
+                                        <div className="space-y-1.5">
                                             {evidenceDocs.map((doc) => {
                                                 const url = documentUrl(doc.file_path);
                                                 const isImage = doc.mime_type?.startsWith("image/");
+                                                const typeLabel = [
+                                                    { value: 'confiscation_order', label: 'Confiscation Order' },
+                                                    { value: 'forfeiture_order', label: 'Forfeiture Order' },
+                                                    { value: 'regional_confiscation_order', label: 'Regional Confiscation Order' },
+                                                    { value: 'court_order', label: 'Court Order' },
+                                                    { value: 'certificate_of_finality', label: 'Certificate of Finality' },
+                                                    { value: 'other', label: 'Other Supporting Document' },
+                                                ].find((t) => t.value === doc.document_type)?.label;
+
                                                 return (
                                                     <a
                                                         key={doc.id}
                                                         href={url ?? "#"}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        title={doc.original_name}
-                                                        className="group relative block overflow-hidden rounded-md border border-gray-200"
+                                                        className="flex items-center gap-2.5 rounded-md border border-gray-100 bg-gray-50 px-3 py-2 hover:bg-gray-100 transition"
                                                     >
-                                                        <span
-                                                            className={
-                                                                "absolute right-1 top-1 z-10 rounded-full px-1.5 py-0.5 text-[9px] font-semibold " +
-                                                                (doc.status === "verified"
-                                                                    ? "bg-emerald-100 text-emerald-800"
-                                                                    : doc.status === "rejected"
-                                                                    ? "bg-red-100 text-red-800"
-                                                                    : "bg-amber-100 text-amber-800")
-                                                            }
-                                                        >
+                                                        {isImage ? (
+                                                            <img src={url ?? ""} className="h-7 w-7 rounded object-cover shrink-0" />
+                                                        ) : (
+                                                            <PdfBadge className="h-5 w-5 shrink-0" />
+                                                        )}
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="truncate text-xs font-medium text-gray-700">{doc.original_name}</p>
+                                                            {typeLabel && <p className="text-[10px] text-gray-400">{typeLabel}</p>}
+                                                        </div>
+                                                        <span className={
+                                                            "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold " +
+                                                            (doc.status === "verified"
+                                                                ? "bg-emerald-100 text-emerald-800"
+                                                                : doc.status === "rejected"
+                                                                ? "bg-red-100 text-red-800"
+                                                                : "bg-amber-100 text-amber-800")
+                                                        }>
                                                             {doc.status}
                                                         </span>
-                                                        {isImage ? (
-                                                            <img src={url ?? ""} className="h-20 w-full object-cover" />
-                                                        ) : (
-                                                            <div className="flex h-20 w-full flex-col items-center justify-center gap-1 bg-gray-50 px-1 text-center">
-                                                                <PdfBadge className="h-6 w-6 shrink-0" />
-                                                                <p className="w-full truncate px-1 text-[10px] text-gray-500">
-                                                                    {doc.original_name}
-                                                                </p>
-                                                            </div>
-                                                        )}
                                                     </a>
                                                 );
                                             })}
