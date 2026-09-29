@@ -63,6 +63,11 @@ class DashboardController extends Controller
             ->whereIn('current_status', $statuses)
             ->count();
 
+        $deltaByStatuses = fn (array $statuses) => (clone $baseQuery)
+            ->whereIn('current_status', $statuses)
+            ->where('created_at', '>=', now()->subDays(7))
+            ->count();
+
         $activeStatuses = [
             AssetStatus::IntakeRecorded->value,
             AssetStatus::PendingCustodyReview->value,
@@ -196,21 +201,25 @@ class DashboardController extends Controller
                     [
                         'label' => 'Total inventory',
                         'value' => (clone $baseQuery)->count(),
+                        'delta' => (clone $baseQuery)->where('created_at', '>=', now()->subDays(7))->count(),
                         'description' => 'All assets ever recorded in the system',
                     ],
                     [
                         'label' => 'Active in pipeline',
                         'value' => $countByStatuses($activeStatuses),
+                        'delta' => $deltaByStatuses($activeStatuses),
                         'description' => 'Assets currently moving through workflow stages',
                     ],
                     [
                         'label' => 'Under trial',
                         'value' => $countByStatuses([AssetStatus::UnderTrial->value]),
+                        'delta' => $deltaByStatuses([AssetStatus::UnderTrial->value]),
                         'description' => 'Assets held pending legal or court resolution',
                     ],
                     [
                         'label' => 'Disposed',
                         'value' => $countByStatuses($disposedStatuses),
+                        'delta' => $deltaByStatuses($disposedStatuses),
                         'description' => 'Cases fully closed out through disposition',
                     ],
                 ],
