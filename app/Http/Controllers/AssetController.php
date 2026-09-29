@@ -65,7 +65,7 @@ class AssetController extends Controller
         })->sortByDesc('created_at')->values();
 
         $page = max(1, (int) $request->integer('page', 1));
-        $perPage = 15;
+        $perPage = 10;
 
         $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
             $grouped->forPage($page, $perPage)->values(),
