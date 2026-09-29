@@ -57,8 +57,8 @@ class DocumentController extends Controller
 
 
         return Storage::disk('local')->download($decodedPath, $downloadName, $isPreviewable
-         ? ['Content-Disposition' => 'inline']
-         : []);
+            ? ['Content-Disposition' => 'inline; filename="' . $downloadName . '"']
+            : []);
     }
 
     /**
@@ -105,9 +105,52 @@ class DocumentController extends Controller
         };
     }
 
-    protected function resolveDownloadName(string $path): ?string
+    protected function resolveDownloadName(string $path): string
     {
-        return Document::where('file_path', $path)->value('original_name');
+        $doc = Document::where('file_path', $path)->value('original_name');
+        if ($doc) return $doc;
+
+        if (str_starts_with($path, 'documents/receipts/')) {
+            $receipt = AcknowledgementReceipt::where('pdf_path', $path)
+                ->with('asset')
+                ->first();
+            if ($receipt) {
+                return 'custody-receipt-' . $receipt->asset->asset_code . '.pdf';
+            }
+        }
+
+        if (str_starts_with($path, 'documents/jevs/')) {
+            $jev = Jev::where('pdf_path', $path)->first();
+            if ($jev) {
+                return 'jev-' . $jev->jev_number . '.pdf';
+            }
+        }
+
+        if (str_starts_with($path, 'documents/disposals/')) {
+            $disposal = Disposal::where('report_pdf_path', $path)
+                ->with('asset')
+                ->first();
+            if ($disposal) {
+                return 'disposal-report-' . $disposal->asset->asset_code . '.pdf';
+            }
+        }
+
+        if (str_starts_with($path, 'documents/ics/')) {
+            $ics = IcsRecord::where('pdf_path', $path)->first();
+            if ($ics) {
+                return 'ics-' . $ics->document_number . '.pdf';
+            }
+        }
+
+        if (str_starts_with($path, 'documents/par/')) {
+            $par = ParRecord::where('pdf_path', $path)->first();
+            if ($par) {
+                return 'par-' . $par->document_number . '.pdf';
+            }
+        }
+
+        // Fallback — at least give it a .pdf extension
+        return basename($path);
     }
 
     public function store(UploadEvidenceRequest $request, Asset $asset): RedirectResponse
