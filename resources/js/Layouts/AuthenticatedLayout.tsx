@@ -1,6 +1,5 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
 import Dropdown from '@/Components/Dropdown';
-import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import NotificationBell from '@/Components/shared/NotificationBell';
 import { Link, usePage, usePoll } from '@inertiajs/react';
 import { PropsWithChildren, ReactNode, useEffect, useState } from 'react';
@@ -24,6 +23,8 @@ import {
     Info,
     Receipt,
     CircleCheck,
+    User,
+    Tag
 } from 'lucide-react';
 
 function hasPermission(permissions: string[], permission: string): boolean {
@@ -188,24 +189,27 @@ export default function Authenticated({
         hasPermission(permissions, 'users.manage') ||
         hasPermission(permissions, 'market_prices.manage');
 
-    const settingsChildren = [
+    const settingsChildren: { href: string; label: string; active: boolean; show: boolean; icon?: ReactNode }[] = [
         {
             href: route('users.index'),
             label: 'Users',
             active: route().current('users.*'),
             show: hasPermission(permissions, 'users.manage'),
+            icon: <User className={iconClass} />,
         },
         {
             href: route('market-prices.index'),
             label: 'Market Prices',
             active: route().current('market-prices.*'),
             show: hasPermission(permissions, 'market_prices.manage'),
+            icon: <Tag className={iconClass} />,
         },
         {
             href: route('about'),
             label: 'About',
             active: route().current('about'),
             show: true,
+            icon: <Info className={iconClass} />,
         },
     ].filter((i) => i.show);
 
@@ -392,6 +396,7 @@ export default function Authenticated({
                                                             : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-700')
                                                     }
                                                 >
+                                                    {'icon' in child && child.icon}
                                                     {child.label}
                                                 </Link>
                                             ))}
