@@ -2,6 +2,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
 import { PageProps, Jev } from '@/types';
 import { Badge } from '@/Components/ui/badge';
+import { useState } from 'react';
 
 interface PendingAsset {
     id: number;
@@ -21,6 +22,7 @@ interface DisposalAwaitingJevOut {
         asset: { id: number; asset_code: string; type: string } | null;
     }[];
 }
+
 interface Props extends PageProps {
     jevs: {
         data: Jev[];
@@ -38,7 +40,17 @@ function StatusBadge({ jev }: { jev: Jev }) {
     return <Badge variant="outline" className="text-yellow-600 border-yellow-400">Pending</Badge>;
 }
 
+const PAGE_SIZE = 10;
+
 export default function JevIndex({ jevs, pendingAssets, disposalsAwaitingJevOut }: Props) {
+    const [pendingPage, setPendingPage] = useState(1);
+
+    const pendingTotalPages = Math.ceil(pendingAssets.length / PAGE_SIZE);
+    const pendingSlice = pendingAssets.slice(
+        (pendingPage - 1) * PAGE_SIZE,
+        pendingPage * PAGE_SIZE,
+    );
+
     return (
         <AuthenticatedLayout
             header={<h2 className="text-xl font-semibold text-gray-800">Journal Entry Vouchers</h2>}
@@ -72,7 +84,7 @@ export default function JevIndex({ jevs, pendingAssets, disposalsAwaitingJevOut 
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
-                                            {pendingAssets.map((asset) => (
+                                            {pendingSlice.map((asset) => (
                                                 <tr key={asset.id} className="hover:bg-amber-50/40">
                                                     <td className="px-4 py-3 font-medium text-gray-800">{asset.asset_code}</td>
                                                     <td className="px-4 py-3 text-gray-500">{asset.aap_number ?? asset.stcp_number ?? '—'}</td>
@@ -95,60 +107,134 @@ export default function JevIndex({ jevs, pendingAssets, disposalsAwaitingJevOut 
                                         </tbody>
                                     </table>
                                 </div>
+
+                                {/* Pending assets pagination */}
+                                {pendingTotalPages > 1 && (
+                                    <div className="flex items-center justify-between border-t border-amber-100 bg-amber-50/40 px-4 py-3 text-sm text-gray-500">
+                                        <span>
+                                            Showing {(pendingPage - 1) * PAGE_SIZE + 1}–{Math.min(pendingPage * PAGE_SIZE, pendingAssets.length)} of {pendingAssets.length}
+                                        </span>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => setPendingPage(1)}
+                                                disabled={pendingPage === 1}
+                                                className="rounded border border-gray-200 px-2 py-1 text-xs hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                                                aria-label="First page"
+                                            >
+                                                «
+                                            </button>
+                                            <button
+                                                onClick={() => setPendingPage((p) => Math.max(1, p - 1))}
+                                                disabled={pendingPage === 1}
+                                                className="rounded border border-gray-200 px-3 py-1 hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                                            >
+                                                Previous
+                                            </button>
+
+                                            {/* Page number pills */}
+                                            {Array.from({ length: pendingTotalPages }, (_, i) => i + 1)
+                                                .filter((p) =>
+                                                    p === 1 ||
+                                                    p === pendingTotalPages ||
+                                                    Math.abs(p - pendingPage) <= 1
+                                                )
+                                                .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+                                                    if (idx > 0 && typeof arr[idx - 1] === 'number' && (p as number) - (arr[idx - 1] as number) > 1) {
+                                                        acc.push('…');
+                                                    }
+                                                    acc.push(p);
+                                                    return acc;
+                                                }, [])
+                                                .map((item, idx) =>
+                                                    item === '…' ? (
+                                                        <span key={`ellipsis-${idx}`} className="px-1 text-gray-400">…</span>
+                                                    ) : (
+                                                        <button
+                                                            key={item}
+                                                            onClick={() => setPendingPage(item as number)}
+                                                            className={`rounded border px-3 py-1 text-xs font-medium transition-colors ${
+                                                                pendingPage === item
+                                                                    ? 'border-amber-400 bg-amber-100 text-amber-700'
+                                                                    : 'border-gray-200 hover:bg-white text-gray-600'
+                                                            }`}
+                                                        >
+                                                            {item}
+                                                        </button>
+                                                    )
+                                                )}
+
+                                            <button
+                                                onClick={() => setPendingPage((p) => Math.min(pendingTotalPages, p + 1))}
+                                                disabled={pendingPage === pendingTotalPages}
+                                                className="rounded border border-gray-200 px-3 py-1 hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                                            >
+                                                Next
+                                            </button>
+                                            <button
+                                                onClick={() => setPendingPage(pendingTotalPages)}
+                                                disabled={pendingPage === pendingTotalPages}
+                                                className="rounded border border-gray-200 px-2 py-1 text-xs hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                                                aria-label="Last page"
+                                            >
+                                                »
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
 
+                    {/* ── Donations Awaiting JEV Out ── */}
                     {disposalsAwaitingJevOut.length > 0 && (
-                    <div>
-                        <div className="mb-3 flex items-center gap-2">
-                            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                                Donations — Awaiting JEV Out
-                            </h3>
-                            <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">
-                                {disposalsAwaitingJevOut.length}
-                            </span>
-                        </div>
-                        <div className="overflow-hidden rounded-lg border border-rose-200 bg-white shadow-sm">
-                            <table className="min-w-full divide-y divide-gray-100 text-sm">
-                                <thead className="bg-rose-50">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Donation ID</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Recipient</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
-                                        <th className="px-4 py-3" />
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {disposalsAwaitingJevOut.map((donation) => (
-                                        <tr key={donation.id} className="hover:bg-rose-50/40">
-                                            <td className="px-4 py-3 font-medium text-gray-800">
-                                                {`DON-${String(donation.id).padStart(4, '0')}`}
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-600">
-                                                {donation.agency_name ?? donation.requester_name}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <Badge className="bg-rose-100 text-rose-700 border-rose-200">
-                                                    Awaiting JEV Out
-                                                </Badge>
-                                            </td>
-                                            <td className="px-4 py-3 text-right">
-                                                {/* Link to first disposal's JEV out page */}
-                                                <Link
-                                                    href={route('disposals.jev-out.show', donation.disposals[0]?.id ?? 0)}
-                                                    className="text-sm font-medium text-emerald-600 hover:underline"
-                                                >
-                                                    Issue JEV Out →
-                                                </Link>
-                                            </td>
+                        <div>
+                            <div className="mb-3 flex items-center gap-2">
+                                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                                    Donations — Awaiting JEV Out
+                                </h3>
+                                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">
+                                    {disposalsAwaitingJevOut.length}
+                                </span>
+                            </div>
+                            <div className="overflow-hidden rounded-lg border border-rose-200 bg-white shadow-sm">
+                                <table className="min-w-full divide-y divide-gray-100 text-sm">
+                                    <thead className="bg-rose-50">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Donation ID</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Recipient</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
+                                            <th className="px-4 py-3" />
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {disposalsAwaitingJevOut.map((donation) => (
+                                            <tr key={donation.id} className="hover:bg-rose-50/40">
+                                                <td className="px-4 py-3 font-medium text-gray-800">
+                                                    {`DON-${String(donation.id).padStart(4, '0')}`}
+                                                </td>
+                                                <td className="px-4 py-3 text-gray-600">
+                                                    {donation.agency_name ?? donation.requester_name}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <Badge className="bg-rose-100 text-rose-700 border-rose-200">
+                                                        Awaiting JEV Out
+                                                    </Badge>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <Link
+                                                        href={route('disposals.jev-out.show', donation.disposals[0]?.id ?? 0)}
+                                                        className="text-sm font-medium text-emerald-600 hover:underline"
+                                                    >
+                                                        Issue JEV Out →
+                                                    </Link>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
                     {/* ── All JEVs table ── */}
                     <div>
