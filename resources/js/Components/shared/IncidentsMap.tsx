@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Map as LeafletMap, TileLayer, Marker as LeafletMarker } from 'leaflet';
-import { MapPin, Maximize2, Minimize2, Loader2, Satellite, Map as MapIcon } from 'lucide-react';
+import { MapPin, Maximize2, Minimize2, Loader2, Satellite, Map as MapIcon, Flame } from 'lucide-react';
 import { router } from '@inertiajs/react';
 
 const CATANDUANES_BOUNDS: [[number, number], [number, number]] = [
@@ -29,7 +29,7 @@ const TYPE_COLORS: Record<string, string> = {
 const MIXED_COLOR = '#c084fc';
 const FALLBACK_COLOR: string = '#f87171';
 
-type MapView = 'normal' | 'satellite';
+type MapView = 'normal' | 'satellite' | 'heat';
 
 function markerColor(types: string[]): string {
     if (types.length === 0) return FALLBACK_COLOR;
@@ -54,6 +54,7 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
     const satelliteLabelsRef = useRef<TileLayer | null>(null);
     const leafletModuleRef = useRef<typeof import('leaflet') | null>(null);
     const markersRef = useRef<LeafletMarker[]>([]);
+    const heatLayerRef = useRef<any>(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [mapView, setMapView] = useState<MapView>('satellite');
@@ -68,7 +69,11 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
 
         let cancelled = false;
 
-        import('leaflet').then((L) => {
+        import('leaflet').then(async (L) => {
+            if (cancelled || !containerRef.current || mapRef.current) return;
+
+            (window as any).L = { ...L };
+            await import('leaflet.heat');
             if (cancelled || !containerRef.current || mapRef.current) return;
 
             leafletModuleRef.current = L;
@@ -179,7 +184,6 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
             const viewButtonId = `incident-view-${incident.id}`;
 
             const marker = L.marker([point.lat, point.lng], { icon })
-                .addTo(map)
                 .bindPopup(
                     `<div class="incident-popup">
                         <div class="incident-popup-hero" style="background:${dotColor}18; border-bottom: 1px solid ${dotColor}30;">
@@ -223,9 +227,8 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                     { className: 'incident-popup-wrapper', closeButton: true },
                 );
 
-            // Leaflet popups render outside React's tree, so the button has to be
-            // wired up imperatively each time the popup opens (the DOM node is
-            // recreated on every open).
+                if (mapView !== 'heat') marker.addTo(map);
+
             if (primaryAssetId) {
                 marker.on('popupopen', () => {
                     document
@@ -268,6 +271,49 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
             if (!map.hasLayer(satelliteLabels)) satelliteLabels.addTo(map);
         }
     }, [mapView]);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map || !mapReady) return;
+        markersRef.current.forEach((marker) => {
+            if (mapView === 'heat') marker.remove();
+            else if (!map.hasLayer(marker)) marker.addTo(map);
+        });
+    }, [mapView, mapReady, incidents]);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        const HL = (window as any).L;
+        if (!map || !mapReady || !HL?.heatLayer) return;
+
+        if (heatLayerRef.current) {
+            map.removeLayer(heatLayerRef.current);
+            heatLayerRef.current = null;
+        }
+        if (mapView !== 'heat' || plottable.length === 0) return;
+
+        const maxCount = Math.max(...plottable.map(({ incident }) => incident.asset_count), 1);
+        const points = plottable.map(({ incident, point }) => [
+            point.lat,
+            point.lng,
+            Math.max(0.3, incident.asset_count / maxCount),
+        ]);
+
+        heatLayerRef.current = HL.heatLayer(points, {
+            radius: 35,
+            blur: 25,
+            maxZoom: 14,
+            minOpacity: 0.35,
+            gradient: { 0.2: '#34d399', 0.45: '#fbbf24', 0.7: '#f97316', 1.0: '#dc2626' },
+        }).addTo(map);
+
+        return () => {
+            if (heatLayerRef.current) {
+                map.removeLayer(heatLayerRef.current);
+                heatLayerRef.current = null;
+            }
+        };
+    }, [incidents, mapView, mapReady]);
 
     // Leaflet measures its container on init/resize, but it has no way to
     // know we've just changed the container's CSS position/size via the
@@ -575,6 +621,19 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                         <Satellite className="h-3.5 w-3.5" />
                         Satellite
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setMapView('heat')}
+                        className={
+                            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ' +
+                            (mapView === 'heat'
+                                ? 'bg-emerald-700 text-white'
+                                : 'text-gray-600 hover:bg-gray-100')
+                        }
+                    >
+                        <Flame className="h-3.5 w-3.5" />
+                        Heat Map
+                    </button>
                 </div>
 
                 <button
@@ -596,36 +655,48 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                     )}
                 </button>
             </div>
+            
+            {mapView === 'heat' ? (
+                <div className="mt-3 flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 text-xs text-gray-600">
+                    <span className="font-semibold text-gray-500">Concentration:</span>
+                    <span>Low</span>
+                    <span
+                        className="h-2.5 w-40 rounded-full"
+                        style={{ background: 'linear-gradient(to right, #34d399, #fbbf24, #f97316, #dc2626)' }}
+                    />
+                    <span>High</span>
+                </div>
+            ) : (
+                    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 text-xs text-gray-600">
+                        <span className="font-semibold text-gray-500">Asset type:</span>
+                        <span className="flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: '#34d399' }} />
+                            Log / Lumber
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: '#fbbf24' }} />
+                            Equipment / Tools
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: '#60a5fa' }} />
+                            Conveyance / Vehicle
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: '#c084fc' }} />
+                            Mixed
+                        </span>
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 text-xs text-gray-600">
-                <span className="font-semibold text-gray-500">Asset type:</span>
-                <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: '#34d399' }} />
-                    Log / Lumber
-                </span>
-                <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: '#fbbf24' }} />
-                    Equipment / Tools
-                </span>
-                <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: '#60a5fa' }} />
-                    Conveyance / Vehicle
-                </span>
-                <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: '#c084fc' }} />
-                    Mixed
-                </span>
-
-                <span className="ml-2 font-semibold text-gray-500">Status:</span>
-                <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full border-2 border-white bg-gray-400 shadow-sm" />
-                    Apprehended
-                </span>
-                <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-gray-900 bg-gray-400" />
-                    Abandoned
-                </span>
-            </div>
-        </>
+                        <span className="ml-2 font-semibold text-gray-500">Status:</span>
+                        <span className="flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full border-2 border-white bg-gray-400 shadow-sm" />
+                            Apprehended
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-gray-900 bg-gray-400" />
+                            Abandoned
+                        </span>
+                    </div>
+                )}
+            </>
     );
 }
