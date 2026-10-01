@@ -53,13 +53,13 @@ export default function RequiredDocumentsModal({
     const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
 
     const ADDITIONAL_TYPES = [
-    { value: 'confiscation_order',           label: 'Confiscation Order' },
-    { value: 'forfeiture_order',             label: 'Forfeiture Order' },
-    { value: 'regional_confiscation_order',  label: 'Regional Confiscation Order' },
-    { value: 'court_order',                  label: 'Court Order' },
-    { value: 'certificate_of_finality',      label: 'Certificate of Finality' },
-    { value: 'other',                        label: 'Other Supporting Document' },
-];
+        { value: 'confiscation_order',          label: 'Confiscation Order',          description: 'Issued by PENRO for automatic confiscation.' },
+        { value: 'forfeiture_order',            label: 'Forfeiture Order',            description: 'Court-issued forfeiture of the seized asset.' },
+        { value: 'regional_confiscation_order', label: 'Regional Confiscation Order', description: 'Issued at the regional level for multi-area cases.' },
+        { value: 'court_order',                 label: 'Court Order',                 description: 'Any court order related to the case.' },
+        { value: 'certificate_of_finality',     label: 'Certificate of Finality',     description: 'Certifies that the decision is final and executory.' },
+        { value: 'other',                       label: 'Other Supporting Document',   description: 'Any other relevant supporting document.' },
+    ];
 
     function latestDocFor(type: string): DocumentItem | undefined {
         return documents
@@ -174,15 +174,21 @@ export default function RequiredDocumentsModal({
                                             <Clock className="h-4 w-4 shrink-0 text-amber-400" />
                                         )}
 
-                                        {/* Label + badge */}
-                                        <div className="flex min-w-0 flex-1 items-center gap-2">
-                                            <span className="text-sm font-medium text-gray-700">{type.label}</span>
-                                            <Badge
-                                                variant={doc.status === 'verified' ? 'green' : 'amber'}
-                                                className="text-xs"
-                                            >
-                                                {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
-                                            </Badge>
+                                        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-medium text-gray-700">{type.label}</span>
+                                                <Badge
+                                                    variant={doc.status === 'verified' ? 'green' : 'amber'}
+                                                    className="text-xs"
+                                                >
+                                                    {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                                                </Badge>
+                                            </div>
+                                            {doc.uploaded_by && (
+                                                <span className="text-[10px] text-gray-400">
+                                                    by {doc.uploaded_by.name}
+                                                </span>
+                                            )}
                                         </div>
 
                                         {/* Actions */}
@@ -264,15 +270,27 @@ export default function RequiredDocumentsModal({
                                                     <span className="font-semibold">Remarks: </span>{doc.remarks}
                                                 </p>
                                             )}
+                                            {doc?.uploaded_by && (
+                                                <p className="mt-1.5 text-xs text-gray-400">
+                                                    Uploaded by <span className="font-medium text-gray-600">{doc.uploaded_by.name}</span>
+                                                    {doc.verified_by && doc.status === 'verified' && (
+                                                        <> · Verified by <span className="font-medium text-gray-600">{doc.verified_by.name}</span></>
+                                                    )}
+                                                </p>
+                                            )}
                                         </div>
 
                                         {doc && !isImage && <PdfBadge className="h-9 w-9 shrink-0" />}
                                     </div>
 
-                                    {canUpload && needsAction && (
+                                    {canUpload && (!doc || doc.status === 'rejected' || doc.status === 'pending') && (
                                         <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed border-gray-300 p-3 text-xs text-gray-500 hover:border-emerald-400 hover:text-emerald-600">
                                             <UploadCloud className="h-4 w-4" />
-                                            {doc?.status === 'rejected' ? 'Re-upload corrected document' : 'Upload document'}
+                                            {doc?.status === 'rejected'
+                                                ? 'Re-upload corrected document'
+                                                : doc?.status === 'pending'
+                                                ? 'Re-upload document'
+                                                : 'Upload document'}
                                             <input
                                                 type="file"
                                                 accept="image/png,image/jpeg,image/webp,application/pdf"
@@ -352,10 +370,11 @@ export default function RequiredDocumentsModal({
                                     )}
 
                                     {canVerify && doc && doc.status === 'pending' && (
-                                        <div className="mt-3 flex flex-wrap gap-2">
+                                        <div className="mt-3 flex flex-wrap items-center gap-2">
                                             <Button type="button" size="sm" onClick={() => approve(doc.id)}>
                                                 Approve
                                             </Button>
+                                            <span className="h-4 w-px bg-gray-200" />
                                             <Button
                                                 type="button"
                                                 size="sm"
@@ -421,6 +440,11 @@ export default function RequiredDocumentsModal({
                                         <option key={t.value} value={t.value}>{t.label}</option>
                                     ))}
                                 </select>
+                                {evidenceType && (
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        {ADDITIONAL_TYPES.find((t) => t.value === evidenceType)?.description}
+                                    </p>
+                                )}
                             </div>
 
                             {evidenceType && (
@@ -518,14 +542,23 @@ export default function RequiredDocumentsModal({
                                                         <span className="font-semibold">Remarks: </span>{doc.remarks}
                                                     </p>
                                                 )}
+                                                {doc.uploaded_by && (
+                                                    <p className="mt-1.5 text-xs text-gray-400">
+                                                        Uploaded by <span className="font-medium text-gray-600">{doc.uploaded_by.name}</span>
+                                                        {doc.verified_by && doc.status === 'verified' && (
+                                                            <> · Verified by <span className="font-medium text-gray-600">{doc.verified_by.name}</span></>
+                                                        )}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
 
                                         {canVerify && doc.status === 'pending' && (
-                                            <div className="mt-3 flex flex-wrap gap-2">
+                                            <div className="mt-3 flex flex-wrap items-center gap-2">
                                                 <Button type="button" size="sm" onClick={() => approve(doc.id)}>
                                                     Approve
                                                 </Button>
+                                                <span className="h-4 w-px bg-gray-200" />
                                                 <Button
                                                     type="button"
                                                     size="sm"
