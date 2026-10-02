@@ -17,7 +17,14 @@ import {
     usePoll,
 } from "@inertiajs/react";
 import { FormEvent, useState } from "react";
-import { FileText, MapPin, Pencil, Upload } from "lucide-react";
+import {
+    FileText,
+    MapPin,
+    Pencil,
+    Upload,
+    ChevronDown,
+    ChevronUp,
+} from "lucide-react";
 import { IncidentLocationMap } from "@/Components/shared/IncidentLocationMap";
 import { PdfBadge } from "@/Components/shared/PdfBadge";
 import RequiredDocumentsModal from "@/Components/shared/RequiredDocumentsModal";
@@ -116,7 +123,11 @@ function PieceModal({
 
     // ── Table rows ──────────────────────────────────────────────────────────
 
-    type Row = { label: string; value: React.ReactNode; editField?: React.ReactNode };
+    type Row = {
+        label: string;
+        value: React.ReactNode;
+        editField?: React.ReactNode;
+    };
 
     const identityRows: Row[] = [];
     const dimensionRows: Row[] = [];
@@ -130,10 +141,15 @@ function PieceModal({
                 <div>
                     <Input
                         value={form.data.species}
-                        onChange={(e) => form.setData("species", e.target.value)}
+                        onChange={(e) =>
+                            form.setData("species", e.target.value)
+                        }
                         className="h-8 text-sm"
                     />
-                    <InputError message={form.errors.species} className="mt-1" />
+                    <InputError
+                        message={form.errors.species}
+                        className="mt-1"
+                    />
                 </div>
             ),
         });
@@ -148,10 +164,15 @@ function PieceModal({
                     <div>
                         <Input
                             value={form.data.vehicle_type}
-                            onChange={(e) => form.setData("vehicle_type", e.target.value)}
+                            onChange={(e) =>
+                                form.setData("vehicle_type", e.target.value)
+                            }
                             className="h-8 text-sm"
                         />
-                        <InputError message={(form.errors as any).vehicle_type} className="mt-1" />
+                        <InputError
+                            message={(form.errors as any).vehicle_type}
+                            className="mt-1"
+                        />
                     </div>
                 ),
             },
@@ -162,10 +183,15 @@ function PieceModal({
                     <div>
                         <Input
                             value={form.data.plate_number}
-                            onChange={(e) => form.setData("plate_number", e.target.value)}
+                            onChange={(e) =>
+                                form.setData("plate_number", e.target.value)
+                            }
                             className="h-8 text-sm"
                         />
-                        <InputError message={(form.errors as any).plate_number} className="mt-1" />
+                        <InputError
+                            message={(form.errors as any).plate_number}
+                            className="mt-1"
+                        />
                     </div>
                 ),
             },
@@ -181,10 +207,15 @@ function PieceModal({
                     <div>
                         <Input
                             value={form.data.equipment_type}
-                            onChange={(e) => form.setData("equipment_type", e.target.value)}
+                            onChange={(e) =>
+                                form.setData("equipment_type", e.target.value)
+                            }
                             className="h-8 text-sm"
                         />
-                        <InputError message={(form.errors as any).equipment_type} className="mt-1" />
+                        <InputError
+                            message={(form.errors as any).equipment_type}
+                            className="mt-1"
+                        />
                     </div>
                 ),
             },
@@ -199,10 +230,15 @@ function PieceModal({
                     <div>
                         <Input
                             value={form.data.serial_number}
-                            onChange={(e) => form.setData("serial_number", e.target.value)}
+                            onChange={(e) =>
+                                form.setData("serial_number", e.target.value)
+                            }
                             className="h-8 text-sm font-mono"
                         />
-                        <InputError message={(form.errors as any).serial_number} className="mt-1" />
+                        <InputError
+                            message={(form.errors as any).serial_number}
+                            className="mt-1"
+                        />
                     </div>
                 ),
             },
@@ -216,10 +252,15 @@ function PieceModal({
             <div>
                 <Input
                     value={form.data.description}
-                    onChange={(e) => form.setData("description", e.target.value)}
+                    onChange={(e) =>
+                        form.setData("description", e.target.value)
+                    }
                     className="h-8 text-sm"
                 />
-                <InputError message={(form.errors as any).description} className="mt-1" />
+                <InputError
+                    message={(form.errors as any).description}
+                    className="mt-1"
+                />
             </div>
         ),
     });
@@ -234,12 +275,17 @@ function PieceModal({
                         <Input
                             type="number"
                             value={form.data.length}
-                            onChange={(e) => form.setData("length", e.target.value)}
+                            onChange={(e) =>
+                                form.setData("length", e.target.value)
+                            }
                             className="h-8 text-sm"
                             step="0.01"
                             min="0"
                         />
-                        <InputError message={(form.errors as any).length} className="mt-1" />
+                        <InputError
+                            message={(form.errors as any).length}
+                            className="mt-1"
+                        />
                     </div>
                 ),
             },
@@ -251,12 +297,17 @@ function PieceModal({
                         <Input
                             type="number"
                             value={form.data.width}
-                            onChange={(e) => form.setData("width", e.target.value)}
+                            onChange={(e) =>
+                                form.setData("width", e.target.value)
+                            }
                             className="h-8 text-sm"
                             step="0.01"
                             min="0"
                         />
-                        <InputError message={(form.errors as any).width} className="mt-1" />
+                        <InputError
+                            message={(form.errors as any).width}
+                            className="mt-1"
+                        />
                     </div>
                 ),
             },
@@ -268,12 +319,17 @@ function PieceModal({
                         <Input
                             type="number"
                             value={form.data.height}
-                            onChange={(e) => form.setData("height", e.target.value)}
+                            onChange={(e) =>
+                                form.setData("height", e.target.value)
+                            }
                             className="h-8 text-sm"
                             step="0.01"
                             min="0"
                         />
-                        <InputError message={(form.errors as any).height} className="mt-1" />
+                        <InputError
+                            message={(form.errors as any).height}
+                            className="mt-1"
+                        />
                     </div>
                 ),
             },
@@ -307,13 +363,7 @@ function PieceModal({
         });
     }
 
-    function TableSection({
-        title,
-        rows,
-    }: {
-        title?: string;
-        rows: Row[];
-    }) {
+    function TableSection({ title, rows }: { title?: string; rows: Row[] }) {
         if (rows.length === 0) return null;
         return (
             <>
@@ -336,7 +386,9 @@ function PieceModal({
                             {row.label}
                         </td>
                         <td className="px-4 py-2.5 text-sm font-medium text-gray-900 text-right align-top">
-                            {editing && row.editField ? row.editField : row.value}
+                            {editing && row.editField
+                                ? row.editField
+                                : row.value}
                         </td>
                     </tr>
                 ))}
@@ -344,8 +396,7 @@ function PieceModal({
         );
     }
 
-    const hasSections =
-        dimensionRows.length > 0 || valuationRows.length > 0;
+    const hasSections = dimensionRows.length > 0 || valuationRows.length > 0;
 
     return (
         <div className="overflow-hidden">
@@ -389,10 +440,13 @@ function PieceModal({
                                     >
                                         <div
                                             className="h-72 w-72 rounded-2xl bg-white p-4 shadow-2xl"
-                                            dangerouslySetInnerHTML={{ __html: qrSvg }}
+                                            dangerouslySetInnerHTML={{
+                                                __html: qrSvg,
+                                            }}
                                         />
                                         <p className="text-sm font-semibold text-white tracking-wide">
-                                            {asset.asset_code} — Piece {piece.piece_number}
+                                            {asset.asset_code} — Piece{" "}
+                                            {piece.piece_number}
                                         </p>
                                         <button
                                             type="button"
@@ -425,10 +479,16 @@ function PieceModal({
                                 rows={identityRows}
                             />
                             {dimensionRows.length > 0 && (
-                                <TableSection title="Dimensions" rows={dimensionRows} />
+                                <TableSection
+                                    title="Dimensions"
+                                    rows={dimensionRows}
+                                />
                             )}
                             {valuationRows.length > 0 && (
-                                <TableSection title="Valuation" rows={valuationRows} />
+                                <TableSection
+                                    title="Valuation"
+                                    rows={valuationRows}
+                                />
                             )}
                         </tbody>
                     </table>
@@ -446,7 +506,9 @@ function PieceModal({
                                     disabled={form.processing}
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white"
                                 >
-                                    {form.processing ? "Saving…" : "Save Changes"}
+                                    {form.processing
+                                        ? "Saving…"
+                                        : "Save Changes"}
                                 </Button>
                                 <Button
                                     type="button"
@@ -491,6 +553,141 @@ function PieceModal({
     );
 }
 
+function DocumentTimelineEntry({
+    doc,
+    label,
+}: {
+    doc: import("@/types").DocumentItem;
+    label: string;
+}) {
+    const [expanded, setExpanded] = useState(false);
+    const url = documentUrl(doc.file_path);
+    const isImage = doc.mime_type?.startsWith("image/");
+
+    const statusColor =
+        doc.status === "verified"
+            ? "text-emerald-600"
+            : doc.status === "rejected"
+              ? "text-red-500"
+              : "text-amber-500";
+
+    return (
+        <div className="border-b border-gray-100 pb-2">
+            <div className="flex items-center justify-between gap-2 text-sm">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <FileText className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                    <span className="text-gray-700 font-medium truncate">
+                        {label}
+                    </span>
+                    <span
+                        className={`text-[10px] font-semibold capitalize shrink-0 ${statusColor}`}
+                    >
+                        {doc.status}
+                    </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 text-right">
+                    <div>
+                        {doc.uploaded_by && (
+                            <p className="text-xs font-medium text-gray-700">
+                                {doc.uploaded_by.name}
+                            </p>
+                        )}
+                        <p className="text-xs text-gray-400">
+                            {new Date(doc.uploaded_at).toLocaleString()}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setExpanded((p) => !p)}
+                        className="text-gray-400 hover:text-gray-600 transition"
+                        title={expanded ? "Collapse" : "View file"}
+                    >
+                        {expanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                        ) : (
+                            <ChevronDown className="h-4 w-4" />
+                        )}
+                    </button>
+                </div>
+            </div>
+
+            {expanded && (
+                <div className="mt-2 ml-5 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                    <div className="flex items-start gap-3">
+                        {url && (
+                            <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block h-14 w-14 shrink-0 overflow-hidden rounded-md border border-gray-200 hover:opacity-80 transition"
+                                title="Open file"
+                            >
+                                {isImage ? (
+                                    <img
+                                        src={url}
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="flex h-full w-full items-center justify-center bg-white">
+                                        <FileText className="h-6 w-6 text-gray-300" />
+                                    </div>
+                                )}
+                            </a>
+                        )}
+                        <div className="min-w-0 flex-1 text-xs space-y-1">
+                            <p className="font-medium text-gray-700 truncate">
+                                {doc.original_name}
+                            </p>
+                            {doc.uploaded_by && (
+                                <p className="text-gray-400">
+                                    Uploaded by{" "}
+                                    <span className="font-medium text-gray-600">
+                                        {doc.uploaded_by.name}
+                                    </span>
+                                </p>
+                            )}
+                            {doc.verified_by && doc.status === "verified" && (
+                                <p className="text-gray-400">
+                                    Verified by{" "}
+                                    <span className="font-medium text-emerald-600">
+                                        {doc.verified_by.name}
+                                    </span>
+                                    {doc.verified_at && (
+                                        <span className="ml-1 text-gray-400">
+                                            ·{" "}
+                                            {new Date(
+                                                doc.verified_at,
+                                            ).toLocaleString()}
+                                        </span>
+                                    )}
+                                </p>
+                            )}
+                            {doc.status === "rejected" && doc.remarks && (
+                                <p className="rounded-md bg-red-50 px-2 py-1 text-red-700">
+                                    <span className="font-semibold">
+                                        Remarks:{" "}
+                                    </span>
+                                    {doc.remarks}
+                                </p>
+                            )}
+                            {url && (
+                                <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-block text-emerald-700 hover:underline"
+                                >
+                                    Open file →
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AssetsShow({
@@ -517,7 +714,9 @@ export default function AssetsShow({
         import("@/types").AssetPiece | null
     >(null);
     const [selectedSibling, setSelectedSibling] = useState<Asset | null>(null);
-    const [selectedSiblingPiece, setSelectedSiblingPiece] = useState<import("@/types").AssetPiece | null>(null);
+    const [selectedSiblingPiece, setSelectedSiblingPiece] = useState<
+        import("@/types").AssetPiece | null
+    >(null);
     const [showRequiredDocsModal, setShowRequiredDocsModal] = useState(false);
     const [viewingDisposal, setViewingDisposal] = useState<Disposal | null>(
         null,
@@ -535,7 +734,9 @@ export default function AssetsShow({
         place_of_apprehension: asset.incident?.place_of_apprehension ?? "",
         area: asset.incident?.area ?? "",
         coordinates: asset.incident?.coordinates ?? "",
-        has_claimant: asset.incident?.is_abandoned === false && !!asset.incident?.claimant_offender_name,
+        has_claimant:
+            asset.incident?.is_abandoned === false &&
+            !!asset.incident?.claimant_offender_name,
         claimant_offender_name: asset.incident?.claimant_offender_name ?? "",
         claimant_address: asset.incident?.claimant_address ?? "",
         claimant_contact_number: asset.incident?.claimant_contact_number ?? "",
@@ -602,8 +803,12 @@ export default function AssetsShow({
     }
 
     function handleSubmitAapForReview() {
-        if (confirm('Notify the Property Custodian to verify the AAP Scanned Document?')) {
-            router.post(route('assets.submit-aap-review', asset.id));
+        if (
+            confirm(
+                "Notify the Property Custodian to verify the AAP Scanned Document?",
+            )
+        ) {
+            router.post(route("assets.submit-aap-review", asset.id));
         }
     }
 
@@ -743,11 +948,14 @@ export default function AssetsShow({
                 alert("Please provide remarks when returning for revision.");
                 return;
             }
-            if (!confirm(
-                decision === "approved"
-                    ? "Approve custody review?"
-                    : "Return for revision?",
-            )) return;
+            if (
+                !confirm(
+                    decision === "approved"
+                        ? "Approve custody review?"
+                        : "Return for revision?",
+                )
+            )
+                return;
             router.post(route("assets.resolve-custody-review", asset.id), {
                 decision,
                 remarks,
@@ -865,26 +1073,59 @@ export default function AssetsShow({
                             </p>
                             {asset.mode === "turned_over" ? (
                                 <div>
-                                    <span className="font-medium">STCP No.:</span>{" "}
+                                    <span className="font-medium">
+                                        STCP No.:
+                                    </span>{" "}
                                     {editingStcp ? (
-                                        <form onSubmit={submitStcp} className="mt-1 flex items-center gap-2">
+                                        <form
+                                            onSubmit={submitStcp}
+                                            className="mt-1 flex items-center gap-2"
+                                        >
                                             <Input
-                                                value={stcpForm.data.stcp_number}
-                                                onChange={(e) => stcpForm.setData("stcp_number", e.target.value)}
+                                                value={
+                                                    stcpForm.data.stcp_number
+                                                }
+                                                onChange={(e) =>
+                                                    stcpForm.setData(
+                                                        "stcp_number",
+                                                        e.target.value,
+                                                    )
+                                                }
                                                 placeholder="e.g. STCP-2026-0001"
                                                 className="max-w-xs"
                                                 autoFocus
                                             />
-                                            <Button type="submit" size="sm" disabled={stcpForm.processing}>Save</Button>
-                                            <Button type="button" size="sm" variant="outline" onClick={() => setEditingStcp(false)}>Cancel</Button>
+                                            <Button
+                                                type="submit"
+                                                size="sm"
+                                                disabled={stcpForm.processing}
+                                            >
+                                                Save
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() =>
+                                                    setEditingStcp(false)
+                                                }
+                                            >
+                                                Cancel
+                                            </Button>
                                         </form>
                                     ) : (
                                         <>
-                                            {asset.stcp_number ?? <span className="text-gray-400">Not yet received</span>}
+                                            {asset.stcp_number ?? (
+                                                <span className="text-gray-400">
+                                                    Not yet received
+                                                </span>
+                                            )}
                                             {can.updateAap && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => setEditingStcp(true)}
+                                                    onClick={() =>
+                                                        setEditingStcp(true)
+                                                    }
                                                     className="ml-2 text-xs font-medium text-emerald-700 hover:underline"
                                                 >
                                                     Edit
@@ -892,54 +1133,97 @@ export default function AssetsShow({
                                             )}
                                         </>
                                     )}
-                                    <InputError message={stcpForm.errors.stcp_number} className="mt-1" />
+                                    <InputError
+                                        message={stcpForm.errors.stcp_number}
+                                        className="mt-1"
+                                    />
                                 </div>
                             ) : (
                                 // ── AAP No. (apprehended only) ────────────────────────
                                 <div>
-                                    <span className="font-medium">AAP No.:</span>{" "}
+                                    <span className="font-medium">
+                                        AAP No.:
+                                    </span>{" "}
                                     {editingAap ? (
-                                        <form onSubmit={submitAap} className="mt-1 flex items-center gap-2">
+                                        <form
+                                            onSubmit={submitAap}
+                                            className="mt-1 flex items-center gap-2"
+                                        >
                                             <Input
                                                 value={aapForm.data.aap_number}
-                                                onChange={(e) => aapForm.setData("aap_number", e.target.value)}
+                                                onChange={(e) =>
+                                                    aapForm.setData(
+                                                        "aap_number",
+                                                        e.target.value,
+                                                    )
+                                                }
                                                 placeholder="e.g. AAP-2026-0042"
                                                 className="max-w-xs"
                                                 autoFocus
                                             />
-                                            <Button type="submit" size="sm" disabled={aapForm.processing}>Save</Button>
-                                            <Button type="button" size="sm" variant="outline" onClick={() => setEditingAap(false)}>Cancel</Button>
+                                            <Button
+                                                type="submit"
+                                                size="sm"
+                                                disabled={aapForm.processing}
+                                            >
+                                                Save
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() =>
+                                                    setEditingAap(false)
+                                                }
+                                            >
+                                                Cancel
+                                            </Button>
                                         </form>
                                     ) : (
                                         <>
-                                            {asset.aap_number ?? <span className="text-gray-400">Not yet received</span>}
-                                            {can.updateAap && asset.aap_number && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setEditingAap(true)}
-                                                    className="ml-2 text-xs font-medium text-emerald-700 hover:underline"
-                                                >
-                                                    Edit
-                                                </button>
+                                            {asset.aap_number ?? (
+                                                <span className="text-gray-400">
+                                                    Not yet received
+                                                </span>
                                             )}
+                                            {can.updateAap &&
+                                                asset.aap_number && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setEditingAap(true)
+                                                        }
+                                                        className="ml-2 text-xs font-medium text-emerald-700 hover:underline"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                )}
                                         </>
                                     )}
-                                    <InputError message={aapForm.errors.aap_number} className="mt-1" />
+                                    <InputError
+                                        message={aapForm.errors.aap_number}
+                                        className="mt-1"
+                                    />
                                 </div>
                             )}
                             {asset.jev?.jev_number && (
                                 <p>
-                                    <span className="font-medium">JEV No. (IN):</span>{" "}
+                                    <span className="font-medium">
+                                        JEV No. (IN):
+                                    </span>{" "}
                                     {asset.jev.jev_number}
                                 </p>
                             )}
                             {(asset as any).aap_review_requested && (
                                 <div className="md:col-span-2">
                                     <p className="text-xs text-blue-600">
-                                        Custodian notified to verify AAP —{' '}
+                                        Custodian notified to verify AAP —{" "}
                                         {(asset as any).aap_review_requested_at
-                                            ? new Date((asset as any).aap_review_requested_at).toLocaleDateString()
-                                            : ''}
+                                            ? new Date(
+                                                  (asset as any)
+                                                      .aap_review_requested_at,
+                                              ).toLocaleDateString()
+                                            : ""}
                                     </p>
                                 </div>
                             )}
@@ -958,14 +1242,18 @@ export default function AssetsShow({
                                                 <button
                                                     key={item.id}
                                                     type="button"
-                                                    onClick={() => setSelectedSibling(item)}
+                                                    onClick={() =>
+                                                        setSelectedSibling(item)
+                                                    }
                                                     className="w-full rounded-md border border-gray-200 p-3 text-left active:bg-gray-50"
                                                 >
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-sm font-medium text-gray-900 capitalize">
                                                             {item.type}
                                                         </span>
-                                                        <span className="text-xs font-medium text-emerald-700">View</span>
+                                                        <span className="text-xs font-medium text-emerald-700">
+                                                            View
+                                                        </span>
                                                     </div>
                                                 </button>
                                             ))}
@@ -976,8 +1264,12 @@ export default function AssetsShow({
                                             <table className="min-w-full divide-y divide-gray-200 text-sm">
                                                 <thead className="bg-gray-50">
                                                     <tr>
-                                                        <th className="px-3 py-2 text-left font-medium text-gray-500">Item</th>
-                                                        <th className="px-3 py-2 text-right font-medium text-gray-500">Action</th>
+                                                        <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                            Item
+                                                        </th>
+                                                        <th className="px-3 py-2 text-right font-medium text-gray-500">
+                                                            Action
+                                                        </th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-100 bg-white">
@@ -992,7 +1284,11 @@ export default function AssetsShow({
                                                             <td className="px-3 py-2 text-right">
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setSelectedSibling(item)}
+                                                                    onClick={() =>
+                                                                        setSelectedSibling(
+                                                                            item,
+                                                                        )
+                                                                    }
                                                                     className="text-xs font-medium text-emerald-700 hover:underline"
                                                                 >
                                                                     View
@@ -1157,53 +1453,92 @@ export default function AssetsShow({
                             </Button>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {requiredDocumentTypes.length > 0 && (() => {
-                                const docs = asset.documents ?? [];
-                                const latestFor = (type: string) =>
-                                    docs
-                                        .filter((d) => d.document_type === type)
-                                        .sort((a, b) => b.id - a.id)[0];
+                            {requiredDocumentTypes.length > 0 &&
+                                (() => {
+                                    const docs = asset.documents ?? [];
+                                    const latestFor = (type: string) =>
+                                        docs
+                                            .filter(
+                                                (d) => d.document_type === type,
+                                            )
+                                            .sort((a, b) => b.id - a.id)[0];
 
-                                return (
-                                    <div className="space-y-1.5">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                            Required Documents
-                                        </p>
-                                        {requiredDocumentTypes.map((type) => {
-                                            const doc = latestFor(type.value);
-                                            const status = doc?.status;
-                                            return (
-                                                <div
-                                                    key={type.value}
-                                                    className="flex items-center gap-2.5"
-                                                >
-                                                    {status === "verified" ? (
-                                                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 text-[10px]">✓</span>
-                                                    ) : status === "rejected" ? (
-                                                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 text-[10px]">✕</span>
-                                                    ) : status === "pending" ? (
-                                                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 text-[10px]">⏳</span>
-                                                    ) : (
-                                                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 text-[10px]">–</span>
-                                                    )}
-                                                    <span className={`text-xs ${status === "verified" ? "text-gray-600" : status === "rejected" ? "text-red-700 font-medium" : !status ? "text-gray-400" : "text-amber-700"}`}>
-                                                        {type.label}
-                                                    </span>
-                                                    {status && (
-                                                        <span className={`ml-auto text-[10px] font-medium ${status === "verified" ? "text-emerald-600" : status === "rejected" ? "text-red-600" : "text-amber-600"}`}>
-                                                            {status.charAt(0).toUpperCase() + status.slice(1)}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                );
-                            })()}
+                                    return (
+                                        <div className="space-y-1.5">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                                Required Documents
+                                            </p>
+                                            {requiredDocumentTypes.map(
+                                                (type) => {
+                                                    const doc = latestFor(
+                                                        type.value,
+                                                    );
+                                                    const status = doc?.status;
+                                                    return (
+                                                        <div
+                                                            key={type.value}
+                                                            className="flex items-center gap-2.5"
+                                                        >
+                                                            {status ===
+                                                            "verified" ? (
+                                                                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 text-[10px]">
+                                                                    ✓
+                                                                </span>
+                                                            ) : status ===
+                                                              "rejected" ? (
+                                                                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 text-[10px]">
+                                                                    ✕
+                                                                </span>
+                                                            ) : status ===
+                                                              "pending" ? (
+                                                                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 text-[10px]">
+                                                                    ⏳
+                                                                </span>
+                                                            ) : (
+                                                                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 text-[10px]">
+                                                                    –
+                                                                </span>
+                                                            )}
+                                                            <span
+                                                                className={`text-xs ${status === "verified" ? "text-gray-600" : status === "rejected" ? "text-red-700 font-medium" : !status ? "text-gray-400" : "text-amber-700"}`}
+                                                            >
+                                                                {type.label}
+                                                            </span>
+                                                            {status && (
+                                                                <span
+                                                                    className={`ml-auto text-[10px] font-medium ${status === "verified" ? "text-emerald-600" : status === "rejected" ? "text-red-600" : "text-amber-600"}`}
+                                                                >
+                                                                    {status
+                                                                        .charAt(
+                                                                            0,
+                                                                        )
+                                                                        .toUpperCase() +
+                                                                        status.slice(
+                                                                            1,
+                                                                        )}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                },
+                                            )}
+                                        </div>
+                                    );
+                                })()}
 
                             {(() => {
-                                const requiredTypeValues = new Set(requiredDocumentTypes.map((t) => t.value));
-                                const evidenceDocs = (asset.documents ?? []).filter((d) => !d.document_type || !requiredTypeValues.has(d.document_type));
+                                const requiredTypeValues = new Set(
+                                    requiredDocumentTypes.map((t) => t.value),
+                                );
+                                const evidenceDocs = (
+                                    asset.documents ?? []
+                                ).filter(
+                                    (d) =>
+                                        !d.document_type ||
+                                        !requiredTypeValues.has(
+                                            d.document_type,
+                                        ),
+                                );
                                 if (evidenceDocs.length === 0) return null;
                                 return (
                                     <div className="space-y-1.5">
@@ -1212,16 +1547,43 @@ export default function AssetsShow({
                                         </p>
                                         <div className="space-y-1.5">
                                             {evidenceDocs.map((doc) => {
-                                                const url = documentUrl(doc.file_path);
-                                                const isImage = doc.mime_type?.startsWith("image/");
+                                                const url = documentUrl(
+                                                    doc.file_path,
+                                                );
+                                                const isImage =
+                                                    doc.mime_type?.startsWith(
+                                                        "image/",
+                                                    );
                                                 const typeLabel = [
-                                                    { value: 'confiscation_order', label: 'Confiscation Order' },
-                                                    { value: 'forfeiture_order', label: 'Forfeiture Order' },
-                                                    { value: 'regional_confiscation_order', label: 'Regional Confiscation Order' },
-                                                    { value: 'court_order', label: 'Court Order' },
-                                                    { value: 'certificate_of_finality', label: 'Certificate of Finality' },
-                                                    { value: 'other', label: 'Other Supporting Document' },
-                                                ].find((t) => t.value === doc.document_type)?.label;
+                                                    {
+                                                        value: "confiscation_order",
+                                                        label: "Confiscation Order",
+                                                    },
+                                                    {
+                                                        value: "forfeiture_order",
+                                                        label: "Forfeiture Order",
+                                                    },
+                                                    {
+                                                        value: "regional_confiscation_order",
+                                                        label: "Regional Confiscation Order",
+                                                    },
+                                                    {
+                                                        value: "court_order",
+                                                        label: "Court Order",
+                                                    },
+                                                    {
+                                                        value: "certificate_of_finality",
+                                                        label: "Certificate of Finality",
+                                                    },
+                                                    {
+                                                        value: "other",
+                                                        label: "Other Supporting Document",
+                                                    },
+                                                ].find(
+                                                    (t) =>
+                                                        t.value ===
+                                                        doc.document_type,
+                                                )?.label;
 
                                                 return (
                                                     <a
@@ -1232,22 +1594,37 @@ export default function AssetsShow({
                                                         className="flex items-center gap-2.5 rounded-md border border-gray-100 bg-gray-50 px-3 py-2 hover:bg-gray-100 transition"
                                                     >
                                                         {isImage ? (
-                                                            <img src={url ?? ""} className="h-7 w-7 rounded object-cover shrink-0" />
+                                                            <img
+                                                                src={url ?? ""}
+                                                                className="h-7 w-7 rounded object-cover shrink-0"
+                                                            />
                                                         ) : (
                                                             <PdfBadge className="h-5 w-5 shrink-0" />
                                                         )}
                                                         <div className="min-w-0 flex-1">
-                                                            <p className="truncate text-xs font-medium text-gray-700">{doc.original_name}</p>
-                                                            {typeLabel && <p className="text-[10px] text-gray-400">{typeLabel}</p>}
+                                                            <p className="truncate text-xs font-medium text-gray-700">
+                                                                {
+                                                                    doc.original_name
+                                                                }
+                                                            </p>
+                                                            {typeLabel && (
+                                                                <p className="text-[10px] text-gray-400">
+                                                                    {typeLabel}
+                                                                </p>
+                                                            )}
                                                         </div>
-                                                        <span className={
-                                                            "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold " +
-                                                            (doc.status === "verified"
-                                                                ? "bg-emerald-100 text-emerald-800"
-                                                                : doc.status === "rejected"
-                                                                ? "bg-red-100 text-red-800"
-                                                                : "bg-amber-100 text-amber-800")
-                                                        }>
+                                                        <span
+                                                            className={
+                                                                "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold " +
+                                                                (doc.status ===
+                                                                "verified"
+                                                                    ? "bg-emerald-100 text-emerald-800"
+                                                                    : doc.status ===
+                                                                        "rejected"
+                                                                      ? "bg-red-100 text-red-800"
+                                                                      : "bg-amber-100 text-amber-800")
+                                                            }
+                                                        >
                                                             {doc.status}
                                                         </span>
                                                     </a>
@@ -1258,36 +1635,53 @@ export default function AssetsShow({
                                 );
                             })()}
 
-                            {(asset.documents ?? []).length === 0 && requiredDocumentTypes.length === 0 && (
-                                <p className="text-sm text-gray-500">
-                                    No documents uploaded yet.
-                                </p>
-                            )}
+                            {(asset.documents ?? []).length === 0 &&
+                                requiredDocumentTypes.length === 0 && (
+                                    <p className="text-sm text-gray-500">
+                                        No documents uploaded yet.
+                                    </p>
+                                )}
 
                             {can.submitForCustodyReview && (
                                 <div className="border-t pt-4 space-y-2">
                                     {!hasAllRequiredDocuments ? (
                                         <p className="text-xs text-amber-700">
-                                            Upload the required documents (DAO Form, Tally Sheet, Seizure Order) before submitting for custody review.
+                                            Upload the required documents (DAO
+                                            Form, Tally Sheet, Seizure Order)
+                                            before submitting for custody
+                                            review.
                                         </p>
-                                    ) : aapDocumentUploaded && !asset.aap_number ? (
+                                    ) : aapDocumentUploaded &&
+                                      !asset.aap_number ? (
                                         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
-                                            <p className="font-medium">AAP Number required before submitting.</p>
+                                            <p className="font-medium">
+                                                AAP Number required before
+                                                submitting.
+                                            </p>
                                             <p className="mt-0.5 text-xs text-amber-700">
-                                                Upload the AAP Scanned Document with the AAP number filled in.
+                                                Upload the AAP Scanned Document
+                                                with the AAP number filled in.
                                             </p>
                                         </div>
-                                    ) : asset.custody_review_status === "pending" ? (
+                                    ) : asset.custody_review_status ===
+                                      "pending" ? (
                                         <div className="flex items-center gap-2 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
                                             <span>⏳</span>
-                                            <span>Submitted for custody review — awaiting custodian.</span>
+                                            <span>
+                                                Submitted for custody review —
+                                                awaiting custodian.
+                                            </span>
                                         </div>
-                                    ) : asset.custody_review_status === "approved" ? (
+                                    ) : asset.custody_review_status ===
+                                      "approved" ? (
                                         <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
                                             <span>✅</span>
-                                            <span>Custody review approved.</span>
+                                            <span>
+                                                Custody review approved.
+                                            </span>
                                         </div>
-                                    ) : asset.custody_review_status === "returned" ? (
+                                    ) : asset.custody_review_status ===
+                                      "returned" ? (
                                         <div className="flex flex-col gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
                                             <span>
                                                 ❌ Returned for revision.
@@ -1298,13 +1692,20 @@ export default function AssetsShow({
                                             <button
                                                 type="button"
                                                 className="text-xs underline text-red-800 hover:text-red-600 text-left"
-                                                onClick={handleSubmitForCustodyReview}
+                                                onClick={
+                                                    handleSubmitForCustodyReview
+                                                }
                                             >
                                                 Re-submit for review
                                             </button>
                                         </div>
                                     ) : (
-                                        <Button className="w-full" onClick={handleSubmitForCustodyReview}>
+                                        <Button
+                                            className="w-full"
+                                            onClick={
+                                                handleSubmitForCustodyReview
+                                            }
+                                        >
                                             Submit for Custody Review
                                         </Button>
                                     )}
@@ -1313,8 +1714,13 @@ export default function AssetsShow({
                             {can.resolveCustodyReview &&
                                 asset.custody_review_status === "pending" &&
                                 documentReviewStatus.show_panel && (
-                                <CustodianReviewPanel asset={asset} documentReviewStatus={documentReviewStatus} />
-                            )}
+                                    <CustodianReviewPanel
+                                        asset={asset}
+                                        documentReviewStatus={
+                                            documentReviewStatus
+                                        }
+                                    />
+                                )}
                         </CardContent>
                     </Card>
 
@@ -1323,13 +1729,24 @@ export default function AssetsShow({
                             <CardTitle className="text-base">Actions</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            {!['stored', 'intake_recorded', 'documents_uploaded', 'pending_custody_review'].includes(asset.current_status) && (
+                            {![
+                                "stored",
+                                "intake_recorded",
+                                "documents_uploaded",
+                                "pending_custody_review",
+                            ].includes(asset.current_status) && (
                                 <a
-                                    href={route("assets.stickers.pdf", asset.id)}
+                                    href={route(
+                                        "assets.stickers.pdf",
+                                        asset.id,
+                                    )}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 >
-                                    <Button variant="outline" className="w-full mt-1 mb-2">
+                                    <Button
+                                        variant="outline"
+                                        className="w-full mt-1 mb-2"
+                                    >
                                         Print Stickers
                                     </Button>
                                 </a>
@@ -1391,8 +1808,7 @@ export default function AssetsShow({
                                         No actions available for your role at
                                         this stage.
                                     </p>
-                                )
-                            }
+                                )}
                             {receiptUrl && (
                                 <a
                                     href={receiptUrl}
@@ -1957,50 +2373,160 @@ export default function AssetsShow({
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-3">
-                            {allStatusHistory.map((entry) => (
-                                <div
-                                    key={entry.id}
-                                    className="flex flex-wrap justify-between gap-2 border-b border-gray-100 pb-2 text-sm"
-                                >
-                                    <div className="min-w-0 flex-1 break-words">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <AssetStatusBadge
-                                                status={entry.status}
-                                                label={entry.status.replace(/_/g, " ")}
-                                            />
-                                            {entry.asset_type && ['for_disposal', 'donation_pending_jev_out', 'pending_release', 'donated'].includes(entry.status) && (
-                                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                                                    {entry.asset_type}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="mt-1 text-gray-600">{entry.notes}</p>
-                                    </div>
-                                    <div className="min-w-0 shrink-0 break-words text-right text-gray-500">
-                                        {entry.changed_by && (
-                                            <p className="text-xs font-medium text-gray-700">
-                                                {entry.changed_by.name}
-                                            </p>
-                                        )}
-                                        {entry.changed_by?.roles?.[0] && (
-                                            <p className="text-[11px] text-gray-400">
-                                                {(entry.changed_by.roles[0] as any).name}
-                                            </p>
-                                        )}
-                                        <p className="text-xs">
-                                            {new Date(entry.changed_at).toLocaleString()}
-                                        </p>
-                                    </div>
+                        {(() => {
+                            const ADDITIONAL_TYPE_LABELS: Record<
+                                string,
+                                string
+                            > = {
+                                confiscation_order: "Confiscation Order",
+                                forfeiture_order: "Forfeiture Order",
+                                regional_confiscation_order:
+                                    "Regional Confiscation Order",
+                                court_order: "Court Order",
+                                certificate_of_finality:
+                                    "Certificate of Finality",
+                                other: "Other Supporting Document",
+                            };
+
+                            const REQUIRED_TYPE_LABELS: Record<string, string> =
+                                {
+                                    dao_form: "DAO Form",
+                                    tally_sheet: "Tally Sheet",
+                                    seizure_order: "Seizure Order",
+                                    aap_document: "AAP Document",
+                                    stcp_document: "STCP Document",
+                                };
+
+                            const docEvents = (asset.documents ?? []).map(
+                                (doc) => ({
+                                    id: `doc-${doc.id}`,
+                                    kind: "document" as const,
+                                    doc,
+                                    timestamp: new Date(doc.uploaded_at),
+                                    label:
+                                        REQUIRED_TYPE_LABELS[
+                                            doc.document_type ?? ""
+                                        ] ??
+                                        ADDITIONAL_TYPE_LABELS[
+                                            doc.document_type ?? ""
+                                        ] ??
+                                        doc.document_type ??
+                                        "Document",
+                                }),
+                            );
+
+                            const statusEvents = allStatusHistory.map(
+                                (entry) => ({
+                                    id: `status-${entry.id}`,
+                                    kind: "status" as const,
+                                    entry,
+                                    timestamp: new Date(entry.changed_at),
+                                }),
+                            );
+
+                            const timeline = [...statusEvents, ...docEvents].sort((a, b) => {
+                                const diff = a.timestamp.getTime() - b.timestamp.getTime();
+                                if (diff !== 0) return diff;
+                                if (a.kind === 'document' && b.kind === 'status') return -1;
+                                if (a.kind === 'status' && b.kind === 'document') return 1;
+                                return 0;
+                            });
+
+                            return (
+                                <div className="space-y-2">
+                                    {timeline.map((event) => {
+                                        if (event.kind === "document") {
+                                            return (
+                                                <DocumentTimelineEntry
+                                                    key={event.id}
+                                                    doc={event.doc}
+                                                    label={event.label}
+                                                />
+                                            );
+                                        }
+
+                                        const entry = event.entry;
+                                        return (
+                                            <div
+                                                key={event.id}
+                                                className="flex flex-wrap justify-between gap-2 border-b border-gray-100 pb-2 text-sm"
+                                            >
+                                                <div className="min-w-0 flex-1 break-words">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <AssetStatusBadge
+                                                            status={
+                                                                entry.status
+                                                            }
+                                                            label={entry.status.replace(
+                                                                /_/g,
+                                                                " ",
+                                                            )}
+                                                        />
+                                                        {entry.asset_type &&
+                                                            [
+                                                                "for_disposal",
+                                                                "donation_pending_jev_out",
+                                                                "pending_release",
+                                                                "donated",
+                                                            ].includes(
+                                                                entry.status,
+                                                            ) && (
+                                                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                                                                    {
+                                                                        entry.asset_type
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                    </div>
+                                                    {entry.notes && (
+                                                        <p className="mt-1 text-gray-600">
+                                                            {entry.notes}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0 shrink-0 break-words text-right text-gray-500">
+                                                    {entry.changed_by && (
+                                                        <p className="text-xs font-medium text-gray-700">
+                                                            {
+                                                                entry.changed_by
+                                                                    .name
+                                                            }
+                                                        </p>
+                                                    )}
+                                                    {entry.changed_by
+                                                        ?.roles?.[0] && (
+                                                        <p className="text-[11px] text-gray-400">
+                                                            {
+                                                                (
+                                                                    entry
+                                                                        .changed_by
+                                                                        .roles[0] as any
+                                                                ).name
+                                                            }
+                                                        </p>
+                                                    )}
+                                                    <p className="text-xs">
+                                                        {new Date(
+                                                            entry.changed_at,
+                                                        ).toLocaleString()}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            ))}
-                        </div>
+                            );
+                        })()}
                     </CardContent>
                 </Card>
             </div>
 
             {/* ── Piece detail modal ──────────────────────────────────────── */}
-            <Modal show={selectedPiece !== null} onClose={() => setSelectedPiece(null)} maxWidth="md">
+            <Modal
+                show={selectedPiece !== null}
+                onClose={() => setSelectedPiece(null)}
+                maxWidth="md"
+            >
                 {selectedPiece && (
                     <PieceModal
                         piece={selectedPiece}
@@ -2026,9 +2552,14 @@ export default function AssetsShow({
                                 <PieceModal
                                     piece={selectedSiblingPiece}
                                     asset={selectedSibling}
-                                    qrSvg={pieceQrSvgs[selectedSiblingPiece.id] ?? null}
+                                    qrSvg={
+                                        pieceQrSvgs[selectedSiblingPiece.id] ??
+                                        null
+                                    }
                                     canEdit={false}
-                                    onClose={() => setSelectedSiblingPiece(null)}
+                                    onClose={() =>
+                                        setSelectedSiblingPiece(null)
+                                    }
                                 />
                             </div>
                         ) : (
@@ -2044,19 +2575,33 @@ export default function AssetsShow({
                                             {selectedSibling.type}
                                         </h2>
                                         <p className="text-xs text-gray-400">
-                                            {(selectedSibling.pieces?.length ?? 0)} piece(s) · {selectedSibling.municipality_of_origin}
+                                            {selectedSibling.pieces?.length ??
+                                                0}{" "}
+                                            piece(s) ·{" "}
+                                            {
+                                                selectedSibling.municipality_of_origin
+                                            }
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-3 shrink-0">
                                         <AssetStatusBadge
-                                            status={selectedSibling.current_status}
-                                            label={selectedSibling.current_status.replace(/_/g, " ")}
-                                            disposedQuantity={selectedSibling.disposed_quantity}
+                                            status={
+                                                selectedSibling.current_status
+                                            }
+                                            label={selectedSibling.current_status.replace(
+                                                /_/g,
+                                                " ",
+                                            )}
+                                            disposedQuantity={
+                                                selectedSibling.disposed_quantity
+                                            }
                                             quantity={selectedSibling.quantity}
                                         />
                                         <button
                                             type="button"
-                                            onClick={() => setSelectedSibling(null)}
+                                            onClick={() =>
+                                                setSelectedSibling(null)
+                                            }
                                             className="text-gray-300 hover:text-gray-500 text-lg leading-none"
                                         >
                                             ✕
@@ -2066,89 +2611,177 @@ export default function AssetsShow({
 
                                 <div className="h-px bg-gray-100 mb-4" />
 
-                                {selectedSibling.pieces && selectedSibling.pieces.length > 0 ? (
-                                            <div className="overflow-x-auto rounded-md border border-gray-200">
-                                                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                                                    <thead className="bg-gray-50">
-                                                        <tr>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">#</th>
-                                                            {(selectedSibling.type === "log" || selectedSibling.type === "wildlife") && (
-                                                                <th className="px-3 py-2 text-left font-medium text-gray-500">Species</th>
-                                                            )}
-                                                            {selectedSibling.type === "log" && (
-                                                                <>
-                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Dimensions (L×W×H)</th>
-                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Vol. (bd.ft)</th>
-                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Vol. (cu.m)</th>
-                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Est. Value</th>
-                                                                </>
-                                                            )}
-                                                            {selectedSibling.type === "vehicle" && (
-                                                                <>
-                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Vehicle Type</th>
-                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Plate / Conveyance No.</th>
-                                                                </>
-                                                            )}
-                                                            {selectedSibling.type === "equipment" && (
-                                                                <>
-                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Equipment Type</th>
-                                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">Serial No.</th>
-                                                                </>
-                                                            )}
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">Action</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-gray-100 bg-white">
-                                                        {selectedSibling.pieces.map((piece) => (
-                                                            <tr key={piece.id} className="hover:bg-gray-50">
-                                                                <td className="px-3 py-2 text-gray-500">{piece.piece_number}</td>
-                                                                {(selectedSibling.type === "log" || selectedSibling.type === "wildlife") && (
-                                                                    <td className="px-3 py-2 text-gray-900">{piece.species ?? "—"}</td>
-                                                                )}
-                                                                {selectedSibling.type === "log" && (
-                                                                    <>
-                                                                        <td className="px-3 py-2 text-gray-900">
-                                                                            {[piece.length, piece.width, piece.height]
-                                                                                .map((v) => v != null ? `${v}` : "—")
-                                                                                .join(" × ")}
-                                                                        </td>
-                                                                        <td className="px-3 py-2 text-gray-900">{piece.volume_bd_ft ?? "—"}</td>
-                                                                        <td className="px-3 py-2 text-gray-900">{piece.volume_cu_m ?? "—"}</td>
-                                                                        <td className="px-3 py-2 text-gray-900">
-                                                                            {piece.estimated_value != null
-                                                                                ? `₱${Number(piece.estimated_value).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`
-                                                                                : "—"}
-                                                                        </td>
-                                                                    </>
-                                                                )}
-                                                                {selectedSibling.type === "vehicle" && (
-                                                                    <>
-                                                                        <td className="px-3 py-2 text-gray-900 capitalize">{piece.vehicle_type ?? "—"}</td>
-                                                                        <td className="px-3 py-2 text-gray-900">{piece.plate_number ?? "—"}</td>
-                                                                    </>
-                                                                )}
-                                                                {selectedSibling.type === "equipment" && (
-                                                                    <>
-                                                                        <td className="px-3 py-2 text-gray-900 capitalize">{piece.equipment_type ?? "—"}</td>
-                                                                        <td className="px-3 py-2 text-gray-900 font-mono">{piece.serial_number ?? "—"}</td>
-                                                                    </>
-                                                                )}
-                                                                <td className="px-3 py-2">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setSelectedSiblingPiece(piece)}
-                                                                        className="text-xs font-medium text-emerald-700 hover:underline"
-                                                                    >
-                                                                        View
-                                                                    </button>
+                                {selectedSibling.pieces &&
+                                selectedSibling.pieces.length > 0 ? (
+                                    <div className="overflow-x-auto rounded-md border border-gray-200">
+                                        <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                        #
+                                                    </th>
+                                                    {(selectedSibling.type ===
+                                                        "log" ||
+                                                        selectedSibling.type ===
+                                                            "wildlife") && (
+                                                        <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                            Species
+                                                        </th>
+                                                    )}
+                                                    {selectedSibling.type ===
+                                                        "log" && (
+                                                        <>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                                Dimensions
+                                                                (L×W×H)
+                                                            </th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                                Vol. (bd.ft)
+                                                            </th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                                Vol. (cu.m)
+                                                            </th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                                Est. Value
+                                                            </th>
+                                                        </>
+                                                    )}
+                                                    {selectedSibling.type ===
+                                                        "vehicle" && (
+                                                        <>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                                Vehicle Type
+                                                            </th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                                Plate /
+                                                                Conveyance No.
+                                                            </th>
+                                                        </>
+                                                    )}
+                                                    {selectedSibling.type ===
+                                                        "equipment" && (
+                                                        <>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                                Equipment Type
+                                                            </th>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                                Serial No.
+                                                            </th>
+                                                        </>
+                                                    )}
+                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                                        Action
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100 bg-white">
+                                                {selectedSibling.pieces.map(
+                                                    (piece) => (
+                                                        <tr
+                                                            key={piece.id}
+                                                            className="hover:bg-gray-50"
+                                                        >
+                                                            <td className="px-3 py-2 text-gray-500">
+                                                                {
+                                                                    piece.piece_number
+                                                                }
+                                                            </td>
+                                                            {(selectedSibling.type ===
+                                                                "log" ||
+                                                                selectedSibling.type ===
+                                                                    "wildlife") && (
+                                                                <td className="px-3 py-2 text-gray-900">
+                                                                    {piece.species ??
+                                                                        "—"}
                                                                 </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                                        ) : (
-                                    <p className="text-sm italic text-gray-400">No pieces recorded yet.</p>
+                                                            )}
+                                                            {selectedSibling.type ===
+                                                                "log" && (
+                                                                <>
+                                                                    <td className="px-3 py-2 text-gray-900">
+                                                                        {[
+                                                                            piece.length,
+                                                                            piece.width,
+                                                                            piece.height,
+                                                                        ]
+                                                                            .map(
+                                                                                (
+                                                                                    v,
+                                                                                ) =>
+                                                                                    v !=
+                                                                                    null
+                                                                                        ? `${v}`
+                                                                                        : "—",
+                                                                            )
+                                                                            .join(
+                                                                                " × ",
+                                                                            )}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-gray-900">
+                                                                        {piece.volume_bd_ft ??
+                                                                            "—"}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-gray-900">
+                                                                        {piece.volume_cu_m ??
+                                                                            "—"}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-gray-900">
+                                                                        {piece.estimated_value !=
+                                                                        null
+                                                                            ? `₱${Number(piece.estimated_value).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`
+                                                                            : "—"}
+                                                                    </td>
+                                                                </>
+                                                            )}
+                                                            {selectedSibling.type ===
+                                                                "vehicle" && (
+                                                                <>
+                                                                    <td className="px-3 py-2 text-gray-900 capitalize">
+                                                                        {piece.vehicle_type ??
+                                                                            "—"}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-gray-900">
+                                                                        {piece.plate_number ??
+                                                                            "—"}
+                                                                    </td>
+                                                                </>
+                                                            )}
+                                                            {selectedSibling.type ===
+                                                                "equipment" && (
+                                                                <>
+                                                                    <td className="px-3 py-2 text-gray-900 capitalize">
+                                                                        {piece.equipment_type ??
+                                                                            "—"}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-gray-900 font-mono">
+                                                                        {piece.serial_number ??
+                                                                            "—"}
+                                                                    </td>
+                                                                </>
+                                                            )}
+                                                            <td className="px-3 py-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        setSelectedSiblingPiece(
+                                                                            piece,
+                                                                        )
+                                                                    }
+                                                                    className="text-xs font-medium text-emerald-700 hover:underline"
+                                                                >
+                                                                    View
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ),
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm italic text-gray-400">
+                                        No pieces recorded yet.
+                                    </p>
                                 )}
                             </div>
                         )}
@@ -2161,7 +2794,10 @@ export default function AssetsShow({
                 onClose={() => setShowEditModal(false)}
                 maxWidth="2xl"
             >
-                <form onSubmit={submitEdit} className="p-4 sm:p-6 space-y-4 sm:space-y-5 max-h-[90dvh] overflow-y-auto">
+                <form
+                    onSubmit={submitEdit}
+                    className="p-4 sm:p-6 space-y-4 sm:space-y-5 max-h-[90dvh] overflow-y-auto"
+                >
                     <h2 className="text-lg font-semibold text-gray-800">
                         Edit Asset
                     </h2>
@@ -2194,10 +2830,15 @@ export default function AssetsShow({
                                 id="edit-location"
                                 value={editForm.data.location_apprehended}
                                 onChange={(e) =>
-                                    editForm.setData("location_apprehended", e.target.value)
+                                    editForm.setData(
+                                        "location_apprehended",
+                                        e.target.value,
+                                    )
                                 }
                             />
-                            <InputError message={editForm.errors.location_apprehended} />
+                            <InputError
+                                message={editForm.errors.location_apprehended}
+                            />
                         </div>
                         <div className="space-y-1">
                             <Label htmlFor="edit-agency">Agency</Label>
@@ -2205,10 +2846,15 @@ export default function AssetsShow({
                                 id="edit-agency"
                                 value={editForm.data.apprehending_agency}
                                 onChange={(e) =>
-                                    editForm.setData("apprehending_agency", e.target.value)
+                                    editForm.setData(
+                                        "apprehending_agency",
+                                        e.target.value,
+                                    )
                                 }
                             />
-                            <InputError message={editForm.errors.apprehending_agency} />
+                            <InputError
+                                message={editForm.errors.apprehending_agency}
+                            />
                         </div>
                     </div>
 
@@ -2221,27 +2867,51 @@ export default function AssetsShow({
 
                             <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
                                 <div className="space-y-1">
-                                    <Label htmlFor="edit-date-apprehension">Date of Apprehension</Label>
+                                    <Label htmlFor="edit-date-apprehension">
+                                        Date of Apprehension
+                                    </Label>
                                     <Input
                                         id="edit-date-apprehension"
                                         type="date"
-                                        value={editForm.data.date_of_apprehension}
+                                        value={
+                                            editForm.data.date_of_apprehension
+                                        }
                                         onChange={(e) =>
-                                            editForm.setData("date_of_apprehension", e.target.value)
+                                            editForm.setData(
+                                                "date_of_apprehension",
+                                                e.target.value,
+                                            )
                                         }
                                     />
-                                    <InputError message={(editForm.errors as any).date_of_apprehension} />
+                                    <InputError
+                                        message={
+                                            (editForm.errors as any)
+                                                .date_of_apprehension
+                                        }
+                                    />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label htmlFor="edit-place-apprehension">Place of Apprehension</Label>
+                                    <Label htmlFor="edit-place-apprehension">
+                                        Place of Apprehension
+                                    </Label>
                                     <Input
                                         id="edit-place-apprehension"
-                                        value={editForm.data.place_of_apprehension}
+                                        value={
+                                            editForm.data.place_of_apprehension
+                                        }
                                         onChange={(e) =>
-                                            editForm.setData("place_of_apprehension", e.target.value)
+                                            editForm.setData(
+                                                "place_of_apprehension",
+                                                e.target.value,
+                                            )
                                         }
                                     />
-                                    <InputError message={(editForm.errors as any).place_of_apprehension} />
+                                    <InputError
+                                        message={
+                                            (editForm.errors as any)
+                                                .place_of_apprehension
+                                        }
+                                    />
                                 </div>
                             </div>
 
@@ -2255,11 +2925,15 @@ export default function AssetsShow({
                                         editForm.setData("area", e.target.value)
                                     }
                                 />
-                                <InputError message={(editForm.errors as any).area} />
+                                <InputError
+                                    message={(editForm.errors as any).area}
+                                />
                             </div>
 
                             <div className="space-y-1">
-                                <Label htmlFor="edit-coordinates">Coordinates</Label>
+                                <Label htmlFor="edit-coordinates">
+                                    Coordinates
+                                </Label>
                                 <div className="flex gap-2">
                                     <Input
                                         id="edit-coordinates"
@@ -2270,24 +2944,40 @@ export default function AssetsShow({
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        onClick={() => setShowCoordinatesPicker(true)}
+                                        onClick={() =>
+                                            setShowCoordinatesPicker(true)
+                                        }
                                     >
                                         Pick on Map
                                     </Button>
                                 </div>
-                                <InputError message={(editForm.errors as any).coordinates} />
+                                <InputError
+                                    message={
+                                        (editForm.errors as any).coordinates
+                                    }
+                                />
                             </div>
 
                             <div className="space-y-1">
-                                <Label htmlFor="edit-apprehending-party">Apprehending Party</Label>
+                                <Label htmlFor="edit-apprehending-party">
+                                    Apprehending Party
+                                </Label>
                                 <Input
                                     id="edit-apprehending-party"
                                     value={editForm.data.apprehending_party}
                                     onChange={(e) =>
-                                        editForm.setData("apprehending_party", e.target.value)
+                                        editForm.setData(
+                                            "apprehending_party",
+                                            e.target.value,
+                                        )
                                     }
                                 />
-                                <InputError message={(editForm.errors as any).apprehending_party} />
+                                <InputError
+                                    message={
+                                        (editForm.errors as any)
+                                            .apprehending_party
+                                    }
+                                />
                             </div>
 
                             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
@@ -2342,62 +3032,127 @@ export default function AssetsShow({
                                 {editForm.data.has_claimant && (
                                     <div className="space-y-3">
                                         <div className="space-y-1">
-                                            <Label htmlFor="edit-claimant-name">Claimant / Offender Name</Label>
+                                            <Label htmlFor="edit-claimant-name">
+                                                Claimant / Offender Name
+                                            </Label>
                                             <Input
                                                 id="edit-claimant-name"
-                                                value={editForm.data.claimant_offender_name}
+                                                value={
+                                                    editForm.data
+                                                        .claimant_offender_name
+                                                }
                                                 onChange={(e) =>
-                                                    editForm.setData("claimant_offender_name", e.target.value)
+                                                    editForm.setData(
+                                                        "claimant_offender_name",
+                                                        e.target.value,
+                                                    )
                                                 }
                                             />
-                                            <InputError message={(editForm.errors as any).claimant_offender_name} />
+                                            <InputError
+                                                message={
+                                                    (editForm.errors as any)
+                                                        .claimant_offender_name
+                                                }
+                                            />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label htmlFor="edit-claimant-address">Address</Label>
+                                            <Label htmlFor="edit-claimant-address">
+                                                Address
+                                            </Label>
                                             <Input
                                                 id="edit-claimant-address"
-                                                value={editForm.data.claimant_address}
+                                                value={
+                                                    editForm.data
+                                                        .claimant_address
+                                                }
                                                 onChange={(e) =>
-                                                    editForm.setData("claimant_address", e.target.value)
+                                                    editForm.setData(
+                                                        "claimant_address",
+                                                        e.target.value,
+                                                    )
                                                 }
                                             />
-                                            <InputError message={(editForm.errors as any).claimant_address} />
+                                            <InputError
+                                                message={
+                                                    (editForm.errors as any)
+                                                        .claimant_address
+                                                }
+                                            />
                                         </div>
                                         <div className="grid gap-3 sm:grid-cols-2">
                                             <div className="space-y-1">
-                                                <Label htmlFor="edit-claimant-contact">Contact Number</Label>
+                                                <Label htmlFor="edit-claimant-contact">
+                                                    Contact Number
+                                                </Label>
                                                 <Input
                                                     id="edit-claimant-contact"
-                                                    value={editForm.data.claimant_contact_number}
+                                                    value={
+                                                        editForm.data
+                                                            .claimant_contact_number
+                                                    }
                                                     onChange={(e) =>
-                                                        editForm.setData("claimant_contact_number", e.target.value)
+                                                        editForm.setData(
+                                                            "claimant_contact_number",
+                                                            e.target.value,
+                                                        )
                                                     }
                                                 />
-                                                <InputError message={(editForm.errors as any).claimant_contact_number} />
+                                                <InputError
+                                                    message={
+                                                        (editForm.errors as any)
+                                                            .claimant_contact_number
+                                                    }
+                                                />
                                             </div>
                                             <div className="space-y-1">
-                                                <Label htmlFor="edit-claimant-id-type">ID Type</Label>
+                                                <Label htmlFor="edit-claimant-id-type">
+                                                    ID Type
+                                                </Label>
                                                 <Input
                                                     id="edit-claimant-id-type"
                                                     placeholder="e.g. Driver's License, UMID"
-                                                    value={editForm.data.claimant_id_type}
+                                                    value={
+                                                        editForm.data
+                                                            .claimant_id_type
+                                                    }
                                                     onChange={(e) =>
-                                                        editForm.setData("claimant_id_type", e.target.value)
+                                                        editForm.setData(
+                                                            "claimant_id_type",
+                                                            e.target.value,
+                                                        )
                                                     }
                                                 />
-                                                <InputError message={(editForm.errors as any).claimant_id_type} />
+                                                <InputError
+                                                    message={
+                                                        (editForm.errors as any)
+                                                            .claimant_id_type
+                                                    }
+                                                />
                                             </div>
                                         </div>
                                         <div className="space-y-1">
-                                            <Label htmlFor="edit-claimant-id-number">ID Number</Label>
+                                            <Label htmlFor="edit-claimant-id-number">
+                                                ID Number
+                                            </Label>
                                             <Input
                                                 id="edit-claimant-id-number"
-                                                value={editForm.data.claimant_id_number}
+                                                value={
+                                                    editForm.data
+                                                        .claimant_id_number
+                                                }
                                                 onChange={(e) =>
-                                                    editForm.setData("claimant_id_number", e.target.value)
+                                                    editForm.setData(
+                                                        "claimant_id_number",
+                                                        e.target.value,
+                                                    )
                                                 }
                                             />
-                                            <InputError message={(editForm.errors as any).claimant_id_number} />
+                                            <InputError
+                                                message={
+                                                    (editForm.errors as any)
+                                                        .claimant_id_number
+                                                }
+                                            />
                                         </div>
                                     </div>
                                 )}
@@ -2412,7 +3167,10 @@ export default function AssetsShow({
                                 type="checkbox"
                                 checked={editForm.data.has_ongoing_case}
                                 onChange={(e) =>
-                                    editForm.setData("has_ongoing_case", e.target.checked)
+                                    editForm.setData(
+                                        "has_ongoing_case",
+                                        e.target.checked,
+                                    )
                                 }
                                 className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                             />
@@ -2423,7 +3181,10 @@ export default function AssetsShow({
                                 type="checkbox"
                                 checked={editForm.data.has_confiscation_order}
                                 onChange={(e) =>
-                                    editForm.setData("has_confiscation_order", e.target.checked)
+                                    editForm.setData(
+                                        "has_confiscation_order",
+                                        e.target.checked,
+                                    )
                                 }
                                 className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                             />
