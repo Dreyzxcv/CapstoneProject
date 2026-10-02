@@ -29,6 +29,7 @@ import { IncidentLocationMap } from "@/Components/shared/IncidentLocationMap";
 import { PdfBadge } from "@/Components/shared/PdfBadge";
 import RequiredDocumentsModal from "@/Components/shared/RequiredDocumentsModal";
 import CoordinatesPickerModal from "@/Components/shared/CoordinatesPickerModal";
+import { CaseDetailsModal } from "@/Components/shared/CaseDetailsCard";
 import { StatusHistoryEntry } from "@/types";
 
 interface ShowProps {
@@ -755,14 +756,6 @@ export default function AssetsShow({
         });
     }
 
-    const caseForm = useForm({
-        case_number: asset.case_number ?? "",
-        court_branch: asset.court_branch ?? "",
-        next_hearing_date: asset.next_hearing_date
-            ? asset.next_hearing_date.slice(0, 10)
-            : "",
-    });
-
     const jevOutForm = useForm({ jev_number: "" });
 
     function submitJevOut(e: FormEvent, disposalId: number) {
@@ -770,13 +763,6 @@ export default function AssetsShow({
         jevOutForm.post(route("disposals.jev-out.store", disposalId), {
             preserveScroll: true,
             onSuccess: () => jevOutForm.reset(),
-        });
-    }
-
-    function submitCaseDetails(e: FormEvent) {
-        e.preventDefault();
-        caseForm.post(route("assets.case-details.update", asset.id), {
-            preserveScroll: true,
         });
     }
 
@@ -837,16 +823,6 @@ export default function AssetsShow({
             )
         ) {
             router.post(route("assets.submit-for-custody-review", asset.id));
-        }
-    }
-
-    function handleResolveTrial() {
-        if (
-            confirm(
-                "Confirm the case has been resolved and this asset can proceed to accounting?",
-            )
-        ) {
-            router.post(route("assets.resolve-trial", asset.id));
         }
     }
 
@@ -1323,31 +1299,32 @@ export default function AssetsShow({
                                 </span>{" "}
                                 {asset.has_confiscation_order ? "Yes" : "No"}
                             </p>
-                            {asset.case_number && (
-                                <p>
-                                    <span className="font-medium">
-                                        Case Number:
-                                    </span>{" "}
-                                    {asset.case_number}
-                                </p>
-                            )}
-                            {asset.court_branch && (
-                                <p>
-                                    <span className="font-medium">
-                                        Court / Branch:
-                                    </span>{" "}
-                                    {asset.court_branch}
-                                </p>
-                            )}
-                            {asset.next_hearing_date && (
-                                <p>
-                                    <span className="font-medium">
-                                        Next Hearing Date:
-                                    </span>{" "}
-                                    {new Date(
-                                        asset.next_hearing_date,
-                                    ).toLocaleDateString()}
-                                </p>
+                            {(asset.case_number || asset.court_branch || asset.next_hearing_date) && (
+                                <>
+                                    <div className="md:col-span-2 mt-1 border-t border-gray-100 pt-3">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                            Case Details
+                                        </p>
+                                    </div>
+                                    {asset.case_number && (
+                                        <p>
+                                            <span className="font-medium">Case Number:</span>{" "}
+                                            {asset.case_number}
+                                        </p>
+                                    )}
+                                    {asset.court_branch && (
+                                        <p>
+                                            <span className="font-medium">Court / Branch:</span>{" "}
+                                            {asset.court_branch}
+                                        </p>
+                                    )}
+                                    {asset.next_hearing_date && (
+                                        <p>
+                                            <span className="font-medium">Next Hearing Date:</span>{" "}
+                                            {new Date(asset.next_hearing_date).toLocaleDateString()}
+                                        </p>
+                                    )}
+                                </>
                             )}
 
                             {asset.incident && (
@@ -1723,7 +1700,6 @@ export default function AssetsShow({
                                 )}
                         </CardContent>
                     </Card>
-
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-base">Actions</CardTitle>
@@ -1760,6 +1736,9 @@ export default function AssetsShow({
                                     Mark as Tagged
                                 </Button>
                             )}
+                            {asset.has_ongoing_case && (
+                                <CaseDetailsModal asset={asset} can={can} />
+                            )}
                             {asset.current_status ===
                                 "pending_custody_review" &&
                                 !can.markStored &&
@@ -1771,15 +1750,6 @@ export default function AssetsShow({
                                         verified.
                                     </p>
                                 )}
-                            {can.resolveCase && (
-                                <Button
-                                    className="w-full"
-                                    variant="secondary"
-                                    onClick={handleResolveTrial}
-                                >
-                                    Resolve Case — Clear for Accounting
-                                </Button>
-                            )}
                             {can.processDisposal &&
                                 asset.current_status === "for_disposal" && (
                                     <Link
@@ -1799,6 +1769,7 @@ export default function AssetsShow({
                             {!can.signReceipt &&
                                 !can.markStored &&
                                 !can.resolveCase &&
+                                !asset.has_ongoing_case &&
                                 !(
                                     can.processDisposal &&
                                     asset.current_status === "for_disposal"
@@ -2161,125 +2132,6 @@ export default function AssetsShow({
                                     ? "Appeal window is still open."
                                     : "Appeal window has closed."}
                             </p>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {asset.has_ongoing_case && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">
-                                Case Details
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {can.updateCaseDetails ? (
-                                <form
-                                    onSubmit={submitCaseDetails}
-                                    className="grid gap-4 md:grid-cols-3"
-                                >
-                                    <div className="space-y-2">
-                                        <Label htmlFor="case_number">
-                                            Case Number
-                                        </Label>
-                                        <Input
-                                            id="case_number"
-                                            value={caseForm.data.case_number}
-                                            onChange={(e) =>
-                                                caseForm.setData(
-                                                    "case_number",
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
-                                        <InputError
-                                            message={
-                                                caseForm.errors.case_number
-                                            }
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="court_branch">
-                                            Court / Branch
-                                        </Label>
-                                        <Input
-                                            id="court_branch"
-                                            value={caseForm.data.court_branch}
-                                            onChange={(e) =>
-                                                caseForm.setData(
-                                                    "court_branch",
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
-                                        <InputError
-                                            message={
-                                                caseForm.errors.court_branch
-                                            }
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="next_hearing_date">
-                                            Next Hearing Date
-                                        </Label>
-                                        <Input
-                                            id="next_hearing_date"
-                                            type="date"
-                                            value={
-                                                caseForm.data.next_hearing_date
-                                            }
-                                            onChange={(e) =>
-                                                caseForm.setData(
-                                                    "next_hearing_date",
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
-                                        <InputError
-                                            message={
-                                                caseForm.errors
-                                                    .next_hearing_date
-                                            }
-                                        />
-                                    </div>
-                                    <div className="md:col-span-3">
-                                        <Button
-                                            type="submit"
-                                            size="sm"
-                                            disabled={caseForm.processing}
-                                        >
-                                            Save Case Details
-                                        </Button>
-                                    </div>
-                                </form>
-                            ) : (
-                                <dl className="grid gap-3 text-sm md:grid-cols-3 break-words">
-                                    <div>
-                                        <dt className="text-gray-500">
-                                            Case Number
-                                        </dt>
-                                        <dd>{asset.case_number ?? "—"}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-gray-500">
-                                            Court / Branch
-                                        </dt>
-                                        <dd>{asset.court_branch ?? "—"}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-gray-500">
-                                            Next Hearing
-                                        </dt>
-                                        <dd>
-                                            {asset.next_hearing_date
-                                                ? new Date(
-                                                      asset.next_hearing_date,
-                                                  ).toLocaleDateString()
-                                                : "—"}
-                                        </dd>
-                                    </div>
-                                </dl>
-                            )}
                         </CardContent>
                     </Card>
                 )}

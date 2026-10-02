@@ -44,6 +44,7 @@
         "clsx": "^2.1.1",
         "html5-qrcode": "^2.3.8",
         "leaflet": "^1.9.4",
+        "leaflet.heat": "^0.2.0",
         "lucide-react": "^1.23.0",
         "react-hook-form": "^7.80.0",
         "react-is": "^19.2.7",

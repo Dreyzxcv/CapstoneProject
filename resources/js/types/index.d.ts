@@ -104,6 +104,7 @@ export interface Asset {
     case_number: string | null;
     court_branch: string | null;
     next_hearing_date: string | null;
+    case_outcome: string | null;
     documents?: DocumentItem[];
     jev?: Jev;
     disposals?: Disposal[];

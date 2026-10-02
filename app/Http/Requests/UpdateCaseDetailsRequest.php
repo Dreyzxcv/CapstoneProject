@@ -18,6 +18,7 @@ class UpdateCaseDetailsRequest extends FormRequest
             'case_number' => ['nullable', 'string', 'max:100'],
             'court_branch' => ['nullable', 'string', 'max:255'],
             'next_hearing_date' => ['nullable', 'date'],
+            'case_outcome'      => ['nullable', 'string', 'max:255'],
         ];
     }
 }

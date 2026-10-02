@@ -64,7 +64,7 @@ class DocumentController extends Controller
     /**
      * Resolve the Asset a generated or uploaded document belongs to, so we
      * can run it through AssetPolicy::view instead of only checking
-     * "is authenticated."
+     * "is authenticated."    
      */
     protected function resolveOwningAsset(string $path): ?Asset
     {
@@ -168,6 +168,14 @@ class DocumentController extends Controller
                 'mime_type' => $file->getClientMimeType(),
                 'uploaded_by' => $request->user()->id,
                 'uploaded_at' => now(),
+            ]);
+
+            \App\Models\AssetCaseStatusHistory::create([
+                'asset_id'   => $asset->id,
+                'status'     => $asset->current_status->value,
+                'changed_by' => $request->user()->id,
+                'notes'      => '__document_uploaded__:' . ($request->validated('document_type') ?? 'evidence'),
+                'changed_at' => now(),
             ]);
         }
 
