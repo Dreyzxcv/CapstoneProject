@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { FormEventHandler, useMemo, useState } from 'react';
-import { Plus, Shield, Trash2, Truck, X, ChevronRight, ChevronLeft, Check } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, Shield, Trash2, Truck, X, ChevronRight, ChevronLeft, Check, Copy, Calculator } from 'lucide-react';
 import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
+import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,8 +67,8 @@ const BD_FT_TO_CU_M = 0.002359737;
 
 interface ValidIdConfig {
     label: string;
-    prefix?: string;          // pre-filled text in the input
-    placeholder?: string;     // hint shown when field is empty
+    prefix?: string; 
+    placeholder?: string; 
 }
 
 const VALID_IDS: ValidIdConfig[] = [
@@ -255,6 +256,10 @@ export default function IncidentsCreate({
     const [addressMunicipality, setAddressMunicipality] = useState('');
     const [addressBarangay, setAddressBarangay] = useState('');
     const [idTypeIsOthers, setIdTypeIsOthers] = useState(false);
+    const [coordsMode, setCoordsMode] = useState<'map' | 'manual'>('map');
+    const DRAFT_KEY = 'forestrack_incident_draft';
+    const [showRestoreDraft, setShowRestoreDraft] = useState(false);
+    const [savedDraft, setSavedDraft] = useState<{ data: typeof data; step: number } | null>(null);
 
     const { data, setData, post, processing, errors, transform } = useForm({
         intake_mode: '',
@@ -275,6 +280,26 @@ export default function IncidentsCreate({
         date_report_submitted: '',
         assets: [emptyAssetRow({ municipality: defaultMunicipality, agency: defaultAgency, mode: '' })] as AssetRow[],
     });
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(DRAFT_KEY);
+            if (!saved) return;
+            const parsed = JSON.parse(saved);
+            if (parsed && typeof parsed === 'object') {
+                // Ask user if they want to restore
+                setShowRestoreDraft(true);
+                setSavedDraft(parsed);
+            }
+        } catch {}
+    }, []);
+
+    // Save draft on every data change
+    useEffect(() => {
+        try {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify({ data, step }));
+        } catch {}
+    }, [data, step]);
 
     const marketPriceMap = useMemo(() => {
         const map: Record<string, number> = {};
@@ -356,6 +381,17 @@ export default function IncidentsCreate({
         if (data.assets[ai].pieces.length === 1) return;
         const nextAssets = [...data.assets];
         nextAssets[ai] = { ...nextAssets[ai], pieces: data.assets[ai].pieces.filter((_, i) => i !== pi) };
+        setData('assets', nextAssets);
+    }
+
+    function duplicatePiece(ai: number, pi: number) {
+        const asset = data.assets[ai];
+        const original = asset.pieces[pi];
+        const copy: PieceRow = { ...original, estimated_value_auto: false };
+        const nextAssets = [...data.assets];
+        const nextPieces = [...nextAssets[ai].pieces];
+        nextPieces.splice(pi + 1, 0, copy);
+        nextAssets[ai] = { ...nextAssets[ai], pieces: nextPieces };
         setData('assets', nextAssets);
     }
 
@@ -482,7 +518,12 @@ export default function IncidentsCreate({
             ...fd,
             apprehending_party: fd.apprehending_parties.filter((p) => p.trim() !== '').join('; '),
         }));
-        post(route('incidents.store'), { onSuccess: () => setShowConfirmModal(false) });
+        post(route('incidents.store'), {
+            onSuccess: () => {
+                setShowConfirmModal(false);
+                try { localStorage.removeItem(DRAFT_KEY); } catch {}
+            },
+        });
     }
 
     // ── Piece form ────────────────────────────────────────────────────────────
@@ -496,11 +537,16 @@ export default function IncidentsCreate({
             <div key={pi} className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
                 <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-gray-700">Piece {pi + 1}</span>
-                    {asset.pieces.length > 1 && (
-                        <Button type="button" variant="ghost" size="sm" onClick={() => removePiece(ai, pi)}>
-                            <X className="h-3.5 w-3.5 mr-1" />Remove
+                    <div className="flex items-center gap-1">
+                        <Button type="button" variant="ghost" size="sm" onClick={() => duplicatePiece(ai, pi)}>
+                            <Copy className="h-3.5 w-3.5 mr-1" />Duplicate
                         </Button>
-                    )}
+                        {asset.pieces.length > 1 && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removePiece(ai, pi)}>
+                                <X className="h-3.5 w-3.5 mr-1" />Remove
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Species / type */}
@@ -745,14 +791,46 @@ export default function IncidentsCreate({
                         {/* Coordinates + Parties */}
                         <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
-                                <Label>{isTurnedOver ? 'Turn-Over Site Coordinates' : 'Apprehension Site Coordinates'}<span className="text-red-500">*</span></Label>
-                                <div className="flex gap-2">
-                                    <Input placeholder="e.g. 13.5833, 124.2333" value={data.coordinates}
-                                        onChange={(e) => setData('coordinates', e.target.value)} disabled required />
-                                    <Button type="button" variant="outline" onClick={() => setShowCoordinatesPicker(true)}>
-                                        Pick on Map
-                                    </Button>
+                                <div className="flex items-center justify-between">
+                                    <Label>{isTurnedOver ? 'Turn-Over Site Coordinates' : 'Apprehension Site Coordinates'}<span className="text-red-500">*</span></Label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCoordsMode((m) => m === 'map' ? 'manual' : 'map')}
+                                        className="text-xs font-medium text-emerald-700 hover:underline"
+                                    >
+                                        {coordsMode === 'map' ? 'Type manually instead' : 'Pick on map instead'}
+                                    </button>
                                 </div>
+                                {coordsMode === 'map' ? (
+                                    <div className="flex gap-2">
+                                        <Input
+                                            placeholder="e.g. 13.5833, 124.2333"
+                                            value={data.coordinates}
+                                            readOnly
+                                            className="bg-gray-50"
+                                            required
+                                        />
+                                        <Button type="button" variant="outline" onClick={() => setShowCoordinatesPicker(true)}>
+                                            Pick on Map
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-1">
+                                        <Input
+                                            placeholder="e.g. 13.5833, 124.2333"
+                                            value={data.coordinates}
+                                            onChange={(e) => setData('coordinates', e.target.value)}
+                                            required
+                                            autoFocus
+                                        />
+                                        <p className="text-xs text-gray-500">Format: latitude, longitude (e.g. 13.7481, 124.2439)</p>
+                                    </div>
+                                )}
+                                {data.coordinates && (
+                                    <p className="text-xs text-emerald-700">
+                                        Coordinates set: <span className="font-mono">{data.coordinates}</span>
+                                    </p>
+                                )}
                                 <InputError message={errors.coordinates} />
                             </div>
                             <div className="space-y-2">
@@ -985,6 +1063,12 @@ export default function IncidentsCreate({
     }
 
     // ── Step 3: Assets & Pieces ──────────────────────────────────────────────
+    function assetTotals(asset: AssetRow) {
+        const totalBdFt = asset.pieces.reduce((s, p) => s + (parseFloat(p.volume_bd_ft) || 0), 0);
+        const totalCuM  = asset.pieces.reduce((s, p) => s + (parseFloat(p.volume_cu_m)  || 0), 0);
+        const totalVal  = asset.pieces.reduce((s, p) => s + (parseFloat(p.estimated_value) || 0), 0);
+        return { totalBdFt, totalCuM, totalVal };
+    }
 
     function renderStep3() {
         return (
@@ -1029,6 +1113,33 @@ export default function IncidentsCreate({
                                     <span className="text-xs text-gray-500">{asset.pieces.length} {asset.pieces.length === 1 ? 'piece' : 'pieces'}</span>
                                 </div>
                                 {asset.pieces.map((_, pi) => renderPieceForm(asset, ai, pi))}
+
+                                {asset.type === 'log' && asset.pieces.length > 1 && (() => {
+                                    const { totalBdFt, totalCuM, totalVal } = assetTotals(asset);
+                                    return (
+                                        <div className="flex flex-wrap gap-4 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm">
+                                            <div className="flex items-center gap-1.5 text-emerald-800">
+                                                <Calculator className="h-3.5 w-3.5 shrink-0" />
+                                                <span className="font-semibold">Running totals:</span>
+                                            </div>
+                                            <span className="text-emerald-700">
+                                                <span className="font-medium">{totalBdFt.toFixed(2)}</span> bd.ft
+                                            </span>
+                                            <span className="text-emerald-700">
+                                                <span className="font-medium">{totalCuM.toFixed(4)}</span> cu.m
+                                            </span>
+                                            {totalVal > 0 && (
+                                                <span className="text-emerald-700">
+                                                    ₱<span className="font-medium">{totalVal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                                                </span>
+                                            )}
+                                            <span className="ml-auto text-emerald-600 text-xs">
+                                                {asset.pieces.length} pieces
+                                            </span>
+                                        </div>
+                                    );
+                                })()}
+
                                 <Button type="button" variant="outline" size="sm" onClick={() => addPiece(ai)}>
                                     <Plus className="mr-1.5 h-3.5 w-3.5" />Add Piece
                                 </Button>
@@ -1045,6 +1156,7 @@ export default function IncidentsCreate({
             </div>
         );
     }
+
 
     // ── Step 4: Review ───────────────────────────────────────────────────────
 
@@ -1082,6 +1194,16 @@ export default function IncidentsCreate({
                                 </>
                             )}
                         </dl>
+                        {data.coordinates && (
+                            <div className="mt-4 border-t border-gray-100 pt-4">
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Location Preview</p>
+                                <IncidentLocationMap
+                                    coordinates={data.coordinates}
+                                    placeName={data.place_of_apprehension}
+                                    areaName={data.area}
+                                />
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -1156,7 +1278,25 @@ export default function IncidentsCreate({
     const title = data.intake_mode === 'turned_over' ? 'MES Turn-Over Intake' : 'MES Apprehension Intake';
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">{title}</h2>}>
+        <AuthenticatedLayout
+            header={
+                <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (confirm('Discard this draft and start over?')) {
+                                try { localStorage.removeItem(DRAFT_KEY); } catch {}
+                                window.location.reload();
+                            }
+                        }}
+                        className="text-xs font-medium text-gray-400 hover:text-red-600 transition"
+                    >
+                        Discard Draft
+                    </button>
+                </div>
+            }
+        >
             <Head title={data.intake_mode === 'turned_over' ? 'New Turn-Over Intake' : 'New Apprehension Intake'} />
 
             <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6">
@@ -1264,6 +1404,40 @@ export default function IncidentsCreate({
                         </Button>
                         <Button type="button" onClick={confirmAndSubmit} disabled={processing}>
                             {processing ? 'Recording…' : 'Confirm & Record'}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Draft restore modal */}
+            <Modal show={showRestoreDraft} onClose={() => setShowRestoreDraft(false)} maxWidth="sm">
+                <div className="p-6">
+                    <h2 className="text-base font-semibold text-gray-900">Restore unsaved draft?</h2>
+                    <p className="mt-1 text-sm text-gray-600">
+                        You have an unfinished intake form. Would you like to continue where you left off?
+                    </p>
+                    <div className="mt-5 flex justify-end gap-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                try { localStorage.removeItem(DRAFT_KEY); } catch {}
+                                setShowRestoreDraft(false);
+                            }}
+                        >
+                            Start Fresh
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                if (savedDraft) {
+                                    setData(savedDraft.data);
+                                    setStep(savedDraft.step);
+                                }
+                                setShowRestoreDraft(false);
+                            }}
+                        >
+                            Restore Draft
                         </Button>
                     </div>
                 </div>
