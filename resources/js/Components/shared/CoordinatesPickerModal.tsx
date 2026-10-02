@@ -162,7 +162,25 @@ export default function CoordinatesPickerModal({
             setError('Pick a point on the map or enter coordinates first.');
             return;
         }
-        onSelect(`${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`);
+
+        const latNum = parseFloat(lat);
+        const lngNum = parseFloat(lng);
+
+        if (Number.isNaN(latNum) || Number.isNaN(lngNum)) {
+            setError('Invalid coordinates. Please try again.');
+            return;
+        }
+
+        const withinLat = latNum >= CATANDUANES_BOUNDS[0][0] && latNum <= CATANDUANES_BOUNDS[1][0];
+        const withinLng = lngNum >= CATANDUANES_BOUNDS[0][1] && lngNum <= CATANDUANES_BOUNDS[1][1];
+
+        if (!withinLat || !withinLng) {
+            setError('Those coordinates fall outside Catanduanes. Pick a point inside the island.');
+            return;
+        }
+
+        setError(null);
+        onSelect(`${latNum.toFixed(6)}, ${lngNum.toFixed(6)}`);
         onClose();
     }
 
