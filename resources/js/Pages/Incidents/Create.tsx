@@ -874,7 +874,9 @@ export default function IncidentsCreate({
                     <Card className="border-0 shadow-sm">
                         <CardHeader className="border-b border-gray-100">
                             <CardTitle className="text-base">Claimant</CardTitle>
-                            <p className="text-sm text-gray-600">Has anyone come forward as claimant or offender?</p>
+                            <p className="text-sm text-gray-600">
+                                Did a claimant or offender come forward? If none, this apprehension will be recorded as <span className="font-semibold text-amber-700">abandoned</span>.
+                            </p>
                         </CardHeader>
                         <CardContent className="pt-4 space-y-4">
                             <div className="flex gap-2">
@@ -884,14 +886,14 @@ export default function IncidentsCreate({
                                             data.has_claimant === val
                                                 ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
                                                 : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
-                                        {val ? 'With Claimant' : 'Without Claimant'}
+                                        {val ? 'With Claimant' : 'Without Claimant (Abandoned)'}
                                     </button>
                                 ))}
                             </div>
                             <p className="text-xs text-gray-500">
                                 {data.has_claimant
                                     ? 'A claimant/offender has come forward regarding this apprehension.'
-                                    : 'No claimant — this proceeds toward automatic confiscation per DAO 97-32.'}
+                                    : 'Abandoned — no claimant came forward. This proceeds toward automatic confiscation per DAO 97-32.'}
                             </p>
                             {data.has_claimant && (
                                 <div className="grid gap-4 md:grid-cols-2">
@@ -1169,94 +1171,294 @@ export default function IncidentsCreate({
                 </p>
 
                 {/* Incident summary */}
-                <Card className="border-0 shadow-sm">
-                    <CardHeader className="border-b border-gray-100 flex flex-row items-center justify-between">
-                        <CardTitle className="text-base">{isTurnedOver ? 'Turn-Over Details' : 'Apprehension Details'}</CardTitle>
-                        <button type="button" onClick={() => setStep(2)} className="text-xs text-emerald-700 hover:underline font-medium">
-                            Edit
-                        </button>
-                    </CardHeader>
-                    <CardContent className="pt-4">
-                        {previewCode && (
-                            <p className="mb-3 font-mono text-xs font-semibold text-emerald-700">Asset ID: {previewCode}</p>
-                        )}
-                        <dl className="grid gap-x-6 gap-y-2 text-sm md:grid-cols-2">
-                            <div><dt className="text-gray-500">Intake Mode</dt><dd className="font-medium text-gray-900">{labelFor(modes, data.intake_mode)}</dd></div>
-                            <div><dt className="text-gray-500">{isTurnedOver ? 'Date of Turn-Over' : 'Date of Apprehension'}</dt><dd className="font-medium text-gray-900">{data.date_of_apprehension || '—'}</dd></div>
-                            <div><dt className="text-gray-500">Municipality</dt><dd className="font-medium text-gray-900">{labelFor(municipalities, data.place_of_apprehension) || '—'}</dd></div>
-                            <div><dt className="text-gray-500">Land Class</dt><dd className="font-medium text-gray-900">{data.area || '—'}</dd></div>
-                            <div className="md:col-span-2"><dt className="text-gray-500">{isTurnedOver ? 'Turning-Over Party' : 'Apprehending Party'}</dt><dd className="font-medium text-gray-900">{data.apprehending_parties.filter((p) => p.trim()).join('; ') || '—'}</dd></div>
-                            {!isTurnedOver && (
-                                <>
-                                    <div><dt className="text-gray-500">Claimant</dt><dd className="font-medium text-gray-900">{data.has_claimant ? `With — ${data.claimant_offender_name || '—'}` : 'Without Claimant'}</dd></div>
-                                    <div><dt className="text-gray-500">Ongoing Case</dt><dd className="font-medium text-gray-900">{data.has_ongoing_case ? 'Yes' : 'No'}</dd></div>
-                                    <div><dt className="text-gray-500">Confiscation Order</dt><dd className="font-medium text-gray-900">{data.has_confiscation_order ? 'Yes' : 'No'}</dd></div>
-                                </>
-                            )}
-                        </dl>
-                        {data.coordinates && (
-                            <div className="mt-4 border-t border-gray-100 pt-4">
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Location Preview</p>
-                                <IncidentLocationMap
-                                    coordinates={data.coordinates}
-                                    placeName={data.place_of_apprehension}
-                                    areaName={data.area}
-                                />
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                {(() => {
+                    const Field = ({ label, value, mono = false, wide = false }: {
+                        label: string; value?: string | null; mono?: boolean; wide?: boolean;
+                    }) => (
+                        <div className={wide ? 'sm:col-span-2' : undefined}>
+                            <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{label}</dt>
+                            <dd className={`mt-0.5 text-sm font-semibold text-gray-900 ${mono ? 'font-mono' : ''}`}>
+                                {value && value.trim() !== '' ? value : <span className="font-normal text-gray-300">—</span>}
+                            </dd>
+                        </div>
+                    );
+
+                    const Pill = ({ on, onLabel, offLabel, tone }: {
+                        on: boolean; onLabel: string; offLabel: string; tone: 'amber' | 'red' | 'emerald';
+                    }) => {
+                        const onClass = {
+                            amber: 'border-amber-200 bg-amber-50 text-amber-800',
+                            red: 'border-red-200 bg-red-50 text-red-800',
+                            emerald: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+                        }[tone];
+                        return (
+                            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+                                on ? onClass : 'border-gray-200 bg-gray-50 text-gray-500'}`}>
+                                {on ? onLabel : offLabel}
+                            </span>
+                        );
+                    };
+
+                    const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+                        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-emerald-700">{children}</h4>
+                    );
+
+                    return (
+                        <Card className="border-0 shadow-sm">
+                            <CardHeader className="flex flex-row items-start justify-between border-b border-gray-100">
+                                <div>
+                                    <CardTitle className="text-base">
+                                        {isTurnedOver ? 'Turn-Over Details' : 'Apprehension Details'}
+                                    </CardTitle>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                        <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+                                            {labelFor(modes, data.intake_mode)}
+                                        </span>
+                                        {!isTurnedOver && !data.has_claimant && (
+                                            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                                                Abandoned
+                                            </span>
+                                        )}
+                                        {previewCode && (
+                                            <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-800">
+                                                {previewCode}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <button type="button" onClick={() => setStep(2)} className="text-xs font-medium text-emerald-700 hover:underline">
+                                    Edit
+                                </button>
+                            </CardHeader>
+
+                            <CardContent className="space-y-6 pt-5">
+                                {/* When & where */}
+                                <section>
+                                    <SectionTitle>When &amp; where</SectionTitle>
+                                    <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+                                        <Field label={isTurnedOver ? 'Date of Turn-Over' : 'Date of Apprehension'} value={data.date_of_apprehension} />
+                                        <Field label="Date Report Submitted" value={data.date_report_submitted} />
+                                        <Field label="Municipality" value={labelFor(municipalities, data.place_of_apprehension)} />
+                                        <Field label="Land Class" value={data.area} />
+                                        <Field label="Coordinates" value={data.coordinates} mono wide />
+                                    </dl>
+                                </section>
+
+                                {/* Parties */}
+                                <section className="border-t border-gray-100 pt-5">
+                                    <SectionTitle>{isTurnedOver ? 'Turning-Over Party' : 'Apprehending Party'}</SectionTitle>
+                                    <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+                                        <Field
+                                            label={isTurnedOver ? 'Turning-Over Party' : 'Apprehending Party'}
+                                            value={data.apprehending_parties.filter((p) => p.trim()).join('; ')}
+                                            wide
+                                        />
+                                        {!isTurnedOver && (
+                                            <Field label="Initial Custodian" value={data.initial_custodian_name || 'PENRO received directly'} wide />
+                                        )}
+                                    </dl>
+                                </section>
+
+                                {/* Claimant + legal (apprehended only) */}
+                                {!isTurnedOver && (
+                                    <>
+                                        <section className="border-t border-gray-100 pt-5">
+                                            <div className="mb-3 flex items-center justify-between">
+                                                <h4 className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                                                    {data.has_claimant ? 'Claimant' : 'Claimant Status'}
+                                                </h4>
+                                                {data.has_claimant ? (
+                                                    <Pill on onLabel="With Claimant" offLabel="" tone="emerald" />
+                                                ) : (
+                                                    <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                                                        Abandoned
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {data.has_claimant ? (
+                                                <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+                                                    <Field label="Name" value={data.claimant_offender_name} />
+                                                    <Field label="Address" value={data.claimant_address} />
+                                                    <Field label="Contact Number" value={data.claimant_contact_number} />
+                                                    <Field
+                                                        label="Valid ID"
+                                                        value={[data.claimant_id_type, data.claimant_id_number].filter(Boolean).join(' · ')}
+                                                    />
+                                                </dl>
+                                            ) : (
+                                                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
+                                                    <p className="text-sm font-semibold text-amber-900">Abandoned: no claimant came forward</p>
+                                                    <p className="mt-0.5 text-xs text-amber-800">
+                                                        This will be recorded as an abandoned apprehension and proceeds toward automatic confiscation per DAO 97-32.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </section>
+
+                                        <section className="border-t border-gray-100 pt-5">
+                                            <SectionTitle>Legal status</SectionTitle>
+                                            <div className="flex flex-wrap gap-2">
+                                                <Pill on={data.has_ongoing_case} onLabel="Ongoing case" offLabel="No ongoing case" tone="amber" />
+                                                <Pill on={data.has_confiscation_order} onLabel="Confiscation order issued" offLabel="No confiscation order" tone="red" />
+                                            </div>
+                                        </section>
+                                    </>
+                                )}
+
+                                {/* Map */}
+                                {data.coordinates && (
+                                    <section className="border-t border-gray-100 pt-5">
+                                        <SectionTitle>Location preview</SectionTitle>
+                                        <IncidentLocationMap
+                                            coordinates={data.coordinates}
+                                            placeName={data.place_of_apprehension}
+                                            areaName={data.area}
+                                        />
+                                    </section>
+                                )}
+                            </CardContent>
+                        </Card>
+                    );
+                })()}
 
                 {/* Assets */}
-                <Card className="border-0 shadow-sm">
-                    <CardHeader className="border-b border-gray-100 flex flex-row items-center justify-between">
-                        <CardTitle className="text-base">
-                            Items ({data.assets.length}) — {data.assets.reduce((sum, a) => sum + a.pieces.length, 0)} pieces total
-                        </CardTitle>
-                        <button type="button" onClick={() => setStep(3)} className="text-xs text-emerald-700 hover:underline font-medium">
-                            Edit
-                        </button>
-                    </CardHeader>
-                    <CardContent className="pt-4 space-y-4">
-                        {data.assets.map((asset, ai) => (
-                            <div key={ai} className="rounded-lg border border-gray-200 p-4">
-                                <p className="text-sm font-semibold text-gray-800 mb-3">
-                                    Item {ai + 1} — {labelFor(types, asset.type)} ({asset.pieces.length} {asset.pieces.length === 1 ? 'piece' : 'pieces'})
-                                </p>
-                                <div className="space-y-2">
-                                    {asset.pieces.map((piece, pi) => (
-                                        <div key={pi} className="rounded border border-gray-100 bg-gray-50 p-3 text-sm">
-                                            <p className="font-medium text-gray-700 mb-1">Piece {pi + 1}</p>
-                                            <dl className="grid gap-x-4 gap-y-1 md:grid-cols-3">
-                                                <div>
-                                                    <dt className="text-gray-500">{speciesFieldLabel(asset.type)}</dt>
-                                                    <dd className="text-gray-900">
-                                                        {asset.type === 'equipment' ? piece.equipment_type || '—'
-                                                            : asset.type === 'vehicle' ? piece.vehicle_type || '—'
-                                                            : piece.species || '—'}
-                                                    </dd>
-                                                </div>
-                                                {asset.type === 'log' && (
-                                                    <>
-                                                        <div><dt className="text-gray-500">Dimensions (L×W×H)</dt><dd className="text-gray-900">{piece.length || '—'} × {piece.width || '—'} × {piece.height || '—'}</dd></div>
-                                                        <div><dt className="text-gray-500">Volume (bd.ft)</dt><dd className="text-gray-900">{piece.volume_bd_ft || '—'}</dd></div>
-                                                        <div><dt className="text-gray-500">Est. Value</dt><dd className="text-gray-900">{piece.estimated_value ? `₱${Number(piece.estimated_value).toLocaleString()}` : '—'}</dd></div>
-                                                    </>
-                                                )}
-                                                {asset.type === 'vehicle' && (
-                                                    <div><dt className="text-gray-500">Plate No.</dt><dd className="text-gray-900">{piece.plate_number || '—'}</dd></div>
-                                                )}
-                                                {asset.type === 'equipment' && (
-                                                    <div><dt className="text-gray-500">Serial No.</dt><dd className="text-gray-900">{piece.serial_number || '—'}</dd></div>
-                                                )}
-                                            </dl>
-                                        </div>
-                                    ))}
+                {(() => {
+                    const totalPieces = data.assets.reduce((sum, a) => sum + a.pieces.length, 0);
+                    const money = (v: string | number) =>
+                        `₱${Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    const num = (v: string | number, d = 2) =>
+                        Number(v).toLocaleString('en-PH', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+                    return (
+                        <Card className="border-0 shadow-sm">
+                            <CardHeader className="flex flex-row items-start justify-between border-b border-gray-100">
+                                <div>
+                                    <CardTitle className="text-base">Items to Record</CardTitle>
+                                    <p className="mt-0.5 text-sm text-gray-500">
+                                        {data.assets.length} {data.assets.length === 1 ? 'item' : 'items'} ·{' '}
+                                        {totalPieces} {totalPieces === 1 ? 'piece' : 'pieces'}
+                                    </p>
                                 </div>
-                            </div>
-                        ))}
-                    </CardContent>
-                </Card>
+                                <button type="button" onClick={() => setStep(3)} className="text-xs font-medium text-emerald-700 hover:underline">
+                                    Edit
+                                </button>
+                            </CardHeader>
+
+                            <CardContent className="space-y-5 pt-5">
+                                {data.assets.map((asset, ai) => {
+                                    const isLog = asset.type === 'log';
+                                    const isVehicle = asset.type === 'vehicle';
+                                    const { totalBdFt, totalCuM, totalVal } = assetTotals(asset);
+
+                                    const headers = isLog
+                                        ? ['#', 'Species', 'Dimensions (L × W × H)', 'Volume (bd.ft)', 'Est. Value']
+                                        : isVehicle
+                                            ? ['#', 'Vehicle Type', 'Plate No.', 'Description']
+                                            : ['#', 'Equipment Type', 'Serial No.', 'Description'];
+
+                                    return (
+                                        <div key={ai} className="overflow-hidden rounded-lg border border-gray-200">
+                                            {/* Item header */}
+                                            <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
+                                                        Item {ai + 1}
+                                                    </span>
+                                                    <span className="text-sm font-semibold text-gray-900">
+                                                        {labelFor(types, asset.type)}
+                                                    </span>
+                                                </div>
+                                                <span className="text-xs text-gray-500">
+                                                    {asset.pieces.length} {asset.pieces.length === 1 ? 'piece' : 'pieces'}
+                                                </span>
+                                            </div>
+
+                                            {/* Pieces table */}
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm">
+                                                    <thead>
+                                                        <tr className="border-b border-gray-100 text-left text-[11px] uppercase tracking-wide text-gray-400">
+                                                            {headers.map((h, i) => (
+                                                                <th
+                                                                    key={h}
+                                                                    className={`whitespace-nowrap px-4 py-2 font-medium ${
+                                                                        isLog && i >= 3 ? 'text-right' : ''
+                                                                    }`}
+                                                                >
+                                                                    {h}
+                                                                </th>
+                                                            ))}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100">
+                                                        {asset.pieces.map((piece, pi) => (
+                                                            <tr key={pi} className="align-top">
+                                                                <td className="px-4 py-3 text-gray-400">{pi + 1}</td>
+
+                                                                {isLog && (
+                                                                    <>
+                                                                        <td className="px-4 py-3 font-semibold text-gray-900">
+                                                                            {piece.species || '—'}
+                                                                            {piece.description && (
+                                                                                <p className="mt-0.5 text-xs font-normal text-gray-500">{piece.description}</p>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="whitespace-nowrap px-4 py-3 text-gray-700">
+                                                                            {piece.length || '—'} × {piece.width || '—'} × {piece.height || '—'}
+                                                                        </td>
+                                                                        <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-gray-900">
+                                                                            {piece.volume_bd_ft ? num(piece.volume_bd_ft) : '—'}
+                                                                        </td>
+                                                                        <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-emerald-700">
+                                                                            {piece.estimated_value ? money(piece.estimated_value) : '—'}
+                                                                        </td>
+                                                                    </>
+                                                                )}
+
+                                                                {isVehicle && (
+                                                                    <>
+                                                                        <td className="px-4 py-3 font-semibold text-gray-900">{piece.vehicle_type || '—'}</td>
+                                                                        <td className="px-4 py-3 font-mono text-gray-900">{piece.plate_number || '—'}</td>
+                                                                        <td className="px-4 py-3 text-gray-600">{piece.description || '—'}</td>
+                                                                    </>
+                                                                )}
+
+                                                                {asset.type === 'equipment' && (
+                                                                    <>
+                                                                        <td className="px-4 py-3 font-semibold text-gray-900">{piece.equipment_type || '—'}</td>
+                                                                        <td className="px-4 py-3 font-mono text-gray-900">{piece.serial_number || '—'}</td>
+                                                                        <td className="px-4 py-3 text-gray-600">{piece.description || '—'}</td>
+                                                                    </>
+                                                                )}
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+
+                                                    {/* Totals (logs only, 2+ pieces) */}
+                                                    {isLog && asset.pieces.length > 1 && (
+                                                        <tfoot>
+                                                            <tr className="border-t-2 border-emerald-100 bg-emerald-50">
+                                                                <td colSpan={3} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                                                                    Total · {num(totalCuM, 4)} cu.m
+                                                                </td>
+                                                                <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-emerald-800">
+                                                                    {num(totalBdFt)}
+                                                                </td>
+                                                                <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-emerald-800">
+                                                                    {money(totalVal)}
+                                                                </td>
+                                                            </tr>
+                                                        </tfoot>
+                                                    )}
+                                                </table>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </CardContent>
+                        </Card>
+                    );
+                })()}
             </div>
         );
     }
