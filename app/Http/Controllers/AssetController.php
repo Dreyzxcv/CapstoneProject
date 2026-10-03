@@ -253,6 +253,11 @@ class AssetController extends Controller
                 'value' => $m->value,
                 'label' => $m->label(),
             ]),
+            'municipalities' => collect(\App\Enums\Municipality::cases())->map(fn ($m) => [
+                'value' => $m->value,
+                'label' => $m->value,
+            ]),
+            'barangaysByMunicipality' => config('barangays'),
             'hasAllRequiredDocuments' => $asset->hasAllRequiredDocuments(),
             'can' => [
                 'submitForCustodyReview' => $request->user()->can('submitForCustodyReview', $asset),
@@ -406,7 +411,7 @@ class AssetController extends Controller
                 fn ($v) => $v !== null,
             );
 
-            if ($request->has('has_claimant')) {
+            if ($request->has('has_claimant') && $request->input('mode') !== 'turned_over') {
                 $hasClaimant = (bool) $request->has_claimant;
                 $incidentData['is_abandoned'] = ! $hasClaimant;
                 $incidentData['claimant_offender_name'] = $hasClaimant

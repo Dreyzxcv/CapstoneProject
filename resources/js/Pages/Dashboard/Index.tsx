@@ -7,8 +7,6 @@ import {
     Boxes,
     Car,
     ClipboardCheck,
-    FileSignature,
-    Calculator,
     PackagePlus,
     Recycle,
     CheckCircle2,
@@ -22,12 +20,17 @@ import {
     FileBarChart2,
     FileCheck,
     QrCode,
-    TrendingUp,
-    Layers,
     ShieldAlert,
     Archive,
+    FileInput,
     ArrowRight,
 } from 'lucide-react';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/Components/ui/tooltip';
 
 interface DashboardAlert {
     id: string;
@@ -76,12 +79,37 @@ const TYPE_ICONS: Record<string, typeof TreePine> = {
     vehicle: Car,
 };
 
-const PIPELINE_STAGES: Array<{ key: string; label: string; icon: typeof PackagePlus }> = [
-    { key: 'stored', label: 'Stored', icon: Boxes },
-    { key: 'receipt_signed', label: 'Document Verified', icon: FileCheck },
-    { key: 'pending_custody_review', label: 'Custody Review', icon: ClipboardCheck },
-    { key: 'cleared_for_accounting', label: 'Tagged', icon: QrCode },
-    { key: 'for_disposal', label: 'For Disposal', icon: Recycle },
+const PIPELINE_STAGES: Array<{ key: string; label: string; icon: typeof PackagePlus; description: string }> = [
+    {
+        key: 'stored',
+        label: 'Pending Documents',
+        icon: FileInput,
+        description: 'Intake is done and the asset is in storage. MES staff will upload the required documents for custody review.',
+    },
+    {
+        key: 'pending_custody_review',
+        label: 'Custody Review',
+        icon: ClipboardCheck,
+        description: 'Uploaded documents are waiting to be reviewed and checked by the Custodian.',
+    },
+    {
+        key: 'receipt_signed',
+        label: 'Document Verified',
+        icon: FileCheck,
+        description: 'Documents are verified by Custodian. The asset is ready for tagging.',
+    },
+    {
+        key: 'cleared_for_accounting',
+        label: 'Tagged',
+        icon: QrCode,
+        description: 'The asset has been tagged (QR/property tag) and ready for Accounting(JEV IN).',
+    },
+    {
+        key: 'for_disposal',
+        label: 'For Disposal',
+        icon: Recycle,
+        description: 'The asset is approved for disposal and waiting to be closed out.',
+    },
 ];
 
 const TERMINAL_STATUSES = ['donated', 'decayed', 'fabricated', 'released', 'forfeited', 'damaged'];
@@ -572,54 +600,75 @@ export default function DashboardIndex({
                         </p>
                     </CardHeader>
                     <CardContent className="pt-2">
-                        <div className="flex items-start gap-1 overflow-x-auto pb-2 sm:gap-0">
-                            {PIPELINE_STAGES.map((stage, index) => {
-                                const Icon = stage.icon;
-                                const count = stats.byStatus[stage.key] ?? 0;
-                                const isLast = index === PIPELINE_STAGES.length - 1;
-                                return (
-                                    <div key={stage.key} className="flex flex-1 items-start">
-                                        <div className="flex min-w-[92px] flex-col items-center gap-2 px-1 text-center">
+                        <TooltipProvider delayDuration={100}>
+                            <div className="flex items-start gap-1 overflow-x-auto pb-2 sm:gap-0">
+                                {PIPELINE_STAGES.map((stage, index) => {
+                                    const Icon = stage.icon;
+                                    const count = stats.byStatus[stage.key] ?? 0;
+                                    const isLast = index === PIPELINE_STAGES.length - 1;
+                                    return (
+                                        <div key={stage.key} className="flex flex-1 items-start">
+                                            <div className="flex min-w-[92px] flex-col items-center gap-2 px-1 text-center">
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <div
+                                                            className={
+                                                                'flex h-11 w-11 cursor-help items-center justify-center rounded-full border-2 ' +
+                                                                (count > 0
+                                                                    ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+                                                                    : 'border-gray-200 bg-gray-50 text-gray-400')
+                                                            }
+                                                        >
+                                                            <Icon className="h-5 w-5" />
+                                                        </div>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent className="max-w-[240px] text-center">
+                                                        <p className="text-xs font-semibold">{stage.label}</p>
+                                                        <p className="mt-1 text-xs text-gray-500">{stage.description}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                                <div>
+                                                    <p className="text-lg font-semibold leading-none text-gray-900">{count}</p>
+                                                    <p className="mt-1 text-[11px] font-medium leading-tight text-gray-500">
+                                                        {stage.label}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {!isLast && (
+                                                <div className="mt-5 h-px flex-1 min-w-[16px] bg-gray-200" />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+
+                                <div className="flex min-w-[92px] flex-col items-center gap-2 px-1 text-center">
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
                                             <div
                                                 className={
-                                                    'flex h-11 w-11 items-center justify-center rounded-full border-2 ' +
-                                                    (count > 0
+                                                    'flex h-11 w-11 cursor-help items-center justify-center rounded-full border-2 ' +
+                                                    (disposedCount > 0
                                                         ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
                                                         : 'border-gray-200 bg-gray-50 text-gray-400')
                                                 }
                                             >
-                                                <Icon className="h-5 w-5" />
+                                                <CheckCircle2 className="h-5 w-5" />
                                             </div>
-                                            <div>
-                                                <p className="text-lg font-semibold leading-none text-gray-900">{count}</p>
-                                                <p className="mt-1 text-[11px] font-medium leading-tight text-gray-500">
-                                                    {stage.label}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        {!isLast && (
-                                            <div className="mt-5 h-px flex-1 min-w-[16px] bg-gray-200" />
-                                        )}
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-[240px] text-center">
+                                            <p className="text-xs font-semibold">Disposed</p>
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                The asset has been closed out: donated, decayed, fabricated, released, forfeited, or damaged.
+                                            </p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                    <div>
+                                        <p className="text-lg font-semibold leading-none text-gray-900">{disposedCount}</p>
+                                        <p className="mt-1 text-[11px] font-medium leading-tight text-gray-500">Disposed</p>
                                     </div>
-                                );
-                            })}
-                            <div className="flex min-w-[92px] flex-col items-center gap-2 px-1 text-center">
-                                <div
-                                    className={
-                                        'flex h-11 w-11 items-center justify-center rounded-full border-2 ' +
-                                        (disposedCount > 0
-                                            ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
-                                            : 'border-gray-200 bg-gray-50 text-gray-400')
-                                    }
-                                >
-                                    <CheckCircle2 className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <p className="text-lg font-semibold leading-none text-gray-900">{disposedCount}</p>
-                                    <p className="mt-1 text-[11px] font-medium leading-tight text-gray-500">Disposed</p>
                                 </div>
                             </div>
-                        </div>
+                        </TooltipProvider>
                         {underTrialCount > 0 && (
                             <div className="mt-3 flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
                                 <Scale className="h-3.5 w-3.5 shrink-0" />

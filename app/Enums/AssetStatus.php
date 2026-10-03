@@ -28,7 +28,7 @@ enum AssetStatus: string
             self::DocumentsUploaded => 'Documents Uploaded',
             self::PendingCustodyReview => 'Pending Custody Review',
             self::ReceiptSigned => 'Document Verified',
-            self::Stored => 'In Storage',
+            self::Stored => 'In Storage — Pre-Document Upload',
             self::UnderTrial => 'Under Trial',
             self::ClearedForAccounting => 'Tagged — Cleared for Custodian',
             self::ForDisposal => 'For Disposal',

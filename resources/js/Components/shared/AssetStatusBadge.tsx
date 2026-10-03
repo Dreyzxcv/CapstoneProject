@@ -26,7 +26,7 @@ const statusLabels: Record<string, string> = {
     documents_uploaded:         'Documents Uploaded',
     pending_custody_review:     'Pending Custody Review',
     receipt_signed:             'Required Documents Verified',
-    stored:                     'In Storage',
+    stored:                     'In Storage — Pre-Document Upload',
     under_trial:                'Under Trial',
     cleared_for_accounting:     'Tagged — Cleared for Custodian',
     for_disposal:               'For Disposal',

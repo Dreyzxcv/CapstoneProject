@@ -157,7 +157,7 @@ class AssetLifecycleService
                 'nextAction' => 'Asset will be automatically moved to Stored after intake.',
             ],
             AssetStatus::Stored => [
-                'title' => 'In Storage',
+                'title' => 'In Storage — Pre-Document Upload',
                 'summary' => 'The asset is in storage. MES must upload the required documents to proceed.',
                 'nextAction' => 'Upload all required documents to submit for custody review.',
             ],

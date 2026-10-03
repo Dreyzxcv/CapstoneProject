@@ -25,12 +25,15 @@ class UpdateAssetRequest extends FormRequest
 
             // Incident-level (only present when asset has an incident)
             'date_of_apprehension'   => ['nullable', 'date'],
-            'place_of_apprehension'  => ['nullable', 'string', 'max:255'],
-            'area'                   => ['nullable', 'string', 'max:255'],
+            'place_of_apprehension'  => ['nullable', Rule::enum(\App\Enums\Municipality::class)],
+            'area'                   => ['nullable', Rule::in(['Timberland', 'Protected Area', 'Alienable & Disposable'])],
             'coordinates'            => ['nullable', 'string', 'max:100'],
             'apprehending_party'     => ['nullable', 'string', 'max:500'],
             'has_claimant'           => ['boolean'],
-            'claimant_offender_name' => ['nullable', 'string', 'max:255'],
+            'claimant_offender_name' => [
+                Rule::requiredIf(fn () => $this->boolean('has_claimant') && $this->input('mode') !== 'turned_over'),
+                'nullable', 'string', 'max:255',
+            ],
             'claimant_address'        => ['nullable', 'string', 'max:500'],
             'claimant_contact_number' => ['nullable', 'string', 'max:50'],
             'claimant_id_type'        => ['nullable', 'string', 'max:100'],

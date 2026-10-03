@@ -48,6 +48,8 @@ interface ShowProps {
     pieceQrSvgs: Record<number, string>;
     requiredDocumentTypes: Array<{ value: string; label: string }>;
     modes: Array<{ value: string; label: string }>;
+    municipalities: Array<{ value: string; label: string }>;
+    barangaysByMunicipality: Record<string, string[]>;
     speciesOptions: string[];
     equipmentOptions: string[];
     allStatusHistory: StatusHistoryEntry[];
@@ -80,6 +82,32 @@ interface ShowProps {
 
 // ─── Piece Detail / Edit Modal ────────────────────────────────────────────────
 
+const UNTAGGED_STATUSES = [
+    "intake_recorded",
+    "documents_uploaded",
+    "pending_custody_review",
+    "stored",
+];
+
+const selectClass =
+    "flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600";
+
+const LAND_CLASSES = ["Timberland", "Protected Area", "Alienable & Disposable"];
+
+const VALID_IDS: { label: string; placeholder?: string }[] = [
+    { label: "PhilSys (National ID)", placeholder: "0000-0000-0000-0000" },
+    { label: "Driver's License", placeholder: "e.g. N12-34-567890" },
+    { label: "Passport", placeholder: "e.g. P1234567A" },
+    { label: "Voter's ID", placeholder: "Enter ID number" },
+    { label: "PRC ID", placeholder: "Enter PRC ID number" },
+    { label: "SSS ID", placeholder: "Enter SSS number" },
+    { label: "GSIS ID", placeholder: "Enter GSIS ID number" },
+    { label: "Senior Citizen ID", placeholder: "Enter SC ID number" },
+    { label: "PWD ID", placeholder: "Enter PWD ID number" },
+    { label: "NBI Clearance", placeholder: "Enter clearance number" },
+    { label: "Others" },
+];
+
 function PieceModal({
     piece,
     asset,
@@ -95,6 +123,7 @@ function PieceModal({
 }) {
     const [editing, setEditing] = useState(false);
     const [qrLightbox, setQrLightbox] = useState(false);
+    const isTagged = !UNTAGGED_STATUSES.includes(asset.current_status);
 
     const form = useForm({
         species: piece.species ?? "",
@@ -420,7 +449,7 @@ function PieceModal({
                 </div>
 
                 <div className="flex items-start gap-3 shrink-0">
-                    {qrSvg ? (
+                    {isTagged && qrSvg ? (
                         <>
                             <button
                                 type="button"
@@ -462,7 +491,7 @@ function PieceModal({
                         </>
                     ) : (
                         <div className="h-16 w-16 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-[9px] text-gray-400 text-center leading-tight p-1">
-                            No QR
+                            {isTagged ? "No QR" : "QR shows after tagging"}
                         </div>
                     )}
                 </div>
@@ -557,9 +586,11 @@ function PieceModal({
 function DocumentTimelineEntry({
     doc,
     label,
+    compact = false,
 }: {
     doc: import("@/types").DocumentItem;
     label: string;
+    compact?: boolean;
 }) {
     const [expanded, setExpanded] = useState(false);
     const url = documentUrl(doc.file_path);
@@ -573,7 +604,7 @@ function DocumentTimelineEntry({
               : "text-amber-500";
 
     return (
-        <div className="border-b border-gray-100 pb-2">
+        <div className={compact ? "py-1" : "border-b border-gray-100 pb-2"}>
             <div className="flex items-center justify-between gap-2 text-sm">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                     <FileText className="h-3.5 w-3.5 shrink-0 text-gray-400" />
@@ -587,16 +618,25 @@ function DocumentTimelineEntry({
                     </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 text-right">
-                    <div>
-                        {doc.uploaded_by && (
-                            <p className="text-xs font-medium text-gray-700">
-                                {doc.uploaded_by.name}
-                            </p>
-                        )}
-                        <p className="text-xs text-gray-400">
-                            {new Date(doc.uploaded_at).toLocaleString()}
+                    {compact ? (
+                        <p className="text-[11px] text-gray-400">
+                            {new Date(doc.uploaded_at).toLocaleTimeString([], {
+                                hour: "numeric",
+                                minute: "2-digit",
+                            })}
                         </p>
-                    </div>
+                    ) : (
+                        <div>
+                            {doc.uploaded_by && (
+                                <p className="text-xs font-medium text-gray-700">
+                                    {doc.uploaded_by.name}
+                                </p>
+                            )}
+                            <p className="text-xs text-gray-400">
+                                {new Date(doc.uploaded_at).toLocaleString()}
+                            </p>
+                        </div>
+                    )}
                     <button
                         type="button"
                         onClick={() => setExpanded((p) => !p)}
@@ -689,6 +729,60 @@ function DocumentTimelineEntry({
     );
 }
 
+function DocumentGroup({
+    docs,
+    defaultOpen = false,
+}: {
+    docs: Array<{ id: string; doc: import("@/types").DocumentItem; label: string }>;
+    defaultOpen?: boolean;
+}) {
+    const [open, setOpen] = useState(defaultOpen);
+
+    const count = (s: string) => docs.filter((d) => d.doc.status === s).length;
+    const summary = [
+        count("verified") > 0 && `${count("verified")} verified`,
+        count("pending") > 0 && `${count("pending")} pending`,
+        count("rejected") > 0 && `${count("rejected")} rejected`,
+    ]
+        .filter(Boolean)
+        .join(" · ");
+
+    return (
+        <div className="mt-2">
+            <button
+                type="button"
+                onClick={() => setOpen((p) => !p)}
+                className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition"
+            >
+                {open ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                )}
+                <span>
+                    {docs.length} document{docs.length === 1 ? "" : "s"}
+                    {summary && (
+                        <span className="ml-1 font-normal text-gray-400">· {summary}</span>
+                    )}
+                </span>
+            </button>
+
+            {open && (
+                <div className="mt-2 ml-1.5 space-y-0.5 border-l-2 border-gray-100 pl-3">
+                    {docs.map((d) => (
+                        <DocumentTimelineEntry
+                            key={d.id}
+                            doc={d.doc}
+                            label={d.label}
+                            compact
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AssetsShow({
@@ -701,6 +795,8 @@ export default function AssetsShow({
     speciesOptions,
     equipmentOptions,
     modes,
+    municipalities,
+    barangaysByMunicipality,
     can,
     hasAllRequiredDocuments,
     aapDocumentUploaded,
@@ -747,6 +843,44 @@ export default function AssetsShow({
         has_ongoing_case: asset.has_ongoing_case ?? false,
         has_confiscation_order: asset.has_confiscation_order ?? false,
     });
+
+    const editIsTurnedOver = editForm.data.mode === "turned_over";
+
+    const [apprehendingParties, setApprehendingParties] = useState<string[]>(
+        () => {
+            const parts = (asset.incident?.apprehending_party ?? "")
+                .split(";")
+                .map((s) => s.trim())
+                .filter(Boolean);
+            return parts.length ? parts : [""];
+        },
+    );
+
+    function syncParties(next: string[]) {
+        setApprehendingParties(next);
+        editForm.setData(
+            "apprehending_party",
+            next.filter((p) => p.trim() !== "").join("; "),
+        );
+    }
+
+    const [coordsMode, setCoordsMode] = useState<"map" | "manual">("map");
+    const [showAddressPicker, setShowAddressPicker] = useState(false);
+    const [addressMunicipality, setAddressMunicipality] = useState("");
+    const [addressBarangay, setAddressBarangay] = useState("");
+
+    const [idTypeIsOthers, setIdTypeIsOthers] = useState(() => {
+        const t = asset.incident?.claimant_id_type ?? "";
+        return t !== "" && !VALID_IDS.some((i) => i.label === t);
+    });
+
+    function handleEditMunicipalityChange(value: string) {
+        editForm.setData((prev: any) => ({
+            ...prev,
+            place_of_apprehension: value,
+            location_apprehended: value,
+        }));
+    }
 
     function submitEdit(e: FormEvent) {
         e.preventDefault();
@@ -1335,52 +1469,36 @@ export default function AssetsShow({
                                         </p>
                                     </div>
                                     <p>
-                                        <span className="font-medium">
-                                            Date of Apprehension:
-                                        </span>{" "}
-                                        {new Date(
-                                            asset.incident.date_of_apprehension,
-                                        ).toLocaleDateString()}
+                                        <span className="font-medium">Date of Apprehension:</span>{" "}
+                                        {new Date(asset.incident.date_of_apprehension).toLocaleDateString()}
                                     </p>
                                     <p>
-                                        <span className="font-medium">
-                                            Place of Apprehension:
-                                        </span>{" "}
+                                        <span className="font-medium">Place of Apprehension:</span>{" "}
                                         {asset.incident.place_of_apprehension}
                                     </p>
                                     {asset.incident.area && (
                                         <p>
-                                            <span className="font-medium">
-                                                Land Class:
-                                            </span>{" "}
+                                            <span className="font-medium">Land Class:</span>{" "}
                                             {asset.incident.area}
                                         </p>
                                     )}
                                     {asset.incident.coordinates && (
                                         <p className="flex items-center gap-1">
                                             <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                                            <span className="font-medium">
-                                                Coordinates:
-                                            </span>{" "}
+                                            <span className="font-medium">Coordinates:</span>{" "}
                                             {asset.incident.coordinates}
                                         </p>
                                     )}
                                     <p>
                                         <span className="font-medium">
-                                            {asset.incident.is_abandoned
-                                                ? "Status:"
-                                                : "Claimant / Offender:"}
+                                            {asset.incident.is_abandoned ? "Status:" : "Claimant / Offender:"}
                                         </span>{" "}
                                         {asset.incident.is_abandoned
                                             ? "Abandoned (no known claimant)"
-                                            : (asset.incident
-                                                  .claimant_offender_name ??
-                                              "(Abandoned)")}
+                                            : (asset.incident.claimant_offender_name ?? "(Abandoned)")}
                                     </p>
                                     <p>
-                                        <span className="font-medium">
-                                            Apprehending Party:
-                                        </span>{" "}
+                                        <span className="font-medium">Apprehending Party:</span>{" "}
                                         {asset.incident.apprehending_party}
                                     </p>
                                 </>
@@ -2279,40 +2397,67 @@ export default function AssetsShow({
                             const timeline = [...statusEvents, ...docEvents].sort((a, b) => {
                                 const diff = a.timestamp.getTime() - b.timestamp.getTime();
                                 if (diff !== 0) return diff;
-                                if (a.kind === 'document' && b.kind === 'status') return -1;
-                                if (a.kind === 'status' && b.kind === 'document') return 1;
+                                if (a.kind === "document" && b.kind === "status") return -1;
+                                if (a.kind === "status" && b.kind === "document") return 1;
                                 return 0;
                             });
 
+                            type DocEvent = (typeof docEvents)[number];
+                            type TimelineItem =
+                                | { kind: "status"; id: string; entry: StatusHistoryEntry; docs: DocEvent[] }
+                                | { kind: "documents"; id: string; docs: DocEvent[] };
+
+                            const items: TimelineItem[] = [];
+                            let buffer: DocEvent[] = [];
+
+                            const flush = () => {
+                                if (buffer.length > 0) {
+                                    items.push({ kind: "documents", id: `docs-${buffer[0].id}`, docs: buffer });
+                                    buffer = [];
+                                }
+                            };
+
+                            for (const event of timeline) {
+                                if (event.kind === "document") {
+                                    buffer.push(event);
+                                    continue;
+                                }
+                                if (event.entry.status === "documents_uploaded") {
+                                    items.push({ kind: "status", id: event.id, entry: event.entry, docs: buffer });
+                                    buffer = [];
+                                } else {
+                                    flush();
+                                    items.push({ kind: "status", id: event.id, entry: event.entry, docs: [] });
+                                }
+                            }
+                            flush();
+
                             return (
                                 <div className="space-y-2">
-                                    {timeline.map((event) => {
-                                        if (event.kind === "document") {
+                                    {items.map((item) => {
+                                        if (item.kind === "documents") {
+                                            if (item.docs.length === 1) {
+                                                const d = item.docs[0];
+                                                return <DocumentTimelineEntry key={item.id} doc={d.doc} label={d.label} />;
+                                            }
                                             return (
-                                                <DocumentTimelineEntry
-                                                    key={event.id}
-                                                    doc={event.doc}
-                                                    label={event.label}
-                                                />
+                                                <div key={item.id} className="border-b border-gray-100 pb-2">
+                                                    <DocumentGroup docs={item.docs} />
+                                                </div>
                                             );
                                         }
 
-                                        const entry = event.entry;
+                                        const entry = item.entry;
                                         return (
                                             <div
-                                                key={event.id}
+                                                key={item.id}
                                                 className="flex flex-wrap justify-between gap-2 border-b border-gray-100 pb-2 text-sm"
                                             >
                                                 <div className="min-w-0 flex-1 break-words">
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                         <AssetStatusBadge
-                                                            status={
-                                                                entry.status
-                                                            }
-                                                            label={entry.status.replace(
-                                                                /_/g,
-                                                                " ",
-                                                            )}
+                                                            status={entry.status}
+                                                            label={entry.status.replace(/_/g, " ")}
                                                         />
                                                         {entry.asset_type &&
                                                             [
@@ -2320,47 +2465,32 @@ export default function AssetsShow({
                                                                 "donation_pending_jev_out",
                                                                 "pending_release",
                                                                 "donated",
-                                                            ].includes(
-                                                                entry.status,
-                                                            ) && (
+                                                            ].includes(entry.status) && (
                                                                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                                                                    {
-                                                                        entry.asset_type
-                                                                    }
+                                                                    {entry.asset_type}
                                                                 </span>
                                                             )}
                                                     </div>
                                                     {entry.notes && (
-                                                        <p className="mt-1 text-gray-600">
-                                                            {entry.notes}
-                                                        </p>
+                                                        <p className="mt-1 text-gray-600">{entry.notes}</p>
                                                     )}
+
+                                                    {item.docs.length > 0 && <DocumentGroup docs={item.docs} />}
                                                 </div>
+
                                                 <div className="min-w-0 shrink-0 break-words text-right text-gray-500">
                                                     {entry.changed_by && (
                                                         <p className="text-xs font-medium text-gray-700">
-                                                            {
-                                                                entry.changed_by
-                                                                    .name
-                                                            }
+                                                            {entry.changed_by.name}
                                                         </p>
                                                     )}
-                                                    {entry.changed_by
-                                                        ?.roles?.[0] && (
+                                                    {entry.changed_by?.roles?.[0] && (
                                                         <p className="text-[11px] text-gray-400">
-                                                            {
-                                                                (
-                                                                    entry
-                                                                        .changed_by
-                                                                        .roles[0] as any
-                                                                ).name
-                                                            }
+                                                            {(entry.changed_by.roles[0] as any).name}
                                                         </p>
                                                     )}
                                                     <p className="text-xs">
-                                                        {new Date(
-                                                            entry.changed_at,
-                                                        ).toLocaleString()}
+                                                        {new Date(entry.changed_at).toLocaleString()}
                                                     </p>
                                                 </div>
                                             </div>
@@ -2643,7 +2773,10 @@ export default function AssetsShow({
 
             <Modal
                 show={showEditModal}
-                onClose={() => setShowEditModal(false)}
+                onClose={() => {
+                    if (showCoordinatesPicker || showAddressPicker) return;
+                    setShowEditModal(false);
+                }}
                 maxWidth="2xl"
             >
                 <form
@@ -2710,339 +2843,414 @@ export default function AssetsShow({
                         </div>
                     </div>
 
-                    {/* From Incident Report */}
                     {asset.incident && (
                         <>
                             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 pt-1">
                                 From Incident Report
                             </p>
 
-                            <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
+                            {/* Date */}
+                            <div className="space-y-1">
+                                <Label htmlFor="edit-date-apprehension">
+                                    {editIsTurnedOver ? "Date of Turn-Over" : "Date of Apprehension"}
+                                </Label>
+                                <Input
+                                    id="edit-date-apprehension"
+                                    type="date"
+                                    value={editForm.data.date_of_apprehension}
+                                    onChange={(e) =>
+                                        editForm.setData("date_of_apprehension", e.target.value)
+                                    }
+                                />
+                                <InputError message={(editForm.errors as any).date_of_apprehension} />
+                            </div>
+
+                            {/* Province / Municipality / Land Class */}
+                            <div className="grid gap-3 sm:gap-4 sm:grid-cols-3">
                                 <div className="space-y-1">
-                                    <Label htmlFor="edit-date-apprehension">
-                                        Date of Apprehension
-                                    </Label>
-                                    <Input
-                                        id="edit-date-apprehension"
-                                        type="date"
-                                        value={
-                                            editForm.data.date_of_apprehension
-                                        }
-                                        onChange={(e) =>
-                                            editForm.setData(
-                                                "date_of_apprehension",
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
-                                    <InputError
-                                        message={
-                                            (editForm.errors as any)
-                                                .date_of_apprehension
-                                        }
-                                    />
+                                    <Label>Province</Label>
+                                    <select className={selectClass} value="Catanduanes" disabled>
+                                        <option value="Catanduanes">Catanduanes</option>
+                                    </select>
                                 </div>
                                 <div className="space-y-1">
                                     <Label htmlFor="edit-place-apprehension">
-                                        Place of Apprehension
+                                        {editIsTurnedOver
+                                            ? "Municipality (Place of Turn-Over)"
+                                            : "Municipality (Place of Apprehension)"}
                                     </Label>
-                                    <Input
+                                    <select
                                         id="edit-place-apprehension"
-                                        value={
-                                            editForm.data.place_of_apprehension
-                                        }
-                                        onChange={(e) =>
-                                            editForm.setData(
-                                                "place_of_apprehension",
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
-                                    <InputError
-                                        message={
-                                            (editForm.errors as any)
-                                                .place_of_apprehension
-                                        }
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-1">
-                                <Label htmlFor="edit-area">Area</Label>
-                                <Input
-                                    id="edit-area"
-                                    placeholder="e.g. Protected, Alienable & Disposable"
-                                    value={editForm.data.area}
-                                    onChange={(e) =>
-                                        editForm.setData("area", e.target.value)
-                                    }
-                                />
-                                <InputError
-                                    message={(editForm.errors as any).area}
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <Label htmlFor="edit-coordinates">
-                                    Coordinates
-                                </Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        id="edit-coordinates"
-                                        placeholder="e.g. 13.5739, 124.2076"
-                                        value={editForm.data.coordinates}
-                                        disabled
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() =>
-                                            setShowCoordinatesPicker(true)
-                                        }
+                                        value={editForm.data.place_of_apprehension}
+                                        onChange={(e) => handleEditMunicipalityChange(e.target.value)}
+                                        className={selectClass}
                                     >
-                                        Pick on Map
-                                    </Button>
+                                        <option value="" disabled>Select municipality…</option>
+                                        {municipalities.map((m) => (
+                                            <option key={m.value} value={m.value}>{m.label}</option>
+                                        ))}
+                                    </select>
+                                    <InputError message={(editForm.errors as any).place_of_apprehension} />
                                 </div>
-                                <InputError
-                                    message={
-                                        (editForm.errors as any).coordinates
-                                    }
-                                />
+                                <div className="space-y-1">
+                                    <Label htmlFor="edit-area">Land Class</Label>
+                                    <select
+                                        id="edit-area"
+                                        value={editForm.data.area}
+                                        onChange={(e) => editForm.setData("area", e.target.value)}
+                                        className={selectClass}
+                                    >
+                                        <option value="" disabled>Select land class…</option>
+                                        {LAND_CLASSES.map((c) => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
+                                    <InputError message={(editForm.errors as any).area} />
+                                </div>
                             </div>
 
+                            {/* Coordinates */}
                             <div className="space-y-1">
-                                <Label htmlFor="edit-apprehending-party">
-                                    Apprehending Party
-                                </Label>
-                                <Input
-                                    id="edit-apprehending-party"
-                                    value={editForm.data.apprehending_party}
-                                    onChange={(e) =>
-                                        editForm.setData(
-                                            "apprehending_party",
-                                            e.target.value,
-                                        )
-                                    }
-                                />
-                                <InputError
-                                    message={
-                                        (editForm.errors as any)
-                                            .apprehending_party
-                                    }
-                                />
-                            </div>
-
-                            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
-                                <Label className="block">Claimant Status</Label>
-                                <div className="flex gap-2">
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="edit-coordinates">
+                                        {editIsTurnedOver
+                                            ? "Turn-Over Site Coordinates"
+                                            : "Apprehension Site Coordinates"}
+                                    </Label>
                                     <button
                                         type="button"
                                         onClick={() =>
-                                            editForm.setData((prev: any) => ({
-                                                ...prev,
-                                                has_claimant: true,
-                                            }))
+                                            setCoordsMode((m) => (m === "map" ? "manual" : "map"))
                                         }
-                                        className={
-                                            "flex-1 rounded-md border px-4 py-2 text-sm font-medium transition " +
-                                            (editForm.data.has_claimant
-                                                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
-                                                : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50")
-                                        }
+                                        className="text-xs font-medium text-emerald-700 hover:underline"
                                     >
-                                        With Claimant
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            editForm.setData((prev: any) => ({
-                                                ...prev,
-                                                has_claimant: false,
-                                                claimant_offender_name: "",
-                                                claimant_address: "",
-                                                claimant_contact_number: "",
-                                                claimant_id_type: "",
-                                                claimant_id_number: "",
-                                            }))
-                                        }
-                                        className={
-                                            "flex-1 rounded-md border px-4 py-2 text-sm font-medium transition " +
-                                            (!editForm.data.has_claimant
-                                                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
-                                                : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50")
-                                        }
-                                    >
-                                        Without Claimant
+                                        {coordsMode === "map" ? "Type manually instead" : "Pick on map instead"}
                                     </button>
                                 </div>
-                                <p className="text-xs text-gray-500">
-                                    {editForm.data.has_claimant
-                                        ? "A claimant/offender has come forward regarding this apprehension."
-                                        : "No claimant — proceeds toward automatic confiscation per DAO 97-32."}
-                                </p>
+                                {coordsMode === "map" ? (
+                                    <div className="flex gap-2">
+                                        <Input
+                                            id="edit-coordinates"
+                                            placeholder="e.g. 13.5833, 124.2333"
+                                            value={editForm.data.coordinates}
+                                            readOnly
+                                            className="bg-gray-50"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setShowCoordinatesPicker(true)}
+                                        >
+                                            Pick on Map
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Input
+                                            id="edit-coordinates"
+                                            placeholder="e.g. 13.5833, 124.2333"
+                                            value={editForm.data.coordinates}
+                                            onChange={(e) => editForm.setData("coordinates", e.target.value)}
+                                            autoFocus
+                                        />
+                                        <p className="text-xs text-gray-500">
+                                            Format: latitude, longitude (e.g. 13.7481, 124.2439)
+                                        </p>
+                                    </>
+                                )}
+                                <InputError message={(editForm.errors as any).coordinates} />
+                            </div>
 
-                                {editForm.data.has_claimant && (
-                                    <div className="space-y-3">
-                                        <div className="space-y-1">
-                                            <Label htmlFor="edit-claimant-name">
-                                                Claimant / Offender Name
-                                            </Label>
-                                            <Input
-                                                id="edit-claimant-name"
-                                                value={
-                                                    editForm.data
-                                                        .claimant_offender_name
+                            {/* Apprehending parties */}
+                            <div className="space-y-2">
+                                <Label>{editIsTurnedOver ? "Turning-Over Party" : "Apprehending Party"}</Label>
+                                {apprehendingParties.map((party, i) => (
+                                    <div key={i} className="flex gap-2">
+                                        <Input
+                                            value={party}
+                                            placeholder="e.g. PENRO Catanduanes MES"
+                                            onChange={(e) => {
+                                                const next = [...apprehendingParties];
+                                                next[i] = e.target.value;
+                                                syncParties(next);
+                                            }}
+                                        />
+                                        {apprehendingParties.length > 1 && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() =>
+                                                    syncParties(apprehendingParties.filter((_, idx) => idx !== i))
                                                 }
-                                                onChange={(e) =>
-                                                    editForm.setData(
-                                                        "claimant_offender_name",
-                                                        e.target.value,
-                                                    )
+                                            >
+                                                ✕
+                                            </Button>
+                                        )}
+                                    </div>
+                                ))}
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => syncParties([...apprehendingParties, ""])}
+                                >
+                                    + {editIsTurnedOver ? "Add Another Turning-Over Party" : "Add Another Apprehending Party"}
+                                </Button>
+                                <InputError message={(editForm.errors as any).apprehending_party} />
+                            </div>
+
+                            {/* Claimant (apprehended only) */}
+                            {!editIsTurnedOver && (
+                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+                                    <Label className="block">Claimant</Label>
+                                    <p className="text-xs text-gray-600">
+                                        Did a claimant or offender come forward? If none, this apprehension will be recorded as{" "}
+                                        <span className="font-semibold text-amber-700">abandoned</span>.
+                                    </p>
+                                    <div className="flex gap-2">
+                                        {[true, false].map((val) => (
+                                            <button
+                                                key={String(val)}
+                                                type="button"
+                                                onClick={() => {
+                                                    if (!val) setIdTypeIsOthers(false);
+                                                    editForm.setData((prev: any) => ({
+                                                        ...prev,
+                                                        has_claimant: val,
+                                                        claimant_offender_name: val ? prev.claimant_offender_name : "",
+                                                        claimant_address: val ? prev.claimant_address : "",
+                                                        claimant_contact_number: val ? prev.claimant_contact_number : "",
+                                                        claimant_id_type: val ? prev.claimant_id_type : "",
+                                                        claimant_id_number: val ? prev.claimant_id_number : "",
+                                                    }));
+                                                }}
+                                                className={
+                                                    "flex-1 rounded-md border px-4 py-2 text-sm font-medium transition " +
+                                                    (editForm.data.has_claimant === val
+                                                        ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                                                        : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50")
                                                 }
-                                            />
-                                            <InputError
-                                                message={
-                                                    (editForm.errors as any)
-                                                        .claimant_offender_name
-                                                }
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label htmlFor="edit-claimant-address">
-                                                Address
-                                            </Label>
-                                            <Input
-                                                id="edit-claimant-address"
-                                                value={
-                                                    editForm.data
-                                                        .claimant_address
-                                                }
-                                                onChange={(e) =>
-                                                    editForm.setData(
-                                                        "claimant_address",
-                                                        e.target.value,
-                                                    )
-                                                }
-                                            />
-                                            <InputError
-                                                message={
-                                                    (editForm.errors as any)
-                                                        .claimant_address
-                                                }
-                                            />
-                                        </div>
-                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            >
+                                                {val ? "With Claimant" : "Without Claimant (Abandoned)"}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-gray-500">
+                                        {editForm.data.has_claimant
+                                            ? "A claimant/offender has come forward regarding this apprehension."
+                                            : "Abandoned — no claimant came forward. This proceeds toward automatic confiscation per DAO 97-32."}
+                                    </p>
+
+                                    {editForm.data.has_claimant && (
+                                        <div className="space-y-3">
                                             <div className="space-y-1">
-                                                <Label htmlFor="edit-claimant-contact">
-                                                    Contact Number
-                                                </Label>
+                                                <Label htmlFor="edit-claimant-name">Claimant / Offender Name</Label>
+                                                <Input
+                                                    id="edit-claimant-name"
+                                                    value={editForm.data.claimant_offender_name}
+                                                    onChange={(e) =>
+                                                        editForm.setData("claimant_offender_name", e.target.value)
+                                                    }
+                                                />
+                                                <InputError message={(editForm.errors as any).claimant_offender_name} />
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <Label htmlFor="edit-claimant-address">Claimant Address</Label>
+                                                <div className="flex gap-2">
+                                                    <Input
+                                                        id="edit-claimant-address"
+                                                        value={editForm.data.claimant_address}
+                                                        placeholder="Municipality, Barangay"
+                                                        readOnly
+                                                        className="bg-white cursor-default"
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => {
+                                                            const parts = editForm.data.claimant_address.split(", ");
+                                                            setAddressMunicipality(parts[0] ?? "");
+                                                            setAddressBarangay(parts[1] ?? "");
+                                                            setShowAddressPicker(true);
+                                                        }}
+                                                    >
+                                                        Pick Address
+                                                    </Button>
+                                                </div>
+                                                <InputError message={(editForm.errors as any).claimant_address} />
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <Label htmlFor="edit-claimant-contact">Contact Number</Label>
                                                 <Input
                                                     id="edit-claimant-contact"
-                                                    value={
-                                                        editForm.data
-                                                            .claimant_contact_number
-                                                    }
+                                                    value={editForm.data.claimant_contact_number}
                                                     onChange={(e) =>
-                                                        editForm.setData(
-                                                            "claimant_contact_number",
-                                                            e.target.value,
-                                                        )
+                                                        editForm.setData("claimant_contact_number", e.target.value)
                                                     }
                                                 />
-                                                <InputError
-                                                    message={
-                                                        (editForm.errors as any)
-                                                            .claimant_contact_number
-                                                    }
-                                                />
+                                                <InputError message={(editForm.errors as any).claimant_contact_number} />
                                             </div>
-                                            <div className="space-y-1">
-                                                <Label htmlFor="edit-claimant-id-type">
-                                                    ID Type
-                                                </Label>
-                                                <Input
-                                                    id="edit-claimant-id-type"
-                                                    placeholder="e.g. Driver's License, UMID"
-                                                    value={
-                                                        editForm.data
-                                                            .claimant_id_type
-                                                    }
-                                                    onChange={(e) =>
-                                                        editForm.setData(
-                                                            "claimant_id_type",
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                <InputError
-                                                    message={
-                                                        (editForm.errors as any)
-                                                            .claimant_id_type
-                                                    }
-                                                />
+
+                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                {/* Valid ID Type */}
+                                                <div className="space-y-1">
+                                                    <Label>Valid ID Type</Label>
+                                                    {idTypeIsOthers ? (
+                                                        <div className="flex gap-2">
+                                                            <Input
+                                                                placeholder="Specify ID type"
+                                                                value={editForm.data.claimant_id_type}
+                                                                onChange={(e) =>
+                                                                    editForm.setData("claimant_id_type", e.target.value)
+                                                                }
+                                                                autoFocus
+                                                            />
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    setIdTypeIsOthers(false);
+                                                                    editForm.setData((prev: any) => ({
+                                                                        ...prev,
+                                                                        claimant_id_type: "",
+                                                                        claimant_id_number: "",
+                                                                    }));
+                                                                }}
+                                                            >
+                                                                Back
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <select
+                                                            value={editForm.data.claimant_id_type}
+                                                            onChange={(e) => {
+                                                                const selected = e.target.value;
+                                                                if (selected === "Others") {
+                                                                    setIdTypeIsOthers(true);
+                                                                    editForm.setData((prev: any) => ({
+                                                                        ...prev,
+                                                                        claimant_id_type: "",
+                                                                        claimant_id_number: "",
+                                                                    }));
+                                                                } else {
+                                                                    editForm.setData((prev: any) => ({
+                                                                        ...prev,
+                                                                        claimant_id_type: selected,
+                                                                        claimant_id_number: "",
+                                                                    }));
+                                                                }
+                                                            }}
+                                                            className={selectClass}
+                                                        >
+                                                            <option value="" disabled>Select ID type…</option>
+                                                            {VALID_IDS.map((id) => (
+                                                                <option key={id.label} value={id.label}>{id.label}</option>
+                                                            ))}
+                                                        </select>
+                                                    )}
+                                                    <InputError message={(editForm.errors as any).claimant_id_type} />
+                                                </div>
+
+                                                {/* ID Number */}
+                                                <div className="space-y-1">
+                                                    <Label>ID Number</Label>
+                                                    {(() => {
+                                                        const config = VALID_IDS.find(
+                                                            (id) => id.label === editForm.data.claimant_id_type,
+                                                        );
+                                                        const disabled =
+                                                            !editForm.data.claimant_id_type && !idTypeIsOthers;
+                                                        const isPhilSys =
+                                                            editForm.data.claimant_id_type === "PhilSys (National ID)";
+
+                                                        function handleIdNumberChange(raw: string) {
+                                                            if (isPhilSys) {
+                                                                const digits = raw.replace(/\D/g, "").slice(0, 16);
+                                                                editForm.setData(
+                                                                    "claimant_id_number",
+                                                                    digits.replace(/(\d{4})(?=\d)/g, "$1-"),
+                                                                );
+                                                            } else {
+                                                                editForm.setData("claimant_id_number", raw);
+                                                            }
+                                                        }
+
+                                                        return (
+                                                            <Input
+                                                                value={editForm.data.claimant_id_number}
+                                                                onChange={(e) => handleIdNumberChange(e.target.value)}
+                                                                placeholder={
+                                                                    disabled
+                                                                        ? "Select an ID type first"
+                                                                        : idTypeIsOthers
+                                                                          ? "Enter ID number"
+                                                                          : (config?.placeholder ?? "Enter ID number")
+                                                                }
+                                                                disabled={disabled}
+                                                                inputMode={isPhilSys ? "numeric" : undefined}
+                                                                maxLength={isPhilSys ? 19 : undefined}
+                                                                className={disabled ? "bg-gray-50 text-gray-400" : undefined}
+                                                            />
+                                                        );
+                                                    })()}
+                                                    <InputError message={(editForm.errors as any).claimant_id_number} />
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="space-y-1">
-                                            <Label htmlFor="edit-claimant-id-number">
-                                                ID Number
-                                            </Label>
-                                            <Input
-                                                id="edit-claimant-id-number"
-                                                value={
-                                                    editForm.data
-                                                        .claimant_id_number
-                                                }
-                                                onChange={(e) =>
-                                                    editForm.setData(
-                                                        "claimant_id_number",
-                                                        e.target.value,
-                                                    )
-                                                }
-                                            />
-                                            <InputError
-                                                message={
-                                                    (editForm.errors as any)
-                                                        .claimant_id_number
-                                                }
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </div>
+                            )}
                         </>
                     )}
 
-                    {/* Case Flags */}
-                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-6">
-                        <label className="flex cursor-pointer items-center gap-2 text-sm">
-                            <input
-                                type="checkbox"
-                                checked={editForm.data.has_ongoing_case}
-                                onChange={(e) =>
-                                    editForm.setData(
-                                        "has_ongoing_case",
-                                        e.target.checked,
-                                    )
-                                }
-                                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                            />
-                            Ongoing Case
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-2 text-sm">
-                            <input
-                                type="checkbox"
-                                checked={editForm.data.has_confiscation_order}
-                                onChange={(e) =>
-                                    editForm.setData(
-                                        "has_confiscation_order",
-                                        e.target.checked,
-                                    )
-                                }
-                                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                            />
-                            Has Confiscation Order
-                        </label>
-                    </div>
+                    {/* Legal Status (apprehended only) */}
+                    {!editIsTurnedOver && (
+                        <div className="rounded-lg border border-amber-100 bg-amber-50/50 p-4 space-y-3">
+                            <div>
+                                <Label className="block">Legal Status</Label>
+                                <p className="text-xs text-gray-600">Applies to all items in this incident.</p>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        editForm.setData("has_ongoing_case", !editForm.data.has_ongoing_case)
+                                    }
+                                    className={
+                                        "rounded-md border px-4 py-2 text-sm font-medium transition " +
+                                        (editForm.data.has_ongoing_case
+                                            ? "border-amber-600 bg-amber-100 text-amber-900"
+                                            : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50")
+                                    }
+                                >
+                                    {editForm.data.has_ongoing_case ? "Ongoing case" : "No ongoing case"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        editForm.setData(
+                                            "has_confiscation_order",
+                                            !editForm.data.has_confiscation_order,
+                                        )
+                                    }
+                                    className={
+                                        "rounded-md border px-4 py-2 text-sm font-medium transition " +
+                                        (editForm.data.has_confiscation_order
+                                            ? "border-red-600 bg-red-100 text-red-900"
+                                            : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50")
+                                    }
+                                >
+                                    {editForm.data.has_confiscation_order
+                                        ? "Confiscation / Forfeiture Order"
+                                        : "No order yet"}
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Footer */}
                     <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 border-t border-gray-100 pt-4">
@@ -3058,6 +3266,73 @@ export default function AssetsShow({
                         </Button>
                     </div>
                 </form>
+            </Modal>
+            <Modal
+                show={showAddressPicker}
+                onClose={() => setShowAddressPicker(false)}
+                maxWidth="sm"
+            >
+                <div className="p-6 space-y-5">
+                    <div>
+                        <h2 className="text-base font-semibold text-gray-900">Select Claimant Address</h2>
+                        <p className="mt-0.5 text-sm text-gray-500">Choose municipality then barangay.</p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="addr-municipality">Municipality</Label>
+                        <select
+                            id="addr-municipality"
+                            value={addressMunicipality}
+                            onChange={(e) => {
+                                setAddressMunicipality(e.target.value);
+                                setAddressBarangay("");
+                            }}
+                            className={selectClass}
+                        >
+                            <option value="" disabled>Select municipality…</option>
+                            {municipalities.map((m) => (
+                                <option key={m.value} value={m.value}>{m.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="addr-barangay">Barangay</Label>
+                        <select
+                            id="addr-barangay"
+                            value={addressBarangay}
+                            onChange={(e) => setAddressBarangay(e.target.value)}
+                            disabled={!addressMunicipality}
+                            className={selectClass + (!addressMunicipality ? " opacity-50 cursor-not-allowed" : "")}
+                        >
+                            <option value="" disabled>
+                                {addressMunicipality ? "Select barangay…" : "Select a municipality first"}
+                            </option>
+                            {(barangaysByMunicipality[addressMunicipality] ?? []).map((b) => (
+                                <option key={b} value={b}>{b}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-1">
+                        <Button type="button" variant="outline" onClick={() => setShowAddressPicker(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            disabled={!addressMunicipality || !addressBarangay}
+                            onClick={() => {
+                                editForm.setData(
+                                    "claimant_address",
+                                    `${addressMunicipality}, ${addressBarangay}`,
+                                );
+                                setShowAddressPicker(false);
+                            }}
+                        >
+                            Confirm Address
+                        </Button>
+                    </div>
+                </div>
             </Modal>
             <CoordinatesPickerModal
                 show={showCoordinatesPicker}

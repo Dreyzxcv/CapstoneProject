@@ -8,14 +8,13 @@ export default function Guest({ children }: PropsWithChildren) {
                 {/* Left dark panel */}
                 <div className="flex flex-col items-center justify-center bg-[#0E2D20] p-10 sm:w-[42%] gap-5">
                     {/* Big logo */}
-                    <div className="flex h-24 w-24 items-center justify-center">
-                        <ApplicationLogo className="h-24 w-24 fill-current text-[#7EB89A]" />
+                    <div className="flex h-40 w-40 items-center justify-center">
+                        <ApplicationLogo className="h-40 w-40 fill-current text-[#7EB89A]" />
                     </div>
 
-                    {/* System title */}
                     <div className="text-center">
-                        <h1 className="text-[20px] font-semibold tracking-tight text-white">ForestTrack</h1>
-                        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.13em] text-[#4E8066]">
+                        <h1 className="text-[25px] font-semibold tracking-tight text-white">ForestTrack</h1>
+                        <p className="mt-1 text-[13px] font-medium uppercase tracking-[0.13em] text-[#4E8066]">
                             DENR · PENRO Catanduanes
                         </p>
                     </div>
