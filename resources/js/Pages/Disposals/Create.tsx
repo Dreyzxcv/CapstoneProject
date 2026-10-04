@@ -139,6 +139,13 @@ export default function DisposalsCreate({
         witness_1_title: '',
         witness_2_name: '',
         witness_2_title: '',
+
+        // Decay-related fields
+        cause_of_decay: '',
+        cause_of_decay_other: '',
+        inspection_date: '',
+        inspecting_officer: '',
+        decay_photo: null as File | null,
     });
 
     const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
@@ -377,29 +384,31 @@ export default function DisposalsCreate({
                             </Button>
                         </div>
                     ) : (
-                        !isVehicleDecision && (
-                            <div>
-                                <Label htmlFor="quantity">Quantity to Dispose</Label>
-                                <Input
-                                    id="quantity"
-                                    type="number"
-                                    min={1}
-                                    max={assetQuantity}
-                                    value={data.quantity}
-                                    onChange={(e) => setData('quantity', e.target.value)}
-                                    required
-                                />
-                                <p className="mt-1 text-xs text-gray-500">
-                                    Out of {assetQuantity} unit(s) currently on hand.
-                                    {remainder > 0 && (
-                                        <span className="text-amber-700">
-                                            {' '}The remaining {remainder} unit(s) will be split off and kept in storage.
-                                        </span>
-                                    )}
-                                </p>
-                                <InputError message={errors.quantity} />
-                            </div>
-                        )
+                        <>
+                            {!isVehicleDecision && data.disposal_type !== 'decayed' && (
+                                <div>
+                                    <Label htmlFor="quantity">Quantity to Dispose</Label>
+                                    <Input
+                                        id="quantity"
+                                        type="number"
+                                        min={1}
+                                        max={assetQuantity}
+                                        value={data.quantity}
+                                        onChange={(e) => setData('quantity', e.target.value)}
+                                        required
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Out of {assetQuantity} unit(s) currently on hand.
+                                        {remainder > 0 && (
+                                            <span className="text-amber-700">
+                                                {' '}The remaining {remainder} unit(s) will be split off and kept in storage.
+                                            </span>
+                                        )}
+                                    </p>
+                                    <InputError message={errors.quantity} />
+                                </div>
+                            )}
+                        </>
                     )}
 
                     {isDonation && (
@@ -677,6 +686,147 @@ export default function DisposalsCreate({
                         </div>
                     )}
 
+                    {data.disposal_type === 'decayed' && (
+                        <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                Decay Details
+                            </p>
+
+                            {/* Quantity / Piece picker */}
+                            {(() => {
+                                const hasPieces = (asset.pieces?.length ?? 0) > 0;
+                                const selectedPieceNums = (data.lines[0]?.piece_ids ?? [])
+                                    .map((id) => asset.pieces?.find((p) => p.id === id)?.piece_number)
+                                    .filter((n): n is number => n !== undefined)
+                                    .sort((a, b) => a - b);
+
+                                return (
+                                    <div>
+                                        <Label>Pieces to Dispose</Label>
+                                        {hasPieces ? (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setPiecePickerLine(0)}
+                                                    className="mt-1 flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+                                                >
+                                                    <span className={data.lines[0]?.piece_ids?.length ? 'text-gray-900' : 'text-gray-400'}>
+                                                        {data.lines[0]?.piece_ids?.length
+                                                            ? `${data.lines[0].piece_ids.length} piece${data.lines[0].piece_ids.length !== 1 ? 's' : ''} selected`
+                                                            : 'Select pieces…'}
+                                                    </span>
+                                                    <ChevronRight className="h-4 w-4 text-gray-400" />
+                                                </button>
+                                                {selectedPieceNums.length > 0 && (
+                                                    <div className="mt-2 flex flex-wrap gap-1">
+                                                        {selectedPieceNums.map((n) => (
+                                                            <span
+                                                                key={n}
+                                                                className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white"
+                                                            >
+                                                                Piece {n}/{asset.quantity}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Input
+                                                    type="number"
+                                                    min={1}
+                                                    max={assetQuantity}
+                                                    value={data.quantity}
+                                                    onChange={(e) => setData('quantity', e.target.value)}
+                                                    required
+                                                />
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    Out of {assetQuantity} unit(s) currently on hand.
+                                                </p>
+                                            </>
+                                        )}
+                                        <InputError message={errors.quantity} />
+                                    </div>
+                                );
+                            })()}
+
+                            <div>
+                                <Label htmlFor="cause_of_decay">Cause of Decay</Label>
+                                <select
+                                    id="cause_of_decay"
+                                    value={data.cause_of_decay}
+                                    onChange={(e) => setData('cause_of_decay', e.target.value)}
+                                    className={selectClass}
+                                    required
+                                >
+                                    <option value="" disabled>Select cause…</option>
+                                    <option value="Prolonged storage">Prolonged storage</option>
+                                    <option value="Flood / water damage">Flood / water damage</option>
+                                    <option value="Pest / termite infestation">Pest / termite infestation</option>
+                                    <option value="Fungal / mold growth">Fungal / mold growth</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <InputError message={errors.cause_of_decay} />
+                            </div>
+
+                            {data.cause_of_decay === 'Other' && (
+                                    <div>
+                                        <Label htmlFor="cause_of_decay_other">Specify Cause</Label>
+                                        <Input
+                                            id="cause_of_decay_other"
+                                            placeholder="Describe the cause of decay"
+                                            value={data.cause_of_decay_other}
+                                            onChange={(e) => setData('cause_of_decay_other', e.target.value)}
+                                            required
+                                        />
+                                        <InputError message={errors.cause_of_decay_other} />
+                                    </div>
+                                )}
+
+                            <div>
+                                <Label htmlFor="inspection_date">Inspection Date</Label>
+                                <Input
+                                    id="inspection_date"
+                                    type="date"
+                                    value={data.inspection_date}
+                                    onChange={(e) => setData('inspection_date', e.target.value)}
+                                    required
+                                />
+                                <InputError message={errors.inspection_date} />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="inspecting_officer">Inspecting Officer</Label>
+                                <Input
+                                    id="inspecting_officer"
+                                    placeholder="Full name of the inspecting officer"
+                                    value={data.inspecting_officer}
+                                    onChange={(e) => setData('inspecting_officer', e.target.value)}
+                                    required
+                                />
+                                <InputError message={errors.inspecting_officer} />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="decay_photo">
+                                    Photo Evidence{' '}
+                                    <span className="font-normal text-gray-400">(optional)</span>
+                                </Label>
+                                <input
+                                    id="decay_photo"
+                                    type="file"
+                                    accept="image/*"
+                                    className="mt-1 block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-emerald-700 hover:file:bg-emerald-100"
+                                    onChange={(e) => setData('decay_photo', e.target.files?.[0] ?? null)}
+                                />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Max 8 MB. Will be embedded in the generated Decay Report PDF.
+                                </p>
+                                <InputError message={errors.decay_photo} />
+                            </div>
+                        </div>
+                    )}
+
                     <div>
                         <Label htmlFor="notes">Notes</Label>
                         <Input id="notes" value={data.notes} onChange={(e) => setData('notes', e.target.value)} />
@@ -702,25 +852,47 @@ export default function DisposalsCreate({
                 onClose={() => setScanning(false)}
                 onFound={handleAssetScanned}
             />
-            {piecePickerLine !== null && pickerAsset && (
-                <PiecePickerModal
-                    show
-                    assetCode={pickerAsset.asset_code}
-                    totalPieces={pickerAsset.quantity}
-                    pieces={pickerAsset.pieces}
-                    selectedIds={data.lines[piecePickerLine].piece_ids ?? []}
-                    onClose={() => setPiecePickerLine(null)}
-                    onConfirm={(ids) => {
-                        const next = [...data.lines];
-                        next[piecePickerLine] = {
-                            ...next[piecePickerLine],
-                            piece_ids: ids,
-                            quantity: String(ids.length),
-                        };
-                        setData('lines', next);
-                        setPiecePickerLine(null);
-                    }}
-                />
+            {piecePickerLine !== null && (
+                data.disposal_type === 'decayed' ? (
+                    <PiecePickerModal
+                        show
+                        assetCode={asset.asset_code}
+                        totalPieces={asset.quantity}
+                        pieces={(asset.pieces ?? []) as AssetPieceData[]}
+                        selectedIds={data.lines[0]?.piece_ids ?? []}
+                        onClose={() => setPiecePickerLine(null)}
+                        onConfirm={(ids) => {
+                            const next = [...data.lines];
+                            next[0] = {
+                                ...next[0],
+                                piece_ids: ids,
+                                quantity: String(ids.length),
+                            };
+                            setData('lines', next);
+                            setData('quantity', String(ids.length));
+                            setPiecePickerLine(null);
+                        }}
+                    />
+                ) : pickerAsset ? (
+                    <PiecePickerModal
+                        show
+                        assetCode={pickerAsset.asset_code}
+                        totalPieces={pickerAsset.quantity}
+                        pieces={pickerAsset.pieces}
+                        selectedIds={data.lines[piecePickerLine].piece_ids ?? []}
+                        onClose={() => setPiecePickerLine(null)}
+                        onConfirm={(ids) => {
+                            const next = [...data.lines];
+                            next[piecePickerLine] = {
+                                ...next[piecePickerLine],
+                                piece_ids: ids,
+                                quantity: String(ids.length),
+                            };
+                            setData('lines', next);
+                            setPiecePickerLine(null);
+                        }}
+                    />
+                ) : null
             )}
         </AuthenticatedLayout>
     );

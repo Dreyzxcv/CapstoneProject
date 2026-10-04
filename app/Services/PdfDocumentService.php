@@ -71,12 +71,23 @@ class PdfDocumentService
 
     public function generateDecayReport(Asset $asset, Disposal $disposal): string
     {
+        $details = $disposal->details ?? [];
+
+        $photoDataUri = null;
+        if (! empty($details['decay_photo_path']) && Storage::disk('local')->exists($details['decay_photo_path'])) {
+            $raw  = Storage::disk('local')->get($details['decay_photo_path']);
+            $mime = Storage::disk('local')->mimeType($details['decay_photo_path']);
+            $photoDataUri = "data:{$mime};base64," . base64_encode($raw);
+        }
+
         $pdf = Pdf::loadView('pdf.decay-report', [
-            'asset' => $asset,
-            'disposal' => $disposal,
+            'asset'        => $asset,
+            'disposal'     => $disposal,
+            'details'      => $details,
+            'photoDataUri' => $photoDataUri,
         ]);
 
-        $path = $this->storePdf($pdf->output(), 'disposals', 'decay-'.$asset->asset_code);
+        $path = $this->storePdf($pdf->output(), 'disposals', 'decay-' . $asset->asset_code);
         $disposal->update(['report_pdf_path' => $path]);
 
         return $path;

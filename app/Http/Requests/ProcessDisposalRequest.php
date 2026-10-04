@@ -68,6 +68,11 @@ class ProcessDisposalRequest extends FormRequest
             'appeal_filed' => ['nullable', 'boolean'],
             'details' => ['nullable', 'array'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'cause_of_decay'     => ['required_if:disposal_type,decayed', 'nullable', 'string', 'max:255'],
+            'cause_of_decay_other' => ['required_if:cause_of_decay,Other', 'nullable', 'string', 'max:255'],
+            'inspection_date'    => ['required_if:disposal_type,decayed', 'nullable', 'date'],
+            'inspecting_officer' => ['required_if:disposal_type,decayed', 'nullable', 'string', 'max:255'],
+            'decay_photo'        => ['nullable', 'file', 'image', 'max:8192'],
         ];
     }
 }

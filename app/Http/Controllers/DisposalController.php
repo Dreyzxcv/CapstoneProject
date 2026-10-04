@@ -125,6 +125,14 @@ class DisposalController extends Controller
             'witness_1_title' => $request->validated('witness_1_title'),
             'witness_2_name' => $request->validated('witness_2_name'),
             'witness_2_title' => $request->validated('witness_2_title'),
+
+            'cause_of_decay'     => $request->validated('cause_of_decay'),
+            'cause_of_decay_other' => $request->validated('cause_of_decay_other'),
+            'inspection_date'    => $request->validated('inspection_date'), 
+            'inspecting_officer' => $request->validated('inspecting_officer'),
+            'decay_photo_path'   => $request->hasFile('decay_photo')
+                ? $request->file('decay_photo')->store('documents/decay-photos', 'local')
+                : null,
         ], fn ($value) => $value !== null && $value !== '');
 
         $processDisposal->execute(
