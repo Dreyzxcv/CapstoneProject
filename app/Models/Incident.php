@@ -23,6 +23,7 @@ class Incident extends Model
         'apprehending_party',
         'initial_custodian_name',
         'date_report_submitted',
+        'confiscation_order_path',
         'created_by',
     ];
 

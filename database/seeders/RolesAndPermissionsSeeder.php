@@ -47,14 +47,14 @@ class RolesAndPermissionsSeeder extends Seeder
             'System Admin' => $permissions,
             'MES Officer' => [
                 'assets.view', 'assets.create', 'assets.update', 'assets.update_case', 'assets.scan', 'incidents.create',
-                'disposals.view', 'reports.view', 'documents.upload', 'assets.submit_custody_review', 'assets.update_aap',
+                'disposals.view', 'disposals.process', 'reports.view', 'documents.upload', 'assets.submit_custody_review', 'assets.update_aap',
             ],
             'Property Custodian' => [
                 'assets.view', 'assets.sign_receipt', 'assets.mark_stored',
                 'assets.generate_qr', 'assets.scan', 'reports.view', 'documents.upload', 'documents.verify',
             ],
             'Accounting Officer' => [
-                'assets.view', 'jev.view', 'jev.create', 'jev.upload', 'disposals.view', 'disposals.process',
+                'assets.view', 'jev.view', 'jev.create', 'jev.upload', 'disposals.view',
                 'reports.view', 'reports.export', 'documents.upload',
             ],
             'PENRO Management' => [

@@ -115,6 +115,15 @@ class StoreIncidentRequest extends FormRequest
                 'boolean',
             ],
 
+            'has_confiscation_order_file' => [
+                'exclude_if:intake_mode,turned_over',
+                Rule::requiredIf(fn () => $this->boolean('has_confiscation_order')),
+                'nullable',
+                'file',
+                'mimes:pdf',
+                'max:10240',
+            ],
+
             'assets' => [
                 'required',
                 'array',

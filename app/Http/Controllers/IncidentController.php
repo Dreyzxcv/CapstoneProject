@@ -57,6 +57,7 @@ class IncidentController extends Controller
             collect($validated)->except('assets')->all(),
             $validated['assets'],
             $request->user(),
+            $request->file('has_confiscation_order_file'),
         );
 
         $firstAsset = $incident->assets->first();

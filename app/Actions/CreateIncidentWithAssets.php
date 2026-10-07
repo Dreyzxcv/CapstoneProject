@@ -1,11 +1,13 @@
 <?php
-// app/Actions/CreateIncidentWithAssets.php
 
 namespace App\Actions;
 
 use App\Enums\AssetMode;
+use App\Models\Asset;
 use App\Models\AssetPiece;
+use App\Models\Document;
 use App\Models\Incident;
+use Illuminate\Http\UploadedFile;
 use App\Models\User;
 use App\Services\AuditLogService;
 use Illuminate\Support\Facades\DB;
@@ -18,53 +20,43 @@ class CreateIncidentWithAssets
         protected AuditLogService $auditLogService,
     ) {}
 
-    /**
-     * @param array $incidentData Incident-level fields
-     * @param array<int, array> $assetsData Per-asset payloads. Each asset must include
-     *   a `pieces` key: an array of per-piece measurements encoded 1-by-1 by MES.
-     *   The asset's `quantity` is derived from the count of pieces automatically.
-     */
-    public function execute(array $incidentData, array $assetsData, User $user): Incident
+    public function execute(array $incidentData, array $assetsData, User $user, ?UploadedFile $confiscationOrderFile = null): Incident
     {
         if (empty($assetsData)) {
             throw new \DomainException('An incident must include at least one asset.');
         }
 
-        return DB::transaction(function () use ($incidentData, $assetsData, $user) {
+        return DB::transaction(function () use ($incidentData, $assetsData, $user, $confiscationOrderFile) {
+
             $firstAssetMode = AssetMode::from($assetsData[0]['mode'] ?? 'apprehended');
 
             $incident = Incident::create([
-                'incident_code'          => $this->generateIncidentCode($incidentData['date_of_apprehension'] ?? null, $firstAssetMode),
-                'date_of_apprehension'   => $incidentData['date_of_apprehension'],
-                'place_of_apprehension'  => $incidentData['place_of_apprehension'],
-                'area'                   => $incidentData['area'] ?? null,
-                'coordinates'            => $incidentData['coordinates'] ?? null,
-                'claimant_offender_name' => $incidentData['claimant_offender_name'] ?? null,
-                'has_claimant'           => $incidentData['has_claimant'] ?? true,
-                'claimant_address'       => $incidentData['claimant_address'] ?? null,
-                'claimant_contact_number'=> $incidentData['claimant_contact_number'] ?? null,
-                'claimant_id_type'       => $incidentData['claimant_id_type'] ?? null,
-                'claimant_id_number'     => $incidentData['claimant_id_number'] ?? null,
-                'apprehending_party'     => $incidentData['apprehending_party'],
-                'initial_custodian_name' => $incidentData['initial_custodian_name'] ?? null,
-                'date_report_submitted'  => $incidentData['date_report_submitted'] ?? null,
-                'created_by'             => $user->id,
+                'incident_code'           => $this->generateIncidentCode($incidentData['date_of_apprehension'] ?? null, $firstAssetMode),
+                'date_of_apprehension'    => $incidentData['date_of_apprehension'],
+                'place_of_apprehension'   => $incidentData['place_of_apprehension'],
+                'area'                    => $incidentData['area'] ?? null,
+                'coordinates'             => $incidentData['coordinates'] ?? null,
+                'claimant_offender_name'  => $incidentData['claimant_offender_name'] ?? null,
+                'has_claimant'            => $incidentData['has_claimant'] ?? true,
+                'claimant_address'        => $incidentData['claimant_address'] ?? null,
+                'claimant_contact_number' => $incidentData['claimant_contact_number'] ?? null,
+                'claimant_id_type'        => $incidentData['claimant_id_type'] ?? null,
+                'claimant_id_number'      => $incidentData['claimant_id_number'] ?? null,
+                'apprehending_party'      => $incidentData['apprehending_party'],
+                'initial_custodian_name'  => $incidentData['initial_custodian_name'] ?? null,
+                'date_report_submitted'   => $incidentData['date_report_submitted'] ?? null,
+                'created_by'              => $user->id,
             ]);
 
-            // Incident-level legal flags — shared across every asset in this incident
             $hasOngoingCase       = (bool) ($incidentData['has_ongoing_case'] ?? false);
             $hasConfiscationOrder = (bool) ($incidentData['has_confiscation_order'] ?? false);
 
             foreach ($assetsData as $index => $assetData) {
                 $pieces = $assetData['pieces'] ?? [];
 
-                // Derive quantity from the number of pieces encoded —
-                // MES encodes each piece individually, so count IS the quantity.
                 $assetData['quantity']      = max(1, count($pieces));
                 $assetData['quantity_unit'] = 'pcs';
 
-                // Roll up aggregate volume / estimated value from pieces for
-                // the parent asset record (useful for reports and the asset show page).
                 $totalBdFt  = collect($pieces)->sum(fn($p) => (float) ($p['volume_bd_ft'] ?? 0));
                 $totalCuM   = collect($pieces)->sum(fn($p) => (float) ($p['volume_cu_m'] ?? 0));
                 $totalValue = collect($pieces)->sum(fn($p) => (float) ($p['estimated_value'] ?? 0));
@@ -73,44 +65,24 @@ class CreateIncidentWithAssets
                 if ($totalCuM > 0)   $assetData['volume_cu_m']    = $totalCuM;
                 if ($totalValue > 0) $assetData['estimated_value'] = $totalValue;
 
-                // Use the first piece's species as the parent species if the asset
-                // row doesn't have one set (all pieces of the same species is common).
-                if (empty($assetData['species']) && ! empty($pieces[0]['species'])) {
+                if (empty($assetData['species']) && ! empty($pieces[0]['species']))
                     $assetData['species'] = $pieces[0]['species'];
-                }
-
-                // Promote first piece's description/dimensions up to the parent asset.
-                // For single-piece assets this is a direct copy; for multi-piece assets
-                // the piece-level records hold the authoritative per-piece data.
-                if (empty($assetData['description']) && ! empty($pieces[0]['description'])) {
+                if (empty($assetData['description']) && ! empty($pieces[0]['description']))
                     $assetData['description'] = $pieces[0]['description'];
-                }
-                if (empty($assetData['length']) && ! empty($pieces[0]['length'])) {
+                if (empty($assetData['length']) && ! empty($pieces[0]['length']))
                     $assetData['length'] = $pieces[0]['length'];
-                }
-                if (empty($assetData['width']) && ! empty($pieces[0]['width'])) {
+                if (empty($assetData['width']) && ! empty($pieces[0]['width']))
                     $assetData['width'] = $pieces[0]['width'];
-                }
-                if (empty($assetData['height']) && ! empty($pieces[0]['height'])) {
+                if (empty($assetData['height']) && ! empty($pieces[0]['height']))
                     $assetData['height'] = $pieces[0]['height'];
-                }
-                if (empty($assetData['plate_number']) && ! empty($pieces[0]['plate_number'])) {
+                if (empty($assetData['plate_number']) && ! empty($pieces[0]['plate_number']))
                     $assetData['plate_number'] = $pieces[0]['plate_number'];
-                }
 
-                $assetData['apprehending_agency'] = $assetData['apprehending_agency'] 
-                    ?? $incidentData['apprehending_party'] 
-                    ?? 'PENRO Catanduanes MES';
-
-                $assetData['location_apprehended'] = $assetData['location_apprehended'] 
-                    ?? $incidentData['place_of_apprehension'] 
-                    ?? '';
-
-                // Apply incident-level legal flags to every asset
+                $assetData['apprehending_agency']  = $assetData['apprehending_agency'] ?? $incidentData['apprehending_party'] ?? 'PENRO Catanduanes MES';
+                $assetData['location_apprehended'] = $assetData['location_apprehended'] ?? $incidentData['place_of_apprehension'] ?? '';
                 $assetData['has_ongoing_case']       = $hasOngoingCase;
                 $assetData['has_confiscation_order'] = $hasConfiscationOrder;
-
-                $assetData['incident_id'] = $incident->id;
+                $assetData['incident_id']  = $incident->id;
                 $assetData['has_claimant'] = $incident->has_claimant;
 
                 $asset = $this->createAsset->execute(
@@ -121,7 +93,6 @@ class CreateIncidentWithAssets
                     itemNumber: $index + 1,
                 );
 
-                // Create one AssetPiece record per encoded piece.
                 foreach ($pieces as $pieceIndex => $pieceData) {
                     AssetPiece::create([
                         'asset_id'        => $asset->id,
@@ -138,9 +109,31 @@ class CreateIncidentWithAssets
                         'volume_cu_m'     => $pieceData['volume_cu_m'] ?? null,
                         'estimated_value' => $pieceData['estimated_value'] ?? null,
                         'plate_number'    => $pieceData['plate_number'] ?? null,
-                        'serial_number' => $pieceData['serial_number'] ?? null, 
+                        'serial_number'   => $pieceData['serial_number'] ?? null,
                     ]);
                 }
+
+                // ── Confiscation order — stored per asset, inside the loop ──
+                if ($confiscationOrderFile) {
+                    $confiscationOrderPath = $confiscationOrderFile->storeAs(
+                        "documents/required/{$asset->id}",
+                        Str::uuid() . '.pdf',
+                        'local'
+                    );
+
+                    Document::create([
+                        'attachable_type' => Asset::class,
+                        'attachable_id'   => $asset->id,
+                        'document_type'   => 'confiscation_order',
+                        'file_path'       => $confiscationOrderPath,
+                        'original_name'   => $confiscationOrderFile->getClientOriginalName(),
+                        'mime_type'       => $confiscationOrderFile->getMimeType() ?? 'application/pdf',
+                        'status'          => 'pending',
+                        'uploaded_by'     => $user->id,
+                        'uploaded_at'     => now(),
+                    ]);
+                }
+                // ────────────────────────────────────────────────────────────
             }
 
             $incident->load('assets');

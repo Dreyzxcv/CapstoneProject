@@ -275,6 +275,7 @@ export default function IncidentsCreate({
         claimant_id_number: '',
         has_ongoing_case: false as boolean,
         has_confiscation_order: false as boolean,
+        has_confiscation_order_file: null as File | null,
         apprehending_parties: ['PENRO Catanduanes MES'] as string[],
         initial_custodian_name: '',
         date_report_submitted: '',
@@ -492,7 +493,8 @@ export default function IncidentsCreate({
             data.area &&
             data.coordinates &&
             data.apprehending_parties.some((p) => p.trim() !== '') &&
-            (data.intake_mode === 'turned_over' || !data.has_claimant || (data.claimant_offender_name && data.claimant_address))
+            (data.intake_mode === 'turned_over' || !data.has_claimant || (data.claimant_offender_name && data.claimant_address)) &&
+            (!data.has_confiscation_order || !!data.has_confiscation_order_file)
         );
     }
     function canProceedStep3() {
@@ -519,6 +521,7 @@ export default function IncidentsCreate({
             apprehending_party: fd.apprehending_parties.filter((p) => p.trim() !== '').join('; '),
         }));
         post(route('incidents.store'), {
+            forceFormData: true,   // ← add this
             onSuccess: () => {
                 setShowConfirmModal(false);
                 try { localStorage.removeItem(DRAFT_KEY); } catch {}
@@ -1037,10 +1040,10 @@ export default function IncidentsCreate({
                 {!isTurnedOver && (
                     <Card className="border-0 shadow-sm border-amber-100">
                         <CardHeader className="border-b border-amber-100 bg-amber-50 rounded-t-lg">
-                            <CardTitle className="text-base">Legal Status</CardTitle>
+                            <CardTitle className="text-base">Legal Case</CardTitle>
                             <p className="text-sm text-gray-600">Applies to all items in this incident.</p>
                         </CardHeader>
-                        <CardContent className="pt-4">
+                        <CardContent className="pt-4 space-y-4">
                             <div className="grid gap-3 md:grid-cols-2">
                                 <button type="button" onClick={() => setData('has_ongoing_case', !data.has_ongoing_case)}
                                     className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
@@ -1054,9 +1057,72 @@ export default function IncidentsCreate({
                                         data.has_confiscation_order
                                             ? 'border-red-600 bg-red-100 text-red-900'
                                             : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
-                                    {data.has_confiscation_order ? 'Confiscation / Forfeiture Order' : 'No order yet'}
+                                    {data.has_confiscation_order ? 'Confiscation / Forfeiture Order' : 'No confiscation order'}
                                 </button>
                             </div>
+
+                            {data.has_confiscation_order && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="confiscation-order-file">
+                                        Confiscation / Forfeiture Order Document
+                                        <span className="text-red-500">*</span>
+                                    </Label>
+                                    {data.has_confiscation_order_file ? (
+                                        <div className="flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-3 py-2.5">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                {/* simple PDF icon */}
+                                                <svg className="h-4 w-4 shrink-0 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                                    <polyline points="14 2 14 8 20 8"/>
+                                                </svg>
+                                                <span className="text-sm font-medium text-red-900 truncate">
+                                                    {data.has_confiscation_order_file.name}
+                                                </span>
+                                                <span className="text-xs text-red-600 shrink-0">
+                                                    ({(data.has_confiscation_order_file.size / 1024).toFixed(0)} KB)
+                                                </span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setData('has_confiscation_order_file', null)}
+                                                className="ml-3 shrink-0 text-red-400 hover:text-red-600 transition"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <label
+                                            htmlFor="confiscation-order-file"
+                                            className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed border-red-200 bg-red-50 px-4 py-6 text-center hover:border-red-400 hover:bg-red-50 transition"
+                                        >
+                                            <svg className="h-6 w-6 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                                <polyline points="14 2 14 8 20 8"/>
+                                                <line x1="12" y1="18" x2="12" y2="12"/>
+                                                <line x1="9" y1="15" x2="15" y2="15"/>
+                                            </svg>
+                                            <span className="text-sm font-medium text-red-700">Click to upload PDF</span>
+                                            <span className="text-xs text-red-500">PDF only · max 10 MB</span>
+                                            <input
+                                                id="confiscation-order-file"
+                                                type="file"
+                                                accept="application/pdf"
+                                                className="sr-only"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0] ?? null;
+                                                    setData('has_confiscation_order_file', file);
+                                                    // reset input so the same file can be re-selected after removal
+                                                    e.target.value = '';
+                                                }}
+                                            />
+                                        </label>
+                                    )}
+                                    <p className="text-xs text-gray-500">
+                                        Upload a scanned copy of the confiscation or forfeiture order.
+                                    </p>
+                                    <InputError message={(errors as Record<string, string>).has_confiscation_order_file} />
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 )}
@@ -1172,154 +1238,152 @@ export default function IncidentsCreate({
 
                 {/* Incident summary */}
                 {(() => {
-                    const Field = ({ label, value, mono = false, wide = false }: {
-                        label: string; value?: string | null; mono?: boolean; wide?: boolean;
-                    }) => (
-                        <div className={wide ? 'sm:col-span-2' : undefined}>
-                            <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{label}</dt>
-                            <dd className={`mt-0.5 text-sm font-semibold text-gray-900 ${mono ? 'font-mono' : ''}`}>
-                                {value && value.trim() !== '' ? value : <span className="font-normal text-gray-300">—</span>}
-                            </dd>
-                        </div>
-                    );
+                const Field = ({ label, value, mono = false, wide = false }: {
+                    label: string; value?: string | null; mono?: boolean; wide?: boolean;
+                }) => (
+                    <div className={wide ? 'sm:col-span-2' : undefined}>
+                        <dt className="text-xs text-gray-400 mb-0.5">{label}</dt>
+                        <dd className={`text-sm font-medium text-gray-900 ${mono ? 'font-mono' : ''}`}>
+                            {value && value.trim() !== '' ? value : <span className="font-normal text-gray-300">—</span>}
+                        </dd>
+                    </div>
+                );
 
-                    const Pill = ({ on, onLabel, offLabel, tone }: {
-                        on: boolean; onLabel: string; offLabel: string; tone: 'amber' | 'red' | 'emerald';
-                    }) => {
-                        const onClass = {
-                            amber: 'border-amber-200 bg-amber-50 text-amber-800',
-                            red: 'border-red-200 bg-red-50 text-red-800',
-                            emerald: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-                        }[tone];
-                        return (
-                            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-                                on ? onClass : 'border-gray-200 bg-gray-50 text-gray-500'}`}>
-                                {on ? onLabel : offLabel}
-                            </span>
-                        );
-                    };
-
-                    const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-                        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-emerald-700">{children}</h4>
-                    );
-
-                    return (
-                        <Card className="border-0 shadow-sm">
-                            <CardHeader className="flex flex-row items-start justify-between border-b border-gray-100">
-                                <div>
-                                    <CardTitle className="text-base">
+                return (
+                    <Card className="border-0 shadow-sm">
+                        {/* Header row: title + asset ID + edit */}
+                        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-sm font-semibold text-gray-900">
                                         {isTurnedOver ? 'Turn-Over Details' : 'Apprehension Details'}
-                                    </CardTitle>
-                                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                                        <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-700">
-                                            {labelFor(modes, data.intake_mode)}
+                                    </h3>
+                                    {previewCode && (
+                                        <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-700">
+                                            {previewCode}
                                         </span>
-                                        {!isTurnedOver && !data.has_claimant && (
-                                            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-                                                Abandoned
-                                            </span>
-                                        )}
-                                        {previewCode && (
-                                            <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-800">
-                                                {previewCode}
-                                            </span>
-                                        )}
-                                    </div>
+                                    )}
                                 </div>
-                                <button type="button" onClick={() => setStep(2)} className="text-xs font-medium text-emerald-700 hover:underline">
-                                    Edit
-                                </button>
-                            </CardHeader>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                                        {labelFor(modes, data.intake_mode)}
+                                    </span>
+                                    {!isTurnedOver && !data.has_claimant && (
+                                        <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                                            Abandoned
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => setStep(2)}
+                                className="text-xs font-medium text-emerald-700 hover:underline mt-0.5">
+                                Edit
+                            </button>
+                        </div>
 
-                            <CardContent className="space-y-6 pt-5">
-                                {/* When & where */}
-                                <section>
-                                    <SectionTitle>When &amp; where</SectionTitle>
-                                    <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-                                        <Field label={isTurnedOver ? 'Date of Turn-Over' : 'Date of Apprehension'} value={data.date_of_apprehension} />
-                                        <Field label="Date Report Submitted" value={data.date_report_submitted} />
-                                        <Field label="Municipality" value={labelFor(municipalities, data.place_of_apprehension)} />
-                                        <Field label="Land Class" value={data.area} />
-                                        <Field label="Coordinates" value={data.coordinates} mono wide />
-                                    </dl>
-                                </section>
+                        <CardContent className="pt-5 pb-6 space-y-5">
+                            {/* Dates + location in one flat grid — no section header needed */}
+                            <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
+                                <Field
+                                    label={isTurnedOver ? 'Date of Turn-Over' : 'Date of Apprehension'}
+                                    value={data.date_of_apprehension}
+                                />
+                                <Field label="Report Submitted" value={data.date_report_submitted} />
+                                <Field label="Municipality" value={labelFor(municipalities, data.place_of_apprehension)} />
+                                <Field label="Land Class" value={data.area} />
+                                <Field label="Coordinates" value={data.coordinates} mono wide />
+                            </dl>
 
-                                {/* Parties */}
-                                <section className="border-t border-gray-100 pt-5">
-                                    <SectionTitle>{isTurnedOver ? 'Turning-Over Party' : 'Apprehending Party'}</SectionTitle>
-                                    <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-                                        <Field
-                                            label={isTurnedOver ? 'Turning-Over Party' : 'Apprehending Party'}
-                                            value={data.apprehending_parties.filter((p) => p.trim()).join('; ')}
-                                            wide
-                                        />
-                                        {!isTurnedOver && (
-                                            <Field label="Initial Custodian" value={data.initial_custodian_name || 'PENRO received directly'} wide />
-                                        )}
-                                    </dl>
-                                </section>
+                            {/* Thin divider before party info */}
+                            <div className="border-t border-gray-100" />
 
-                                {/* Claimant + legal (apprehended only) */}
-                                {!isTurnedOver && (
-                                    <>
-                                        <section className="border-t border-gray-100 pt-5">
-                                            <div className="mb-3 flex items-center justify-between">
-                                                <h4 className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
-                                                    {data.has_claimant ? 'Claimant' : 'Claimant Status'}
-                                                </h4>
-                                                {data.has_claimant ? (
-                                                    <Pill on onLabel="With Claimant" offLabel="" tone="emerald" />
+                            <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
+                                <Field
+                                    label={isTurnedOver ? 'Turning-Over Party' : 'Apprehending Party'}
+                                    value={data.apprehending_parties.filter((p) => p.trim()).join('; ')}
+                                    wide
+                                />
+                                {!isTurnedOver && data.initial_custodian_name && (
+                                    <Field label="Initial Custodian" value={data.initial_custodian_name} wide />
+                                )}
+                            </dl>
+
+                            {/* Claimant (apprehended only) */}
+                            {!isTurnedOver && (
+                                <>
+                                    <div className="border-t border-gray-100" />
+
+                                    {data.has_claimant ? (
+                                        <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
+                                            <Field label="Claimant Name" value={data.claimant_offender_name} />
+                                            <Field label="Address" value={data.claimant_address} />
+                                            {data.claimant_contact_number && (
+                                                <Field label="Contact" value={data.claimant_contact_number} />
+                                            )}
+                                            {(data.claimant_id_type || data.claimant_id_number) && (
+                                                <Field
+                                                    label="Valid ID"
+                                                    value={[data.claimant_id_type, data.claimant_id_number].filter(Boolean).join(' · ')}
+                                                />
+                                            )}
+                                        </dl>
+                                    ) : (
+                                        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+                                            <p className="text-sm font-medium text-amber-900">No claimant — recorded as abandoned</p>
+                                            <p className="mt-0.5 text-xs text-amber-700">
+                                                Proceeds toward automatic confiscation per DAO 97-32.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Legal status — only show if something is toggled on */}
+                                    {(data.has_ongoing_case || data.has_confiscation_order) && (
+                                        <>
+                                            <div className="border-t border-gray-100" />
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {data.has_ongoing_case ? (
+                                                    <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
+                                                        Ongoing case
+                                                    </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-                                                        Abandoned
+                                                    <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-400">
+                                                        No ongoing case
+                                                    </span>
+                                                )}
+                                                {data.has_confiscation_order && data.has_confiscation_order_file ? (
+                                                    <span className="inline-flex items-center rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-800">
+                                                        Confiscation order issued
+                                                    </span>
+                                                ) : data.has_confiscation_order && !data.has_confiscation_order_file ? (
+                                                    <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                                                        Confiscation order — file not yet uploaded
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-400">
+                                                        No confiscation order
                                                     </span>
                                                 )}
                                             </div>
-                                            {data.has_claimant ? (
-                                                <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-                                                    <Field label="Name" value={data.claimant_offender_name} />
-                                                    <Field label="Address" value={data.claimant_address} />
-                                                    <Field label="Contact Number" value={data.claimant_contact_number} />
-                                                    <Field
-                                                        label="Valid ID"
-                                                        value={[data.claimant_id_type, data.claimant_id_number].filter(Boolean).join(' · ')}
-                                                    />
-                                                </dl>
-                                            ) : (
-                                                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
-                                                    <p className="text-sm font-semibold text-amber-900">Abandoned: no claimant came forward</p>
-                                                    <p className="mt-0.5 text-xs text-amber-800">
-                                                        This will be recorded as an abandoned apprehension and proceeds toward automatic confiscation per DAO 97-32.
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </section>
+                                        </>
+                                    )}
+                                </>
+                            )}
 
-                                        <section className="border-t border-gray-100 pt-5">
-                                            <SectionTitle>Legal status</SectionTitle>
-                                            <div className="flex flex-wrap gap-2">
-                                                <Pill on={data.has_ongoing_case} onLabel="Ongoing case" offLabel="No ongoing case" tone="amber" />
-                                                <Pill on={data.has_confiscation_order} onLabel="Confiscation order issued" offLabel="No confiscation order" tone="red" />
-                                            </div>
-                                        </section>
-                                    </>
-                                )}
-
-                                {/* Map */}
-                                {data.coordinates && (
-                                    <section className="border-t border-gray-100 pt-5">
-                                        <SectionTitle>Location preview</SectionTitle>
-                                        <IncidentLocationMap
-                                            coordinates={data.coordinates}
-                                            placeName={data.place_of_apprehension}
-                                            areaName={data.area}
-                                        />
-                                    </section>
-                                )}
-                            </CardContent>
-                        </Card>
-                    );
-                })()}
+                            {/* Map preview */}
+                            {data.coordinates && (
+                                <>
+                                    <div className="border-t border-gray-100" />
+                                    <IncidentLocationMap
+                                        coordinates={data.coordinates}
+                                        placeName={data.place_of_apprehension}
+                                        areaName={data.area}
+                                    />
+                                </>
+                            )}
+                        </CardContent>
+                    </Card>
+                );
+            })()}
 
                 {/* Assets */}
                 {(() => {
