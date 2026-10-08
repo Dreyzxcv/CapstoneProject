@@ -2,47 +2,52 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\BackupController;
+use App\Models\BackupSetting;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class SettingsController extends Controller
 {
-    public function index(Request $request): Response
+
+    public function index(Request $request): RedirectResponse
     {
         $user = $request->user();
 
-        $cards = collect([
-            [
-                'key' => 'users',
-                'title' => 'Users',
-                'description' => 'Manage user accounts, roles, and access.',
-                'href' => route('users.index'),
-                'icon' => 'Users',
-                'permission' => 'users.manage',
-            ],
-            [
-                'key' => 'market_prices',
-                'title' => 'Market Prices',
-                'description' => 'Set species prices per year, with month-specific overrides for seasonal spikes.',
-                'href' => route('market-prices.index'),
-                'icon' => 'Peso',
-                'permission' => 'market_prices.manage',
-            ],
-            [
-                'key' => 'about',
-                'title' => 'About',
-                'description' => 'App info and development team credits.',
-                'href' => route('about'),
-                'icon' => 'Info',
-                'permission' => null,
-            ],
-        ])
-            ->filter(fn ($card) => $user?->can($card['permission']))
-            ->values();
+        if ($user?->can('backup.run')) {
+            return redirect()->route('settings.backup');
+        }
 
-        return Inertia::render('Settings/Index', [
-            'cards' => $cards,
+        if ($user?->can('users.manage')) {
+            return redirect()->route('users.index');
+        }
+
+        if ($user?->can('market_prices.manage')) {
+            return redirect()->route('market-prices.index');
+        }
+
+        return redirect()->route('dashboard');
+    }
+
+    public function backup(Request $request): Response
+    {
+        $this->authorize('backup.run');
+
+        $settings = BackupSetting::current();
+
+        return Inertia::render('Settings/Backup', [
+            'backupStatus'   => BackupController::latestStatus(),
+            'canRunBackup'   => true,
+            'backupSettings' => [
+                'auto_enabled'   => $settings->auto_enabled,
+                'frequency'      => $settings->frequency,
+                'time'           => $settings->time,
+                'day_of_week'    => $settings->day_of_week,
+                'retention_days' => $settings->retention_days,
+                'next_run'       => $settings->nextRunAt()?->toIso8601String(),
+            ],
         ]);
     }
 }

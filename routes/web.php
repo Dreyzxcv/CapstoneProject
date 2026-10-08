@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssetPieceController;
+use App\Http\Controllers\BackupController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisposalController;
 use App\Http\Controllers\DocumentController;
@@ -25,10 +26,10 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified', 'active'])->group(function () {
 
-    // Dashboard 
+    // Dashboard
     Route::get('/', DashboardController::class)->name('dashboard');
 
-    // Assets 
+    // Assets
     Route::resource('assets', AssetController::class)->only(['index', 'create', 'store', 'show']);
     Route::put('/assets/{asset}', [AssetController::class, 'update'])->name('assets.update');
     Route::get('/assets/by-code/{assetCode}', [AssetController::class, 'byCode'])->name('assets.by-code');
@@ -44,10 +45,10 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/assets/{asset}/resolve-trial', [AssetController::class, 'resolveTrial'])->name('assets.resolve-trial');
     Route::post('/assets/{asset}/case-details', [AssetController::class, 'updateCaseDetails'])->name('assets.case-details.update');
 
-    // Asset Pieces 
+    // Asset Pieces
     Route::put('/asset-pieces/{piece}', [AssetPieceController::class, 'update'])->name('asset-pieces.update');
 
-    // Documents 
+    // Documents
     Route::get('/documents/{path}', [DocumentController::class, 'download'])
         ->where('path', '[A-Za-z0-9+/=]+')
         ->name('documents.download');
@@ -59,11 +60,11 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
         ->name('assets.required-documents.store');
     Route::post('/documents/{document}/verify', [DocumentController::class, 'verify'])->name('documents.verify');
 
-    // Incidents 
+    // Incidents
     Route::get('/incidents/create', [IncidentController::class, 'create'])->name('incidents.create');
     Route::post('/incidents', [IncidentController::class, 'store'])->name('incidents.store');
 
-    // JEV 
+    // JEV
     Route::get('/jev', [JevController::class, 'index'])->name('jev.index');
     Route::get('/jev/{asset}', [JevController::class, 'show'])->name('assets.jev.show');
     Route::post('/jev/{asset}', [JevController::class, 'store'])->name('assets.jev.store');
@@ -84,7 +85,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
         ->name('disposals.jev-out.upload');
     Route::get('/disposals/{disposal}/jev-out/show', [JevController::class, 'showDisposalJev'])->name('disposals.jev-out.show');
 
-    // QR Scan 
+    // QR Scan
     Route::get('/scan', [QrScanController::class, 'index'])->name('scan.index');
     Route::post('/scan', [QrScanController::class, 'store'])
         ->middleware('throttle:qr-scan')
@@ -93,7 +94,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
         ->middleware(['signed', 'throttle:qr-scan'])
         ->name('scan.resolve');
 
-    // Reports 
+    // Reports
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/inventory.csv', [ReportController::class, 'inventory'])
         ->middleware('throttle:report-export')
@@ -108,19 +109,27 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
         ->name('reports.attribute-table.export');
     Route::get('/reports/donations', [ReportController::class, 'donations'])->name('reports.donations');
 
-    // Audit Logs 
+    // Audit Logs
     Route::get('/audit-logs', [ReportController::class, 'auditLogs'])->name('audit-logs.index');
     Route::get('/audit-logs/export.csv', [ReportController::class, 'auditLogsExport'])
         ->middleware('throttle:report-export')
         ->name('audit-logs.export');
 
-    // Settings 
+    // Settings
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+    Route::get('/settings/backup', [SettingsController::class, 'backup'])->name('settings.backup');
     Route::get('/settings/market-prices', [MarketPriceController::class, 'index'])->name('market-prices.index');
     Route::post('/settings/market-prices', [MarketPriceController::class, 'store'])->name('market-prices.store');
     Route::delete('/settings/market-prices/{marketPrice}', [MarketPriceController::class, 'destroy'])->name('market-prices.destroy');
 
-    // Users 
+    // Backup (System Admin only -- gate enforced in BackupController::run)
+    Route::post('/settings/backup/run', [BackupController::class, 'run'])
+        ->middleware('throttle:report-export')
+        ->name('backup.run');
+    Route::post('/settings/backup/settings', [BackupController::class, 'updateSettings'])
+        ->name('backup.settings.update');
+
+    // Users
     Route::get('/users', [UsersController::class, 'index'])->name('users.index');
     Route::get('/users/create', [UsersController::class, 'create'])->name('users.create');
     Route::post('/users', [UsersController::class, 'store'])->name('users.store');
@@ -128,13 +137,13 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::patch('/users/{user}/toggle-active', [UsersController::class, 'toggleActive'])->name('users.toggle-active');
     Route::post('/users/{user}/send-reset', [UsersController::class, 'sendPasswordReset'])->name('users.send-reset');
 
-    // Profile 
+    // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile/other-browser-sessions', [ProfileController::class, 'destroyOtherSessions'])->name('profile.sessions.destroy-others');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // Notifications 
+    // Notifications
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
 

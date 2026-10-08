@@ -41,10 +41,11 @@
 
 @foreach ($pieces as $entry)
 @php
-    $pieceRecord = $entry['piece'];
-    $pieceAsset  = $entry['asset'];
-    $pieceNumber = $entry['global_number'];
-    $qrDataUri   = $entry['qr_png_data_uri'];
+    $pieceRecord     = $entry['piece'];
+    $pieceAsset      = $entry['asset'];
+    $typePieceNumber = $entry['type_piece_number'];
+    $typeTotal       = $entry['type_total'];
+    $qrDataUri       = $entry['qr_png_data_uri'];
 @endphp
 <div class="label-page">
     <table class="header-row">
@@ -57,7 +58,7 @@
         </tr>
     </table>
 
-    <div class="piece-badge">PIECE {{ $pieceNumber }} / {{ $totalPieces }}</div>
+    <div class="piece-badge">PIECE {{ $typePieceNumber }} / {{ $typeTotal }}</div>
     <div class="service-line">Asset Tag</div>
 
     <table class="item-table">

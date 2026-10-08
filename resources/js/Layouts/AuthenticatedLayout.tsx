@@ -24,7 +24,8 @@ import {
     Receipt,
     CircleCheck,
     User,
-    Tag
+    Tag,
+    HardDrive,
 } from 'lucide-react';
 
 function hasPermission(permissions: string[], permission: string): boolean {
@@ -75,10 +76,8 @@ export default function Authenticated({
 
     useEffect(() => {
         if (!flash?.success) return;
-
         setSuccessToast(flash.success);
         const timeout = window.setTimeout(() => setSuccessToast(null), 5000);
-
         return () => window.clearTimeout(timeout);
     }, [flash?.success]);
 
@@ -185,9 +184,11 @@ export default function Authenticated({
         route().current('market-prices.*') ||
         route().current('about');
 
+    // Show the Administration group if the user has any admin permission
     const showSettings =
         hasPermission(permissions, 'users.manage') ||
-        hasPermission(permissions, 'market_prices.manage');
+        hasPermission(permissions, 'market_prices.manage') ||
+        hasPermission(permissions, 'backup.run');
 
     const settingsChildren: { href: string; label: string; active: boolean; show: boolean; icon?: ReactNode }[] = [
         {
@@ -203,6 +204,14 @@ export default function Authenticated({
             active: route().current('market-prices.*'),
             show: hasPermission(permissions, 'market_prices.manage'),
             icon: <Tag className={iconClass} />,
+        },
+        {
+            // System Admin only
+            href: route('settings.backup'),
+            label: 'Backup',
+            active: route().current('settings.backup'),
+            show: hasPermission(permissions, 'backup.run'),
+            icon: <HardDrive className={iconClass} />,
         },
         {
             href: route('about'),
@@ -282,9 +291,7 @@ export default function Authenticated({
                                     (collapsed ? 'lg:hidden' : '')
                                 }
                             >
-                                <span className="text-sm font-bold text-emerald-900">
-                                    ForesTrack
-                                </span>
+                                <span className="text-sm font-bold text-emerald-900">ForesTrack</span>
                                 <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
                                     DENR-PENRO Catanduanes
                                 </span>
@@ -412,7 +419,6 @@ export default function Authenticated({
                         <Dropdown>
                             <Dropdown.Trigger>
                                 {collapsed ? (
-                                    /* Collapsed: just the avatar */
                                     <button
                                         type="button"
                                         title={user.name}
@@ -421,7 +427,6 @@ export default function Authenticated({
                                         {user.name.charAt(0).toUpperCase()}
                                     </button>
                                 ) : (
-                                    /* Expanded: compact identity row */
                                     <button
                                         type="button"
                                         className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition hover:bg-gray-50"
@@ -444,7 +449,6 @@ export default function Authenticated({
                                 direction="up"
                                 contentClasses="bg-white shadow-lg ring-1 ring-gray-100 rounded-xl overflow-hidden p-0"
                             >
-                                {/* Identity header */}
                                 <div className="px-4 py-3 border-b border-gray-100">
                                     <div className="flex items-center gap-2.5">
                                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-medium text-emerald-800">
@@ -457,7 +461,6 @@ export default function Authenticated({
                                     </div>
                                 </div>
 
-                                {/* Menu items */}
                                 <div className="p-1">
                                     <Dropdown.Link
                                         href={route('profile.edit')}
@@ -475,7 +478,6 @@ export default function Authenticated({
                                     </Dropdown.Link>
                                 </div>
 
-                                {/* Log out */}
                                 <div className="border-t border-gray-100 p-1">
                                     <Dropdown.Link
                                         href={route('logout')}

@@ -93,21 +93,6 @@ class PdfDocumentService
         return $path;
     }
 
-    /**
-     * Deed of Donation — one PDF per donation, listing every asset that
-     * belongs to it as its own row in the asset table.
-     *
-     * $disposals is always a collection (never a bare Asset/Disposal pair):
-     * for a plain single-asset donation it holds exactly one Disposal; for
-     * a batch donation (several assets/pieces donated together) it holds
-     * every Disposal that shares the same donation_batch_id. This is what
-     * lets one call cover both flows without generating a separate PDF per
-     * asset.
-     *
-     * The resulting file path is written back onto every Donation record
-     * tied to the disposals passed in, so the combined PDF resolves
-     * correctly no matter which asset's page the user opens it from.
-     */
     public function generateDeedOfDonation(\Illuminate\Support\Collection $disposals, \App\Models\Donation $donation): string
     {
         $disposals = $disposals->map(function (Disposal $disposal) {
@@ -136,8 +121,8 @@ class PdfDocumentService
             ->get()
             ->keyBy('id');
 
-
         $sharedAapNumber = $allAssets->pluck('aap_number')->filter()->first();
+
         // For each sibling, ensure pieces exist, then collect them all
         $allPieces = collect();
 
@@ -169,26 +154,34 @@ class PdfDocumentService
             $allPieces = $allPieces->concat($existing);
         }
 
-        // Re-number pieces globally across all siblings (1, 2, 3...)
-        $totalPieces = $allPieces->count();
+        $typeCounters = [];
+        $typeTotals   = [];
 
+        foreach ($allPieces as $pieceRow) {
+            $type = $pieceRow->asset->type->value;
+            $typeTotals[$type] = ($typeTotals[$type] ?? 0) + 1;
+        }
+
+        // Second pass: assign per-type piece_number and type_total
         $pieces = [];
-        foreach ($allPieces as $index => $pieceRow) {
-            $globalNumber = $index + 1;
+        foreach ($allPieces as $pieceRow) {
+            $type = $pieceRow->asset->type->value;
+            $typeCounters[$type] = ($typeCounters[$type] ?? 0) + 1;
+
             $payload = $this->qrCodeService->buildScanUrl($pieceRow->qr_code_token);
             $pieces[] = [
-                'piece'           => $pieceRow,
-                'asset'           => $allAssets[$pieceRow->asset_id],
-                'aap_number'      => $allAssets[$pieceRow->asset_id]->aap_number ?: $sharedAapNumber,
-                'global_number'   => $globalNumber,
-                'qr_png_data_uri' => $this->qrCodeService->generatePngDataUri($payload),
+                'piece'            => $pieceRow,
+                'asset'            => $allAssets[$pieceRow->asset_id],
+                'aap_number'       => $allAssets[$pieceRow->asset_id]->aap_number ?: $sharedAapNumber,
+                'type_piece_number' => $typeCounters[$type],   // e.g. 1, 2, 3
+                'type_total'        => $typeTotals[$type],     // e.g. 3
+                'qr_png_data_uri'  => $this->qrCodeService->generatePngDataUri($payload),
             ];
         }
 
         $pdf = Pdf::loadView('pdf.asset-tag-stickers', [
-            'asset'       => $asset->loadMissing('incident'),
-            'pieces'      => $pieces,
-            'totalPieces' => count($pieces),
+            'asset'  => $asset->loadMissing('incident'),
+            'pieces' => $pieces,
         ]);
 
         return $this->storePdf($pdf->output(), 'stickers', 'stickers-'.$asset->asset_code);

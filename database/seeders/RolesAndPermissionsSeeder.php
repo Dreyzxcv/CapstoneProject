@@ -37,6 +37,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'documents.upload',
             'documents.verify',
             'market_prices.manage',
+            'backup.run', 
         ];
 
         foreach ($permissions as $permission) {
