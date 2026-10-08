@@ -85,7 +85,7 @@ Use **NSSM** so the worker starts automatically when the server boots.
 1. Download NSSM from https://nssm.cc and extract it (example: `C:\nssm`).
 2. In PowerShell (**Run as administrator**):
    ```powershell
-   C:\nssm\win64\nssm.exe install LogTrackQueue
+   C:\nssm\win64\nssm.exe install ForestTrackQueue
    ```
 3. In the window that opens:
    - **Path:** your PHP path (example: `C:\php\php.exe`)
@@ -93,7 +93,7 @@ Use **NSSM** so the worker starts automatically when the server boots.
    - **Arguments:** `artisan queue:work --timeout=1800 --tries=1`
 4. Click **Install service**, then start it:
    ```powershell
-   C:\nssm\win64\nssm.exe start LogTrackQueue
+   C:\nssm\win64\nssm.exe start ForestTrackQueue
    ```
 
 > After every code update, run `php artisan queue:restart` so the worker uses the new code.
@@ -182,7 +182,7 @@ Replace `your_user`, `your_db`, and `your_password` with the real values.
 ```powershell
 # 1. Stop the app and background workers
 php artisan down
-C:\nssm\win64\nssm.exe stop LogTrackQueue
+C:\nssm\win64\nssm.exe stop ForestTrackQueue
 
 # 2. Safety copy of the current state
 $env:PGPASSWORD="your_password"
@@ -207,7 +207,7 @@ php artisan migrate
 php artisan optimize:clear
 php artisan permission:cache-reset
 php artisan up
-C:\nssm\win64\nssm.exe start LogTrackQueue
+C:\nssm\win64\nssm.exe start ForestTrackQueue
 
 # 7. Clean up
 Remove-Item $env:TEMP\restore -Recurse -Force
@@ -227,9 +227,9 @@ After restoring:
 
 | Problem | Likely cause and fix |
 |---|---|
-| Progress bar stays at 0% / "Queued" | Queue worker is not running. Start it: `C:\nssm\win64\nssm.exe start LogTrackQueue` |
+| Progress bar stays at 0% / "Queued" | Queue worker is not running. Start it: `C:\nssm\win64\nssm.exe start ForestTrackQueue` |
 | "Backup did not finish. Make sure the queue worker is running." | Same as above. Start the worker, then click **Run Backup Now** again. |
-| No automatic backup at the scheduled time | The server was off, or the Task Scheduler task (Step 4) is disabled. Check that `LogTrack Scheduler` is Ready and running every minute. |
+| No automatic backup at the scheduled time | The server was off, or the Task Scheduler task (Step 4) is disabled. Check that `ForestTrack Scheduler` is Ready and running every minute. |
 | Automatic backup ran at the wrong hour | `APP_TIMEZONE=Asia/Manila` is missing in `.env`. Add it, then run `php artisan config:clear`. |
 | `pg_dump failed: ...` | Check `pg_dump --version` (Step 1), and that `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD` in `.env` are correct. `pg_dump` must not be older than the database server. |
 | "Unsupported DB driver" | `DB_CONNECTION` in `.env` is not `pgsql`, `mysql`, or `sqlite`. |
