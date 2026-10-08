@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Card, CardContent, CardTitle } from '@/Components/ui/card';
-import { Head, useForm, usePoll } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import {
     HardDrive,
     CheckCircle2,
@@ -53,12 +53,19 @@ export default function BackupPage({ backupStatus, canRunBackup, backupSettings 
     const failed    = backupStatus?.status === 'failed';
     const running   = backupStatus?.status === 'running';
 
-    // Poll every 2s, only while a backup is running
-    const { start, stop } = usePoll(2000, { only: ['backupStatus'] }, { autoStart: false });
-
     useEffect(() => {
-        if (running) start();
-        else stop();
+        const refresh = () => {
+            if (document.hidden) return;
+            router.reload({ only: ['backupStatus', 'backupSettings'] });
+        };
+
+        const id = window.setInterval(refresh, running ? 2000 : 10000);
+        document.addEventListener('visibilitychange', refresh);
+
+        return () => {
+            window.clearInterval(id);
+            document.removeEventListener('visibilitychange', refresh);
+        };
     }, [running]);
 
     function handleRunBackup(e: FormEvent) {
