@@ -45,7 +45,7 @@ interface AuditLogsProps {
     };
 }
 
-type ActionCategory = 'created' | 'processed' | 'verified' | 'scanned' | 'changed' | 'other';
+type ActionCategory = 'created' | 'processed' | 'verified' | 'scanned' | 'changed' | 'failed' | 'other';
 
 const CATEGORY_STYLES: Record<ActionCategory, string> = {
     created:   'bg-emerald-100 text-emerald-800',
@@ -53,6 +53,7 @@ const CATEGORY_STYLES: Record<ActionCategory, string> = {
     verified:  'bg-green-100 text-green-800',
     scanned:   'bg-amber-100 text-amber-800',
     changed:   'bg-gray-200 text-gray-700',
+    failed: 'bg-red-100 text-red-800',
     other:     'bg-gray-100 text-gray-600',
 };
 
@@ -63,6 +64,7 @@ const CATEGORY_CHIP_STYLES: Record<ActionCategory | 'all', string> = {
     verified:  'bg-green-600 text-white',
     scanned:   'bg-amber-500 text-white',
     changed:   'bg-gray-500 text-white',
+    failed: 'bg-red-600 text-white',
     other:     'bg-gray-400 text-white',
 };
 
@@ -73,6 +75,7 @@ const CATEGORY_CHIP_INACTIVE: Record<ActionCategory | 'all', string> = {
     verified:  'bg-green-50 text-green-700 hover:bg-green-100',
     scanned:   'bg-amber-50 text-amber-700 hover:bg-amber-100',
     changed:   'bg-gray-100 text-gray-600 hover:bg-gray-200',
+    failed: 'bg-red-50 text-red-700 hover:bg-red-100',
     other:     'bg-gray-100 text-gray-500 hover:bg-gray-200',
 };
 
@@ -88,15 +91,17 @@ const CATEGORY_LABELS: Record<ActionCategory | 'all', string> = {
     verified:  'Verified',
     scanned:   'Scanned',
     changed:   'Changed',
+    failed: 'Failed',
     other:     'Other',
 };
 
 function categorize(action: string): ActionCategory {
-    if (/created|intake/.test(action))                        return 'created';
-    if (/processed|issued|uploaded|released/.test(action))    return 'processed';
-    if (/verified/.test(action))                              return 'verified';
-    if (/scanned/.test(action))                               return 'scanned';
-    if (/status_changed|case_resolved|updated/.test(action))  return 'changed';
+    if (/failed/.test(action))                                           return 'failed';
+    if (/created|intake/.test(action))                                   return 'created';
+    if (/processed|issued|uploaded|released|started|completed/.test(action)) return 'processed';
+    if (/verified/.test(action))                                         return 'verified';
+    if (/scanned/.test(action))                                          return 'scanned';
+    if (/status_changed|case_resolved|updated|deleted/.test(action))     return 'changed';
     return 'other';
 }
 
@@ -219,7 +224,7 @@ export default function AuditLogs({ logs, filters }: AuditLogsProps) {
     })();
 
     const categories: Array<ActionCategory | 'all'> = [
-        'all', 'created', 'processed', 'verified', 'scanned', 'changed', 'other',
+        'all', 'created', 'processed', 'verified', 'scanned', 'changed', 'failed', 'other',
     ];
 
     return (

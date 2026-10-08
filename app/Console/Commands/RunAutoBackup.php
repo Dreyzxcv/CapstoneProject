@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Http\Controllers\BackupController;
+use App\Services\AuditLogService;
 use App\Jobs\ProcessBackup;
 use App\Models\BackupSetting;
 use App\Services\BackupService;
@@ -13,7 +14,7 @@ class RunAutoBackup extends Command
     protected $signature = 'backup:auto';
     protected $description = 'Run the scheduled backup if due, and delete expired backups.';
 
-    public function handle(BackupService $service): int
+    public function handle(BackupService $service, AuditLogService $auditLogService): int
     {
         $service->pruneOldBackups();
 
@@ -30,7 +31,13 @@ class RunAutoBackup extends Command
         $settings->update(['last_auto_run_at' => now()]);
 
         $record = $service->start();
-        ProcessBackup::dispatch($record->id);
+
+        $auditLogService->log('backup.started', $record, null, [
+            'filename' => $record->filename,
+            'trigger'  => 'auto',
+        ]);
+
+        ProcessBackup::dispatch($record->id, null, 'auto');
 
         return self::SUCCESS;
     }

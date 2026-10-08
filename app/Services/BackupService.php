@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\BackupRecord;
+use App\Services\AuditLogService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
@@ -16,6 +17,8 @@ class BackupService
 
     /** Number of successful daily backups to keep. */
     public const RETENTION_LIMIT = 30;
+
+    public function __construct(protected AuditLogService $auditLogService) {}
 
     /**
      * Create the record for a new backup (does not run it yet).
@@ -273,13 +276,19 @@ class BackupService
         $days     = BackupSetting::current()->retention_days;
         $latestId = BackupRecord::successful()->orderByDesc('created_at')->value('id');
 
-        // Never delete the newest successful backup, even if it is older than the limit.
         $expired = BackupRecord::successful()
             ->where('created_at', '<', now()->subDays($days))
             ->when($latestId, fn ($q) => $q->where('id', '!=', $latestId))
             ->get();
 
         foreach ($expired as $old) {
+            $this->auditLogService->log(
+                'backup.deleted',
+                $old,
+                ['filename' => $old->filename, 'size' => $old->formattedSize()],
+                ['reason' => "Older than {$days} days (retention)"],
+            );
+
             $this->deleteFile($old);
             $old->delete();
         }

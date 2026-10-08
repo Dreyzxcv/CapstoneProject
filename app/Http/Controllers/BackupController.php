@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\ProcessBackup;
 use App\Models\BackupRecord;
+use App\Services\AuditLogService;
 use App\Services\BackupService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,7 +40,7 @@ class BackupController extends Controller
         ];
     }
 
-    public function run(Request $request, BackupService $backupService): RedirectResponse
+    public function run(Request $request, BackupService $backupService, AuditLogService $auditLogService): RedirectResponse
     {
         $this->authorize('backup.run');
 
@@ -49,12 +50,18 @@ class BackupController extends Controller
         }
 
         $record = $backupService->start();
-        ProcessBackup::dispatch($record->id);
+
+        $auditLogService->log('backup.started', $record, null, [
+            'filename' => $record->filename,
+            'trigger'  => 'manual',
+        ]);
+
+        ProcessBackup::dispatch($record->id, $request->user()->id, 'manual');
 
         return back()->with('success', 'Backup started. This may take a few minutes.');
     }
 
-    public function updateSettings(Request $request): RedirectResponse
+    public function updateSettings(Request $request, AuditLogService $auditLogService): RedirectResponse
     {
         $this->authorize('backup.run');
 
@@ -66,7 +73,21 @@ class BackupController extends Controller
             'retention_days' => ['required', 'integer', 'between:1,365'],
         ]);
 
-        BackupSetting::current()->update($data);
+        $settings = BackupSetting::current();
+        $settings->fill($data);
+
+        $old = [];
+        $new = [];
+        foreach ($settings->getDirty() as $key => $value) {
+            $old[$key] = $settings->getOriginal($key);
+            $new[$key] = $value;
+        }
+
+        $settings->save();
+
+        if ($new !== []) {
+            $auditLogService->log('backup.settings_updated', $settings, $old, $new);
+        }
 
         return back()->with('success', 'Backup settings saved.');
     }
