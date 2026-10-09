@@ -95,20 +95,57 @@ const CATEGORY_LABELS: Record<ActionCategory | 'all', string> = {
     other:     'Other',
 };
 
+const ACTION_LABELS: Record<string, string> = {
+    // Assets
+    'asset.intake_created':        'Asset intake created',
+    'asset.updated':               'Asset updated',
+    'asset.status_changed':        'Asset status changed',
+    'asset.split_remainder':       'Asset split (remainder created)',
+    'asset.case_details_updated':  'Case details updated',
+    'asset.aap_number_updated':    'AAP number updated',
+    'asset.stcp_number_updated':   'STCP number updated',
+    'qr.scanned':                  'QR code scanned',
+
+    // Incidents and documents
+    'incident.created':            'Incident created',
+    'document.verified':           'Document verified',
+    'document.rejected':           'Document rejected',
+
+    // JEV
+    'jev.issued':                  'JEV issued',
+    'jev.uploaded':                'JEV file uploaded',
+    'disposal_jev.issued':         'Disposal JEV issued',
+    'disposal_jev.uploaded':       'Disposal JEV file uploaded',
+
+    // Disposals and donations
+    'disposal.partial_processed':  'Disposal partially processed',
+    'donation.batch_created':      'Donation batch created',
+    'donation.released':           'Donation released',
+
+    // Backup
+    'backup.started':              'Backup started',
+    'backup.completed':            'Backup completed',
+    'backup.failed':               'Backup failed',
+    'backup.deleted':              'Old backup deleted',
+    'backup.settings_updated':     'Backup settings updated',
+};
+
 function categorize(action: string): ActionCategory {
-    if (/failed/.test(action))                                           return 'failed';
-    if (/created|intake/.test(action))                                   return 'created';
-    if (/processed|issued|uploaded|released|started|completed/.test(action)) return 'processed';
-    if (/verified/.test(action))                                         return 'verified';
-    if (/scanned/.test(action))                                          return 'scanned';
-    if (/status_changed|case_resolved|updated|deleted/.test(action))     return 'changed';
+    if (/failed|rejected/.test(action))                                          return 'failed';
+    if (/created|intake|split_remainder/.test(action))                           return 'created';
+    if (/processed|issued|uploaded|released|started|completed/.test(action))     return 'processed';
+    if (/verified/.test(action))                                                 return 'verified';
+    if (/scanned/.test(action))                                                  return 'scanned';
+    if (/status_changed|case_resolved|updated|deleted/.test(action))             return 'changed';
     return 'other';
 }
 
 function formatAction(action: string): string {
-    const parts = action.split('.');
-    const verb  = parts[parts.length - 1] ?? action;
-    return verb.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    if (ACTION_LABELS[action]) return ACTION_LABELS[action];
+
+    const [module, ...rest] = action.split('.');
+    const title = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return rest.length ? `${title(module)}: ${title(rest.join(' '))}` : title(action);
 }
 
 function formatModel(modelType: string | null, modelId: number | null): string {
