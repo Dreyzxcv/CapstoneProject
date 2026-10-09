@@ -65,14 +65,7 @@ export function QrScanner() {
 
             await html5QrCode.start(
                 { facingMode: 'environment' },
-                {
-                    fps: 10,
-                    qrbox: (viewfinderWidth, viewfinderHeight) => {
-                        const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7;
-                        return { width: size, height: size };
-                    },
-                    aspectRatio: 0.75, 
-                },
+                { fps: 10 },
                 handleDecoded,
                 () => {},
             );
@@ -133,7 +126,7 @@ export function QrScanner() {
         <div className="relative mx-auto aspect-[3/4] w-full max-w-sm overflow-hidden rounded-2xl bg-black shadow-lg">
             <div
                 id={CAMERA_REGION_ID}
-                className="absolute inset-0 [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
+                className="absolute inset-0 !h-full !w-full !border-0 [&_video]:!h-full [&_video]:!w-full [&_video]:!object-cover"
             />
             <div id={FILE_REGION_ID} className="hidden" />
 
