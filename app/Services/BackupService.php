@@ -20,20 +20,19 @@ class BackupService
 
     public function __construct(protected AuditLogService $auditLogService) {}
 
-    /**
-     * Create the record for a new backup (does not run it yet).
-     */
     public function start(): BackupRecord
     {
         $timestamp = now()->format('Y-m-d_His');
         $filename  = "backup_{$timestamp}.zip";
+        $directory = BackupSetting::current()->directory(); 
 
         return BackupRecord::create([
-            'filename' => $filename,
-            'path'     => self::BACKUP_FOLDER . '/' . $filename,
-            'status'   => 'failed',   // flips to success at the end
-            'progress' => 0,
-            'stage'    => 'Queued',
+            'filename'  => $filename,
+            'path'      => self::BACKUP_FOLDER . '/' . $filename,
+            'full_path' => $directory . DIRECTORY_SEPARATOR . $filename,
+            'status'    => 'failed',
+            'progress'  => 0,
+            'stage'     => 'Queued',
         ]);
     }
 
@@ -54,7 +53,7 @@ class BackupService
         set_time_limit(0);
 
         try {
-            $this->ensureBackupDirectory();
+            $this->ensureBackupDirectory(dirname($record->absolutePath()));
 
             $zipPath = $this->buildArchive($record);
 
@@ -68,6 +67,7 @@ class BackupService
 
             $this->pruneOldBackups();
         } catch (Throwable $e) {
+            @unlink($record->absolutePath());
             $record->update([
                 'status'        => 'failed',
                 'error_message' => $e->getMessage(),
@@ -80,7 +80,7 @@ class BackupService
 
     public function deleteFile(BackupRecord $record): void
     {
-        $absolutePath = Storage::disk('local')->path($record->path);
+        $absolutePath = $record->absolutePath();
 
         if (file_exists($absolutePath)) {
             @unlink($absolutePath);
@@ -91,10 +91,8 @@ class BackupService
     // Internals
     // -----------------------------------------------------------------------
 
-    protected function ensureBackupDirectory(): void
+    protected function ensureBackupDirectory(string $dir): void
     {
-        $dir = Storage::disk('local')->path(self::BACKUP_FOLDER);
-
         if (! File::isDirectory($dir)) {
             File::makeDirectory($dir, 0750, true);
         }
@@ -103,7 +101,7 @@ class BackupService
     protected function buildArchive(BackupRecord $record): string
     {
         $timestamp = $record->created_at->format('Y-m-d_His');
-        $zipPath   = Storage::disk('local')->path($record->path);
+        $zipPath = $record->absolutePath();
 
         $zip = new ZipArchive();
         if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
