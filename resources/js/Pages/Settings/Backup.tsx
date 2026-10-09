@@ -26,6 +26,8 @@ interface BackupSettings {
     frequency: 'daily' | 'weekly';
     time: string;
     day_of_week: number;
+    backup_path: string | null;
+    default_path: string;
     retention_days: number;
     next_run: string | null;
 }
@@ -45,6 +47,7 @@ export default function BackupPage({ backupStatus, canRunBackup, backupSettings 
         auto_enabled:   backupSettings.auto_enabled,
         frequency:      backupSettings.frequency,
         time:           backupSettings.time,
+        backup_path: backupSettings.backup_path ?? '',
         day_of_week:    backupSettings.day_of_week,
         retention_days: backupSettings.retention_days,
     });
@@ -281,6 +284,33 @@ export default function BackupPage({ backupStatus, canRunBackup, backupSettings 
                                         className="w-full rounded-md border-gray-300 text-sm"
                                     />
                                 </div>
+
+                                <div className="sm:col-span-2">
+                                    <label className="mb-1 block text-xs font-medium text-gray-500">Backup folder</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={settingsForm.data.backup_path}
+                                            onChange={(e) => settingsForm.setData('backup_path', e.target.value)}
+                                            placeholder={backupSettings.default_path}
+                                            className="w-full rounded-md border-gray-300 font-mono text-xs"
+                                        />
+                                        {settingsForm.data.backup_path !== '' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => settingsForm.setData('backup_path', '')}
+                                                className="shrink-0 rounded-md border border-gray-300 px-3 text-xs text-gray-600 hover:bg-gray-50"
+                                            >
+                                                Use default
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="mt-1 text-xs text-gray-400">
+                                        Full path on the server, for example <code>D:\Backups</code> or{' '}
+                                        <code>\\SERVER\Share\Backups</code>. Leave empty to use the default folder.
+                                        Use a different drive or computer from the system for real protection.
+                                    </p>
+                                </div>
                             </div>
 
                             {Object.values(settingsForm.errors).map((err) => (
@@ -317,7 +347,8 @@ export default function BackupPage({ backupStatus, canRunBackup, backupSettings 
                         successful backup is always kept.
                     </p>
                     <p>
-                        Backup files are saved on the server in <code>storage/app/private/backups</code>.
+                        New backups are saved on the server in{' '}
+                        <code>{backupSettings.backup_path ?? backupSettings.default_path}</code>.
                     </p>
                 </div>
             </div>
