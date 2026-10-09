@@ -100,6 +100,7 @@ const ACTION_LABELS: Record<string, string> = {
     'asset.intake_created':        'Asset intake created',
     'asset.updated':               'Asset updated',
     'asset.status_changed':        'Asset status changed',
+    'asset.piece_updated': 'Asset piece updated',
     'asset.split_remainder':       'Asset split (remainder created)',
     'asset.case_details_updated':  'Case details updated',
     'asset.aap_number_updated':    'AAP number updated',

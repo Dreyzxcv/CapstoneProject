@@ -161,6 +161,10 @@ class AssetController extends Controller
             ->sortBy('changed_at')
             ->values()
             ->reduce(function ($carry, $entry) use ($jevStatuses) {
+                if (($entry->event_type ?? 'status_change') !== 'status_change') {
+                    $carry->push($entry);
+                    return $carry;
+                }
                 $statusValue = $entry->getRawOriginal('status') ?? (
                     $entry->status instanceof \App\Enums\AssetStatus
                         ? $entry->status->value
@@ -322,7 +326,7 @@ class AssetController extends Controller
         return response()->json(['items' => $items]);
     }
 
-    public function updateAapNumber(UpdateAapNumberRequest $request, Asset $asset, \App\Services\AuditLogService $auditLog): RedirectResponse
+    public function updateAapNumber(UpdateAapNumberRequest $request, Asset $asset, \App\Services\AuditLogService $auditLog, \App\Services\AssetInfoHistoryService $history): RedirectResponse
     {
         $this->authorize('updateAap', $asset);
 
@@ -331,19 +335,25 @@ class AssetController extends Controller
         Asset::where('asset_code', $asset->asset_code)
             ->update(['aap_number' => $request->validated('aap_number')]);
 
-        $auditLog->log('asset.aap_number_updated', $asset, $before, $asset->fresh()->only('aap_number'), $request->user()->id);
+        $after = $asset->fresh()->only('aap_number');
+
+        $history->record($asset, $history->diff($before, $after, ['aap_number' => 'AAP No.']), $request->user()->id);
+        $auditLog->log('asset.aap_number_updated', $asset, $before, $after, $request->user()->id);
 
         return back()->with('success', 'AAP No. updated.');
     }
 
-    public function updateStcpNumber(UpdateStcpNumberRequest $request, Asset $asset, \App\Services\AuditLogService $auditLog): RedirectResponse
+    public function updateStcpNumber(UpdateStcpNumberRequest $request, Asset $asset, \App\Services\AuditLogService $auditLog, \App\Services\AssetInfoHistoryService $history): RedirectResponse
     {
         $before = $asset->only('stcp_number');
 
         Asset::where('asset_code', $asset->asset_code)
             ->update(['stcp_number' => $request->validated('stcp_number')]);
 
-        $auditLog->log('asset.stcp_number_updated', $asset, $before, $asset->fresh()->only('stcp_number'), $request->user()->id);
+        $after = $asset->fresh()->only('stcp_number');
+
+        $history->record($asset, $history->diff($before, $after, ['stcp_number' => 'STCP No.']), $request->user()->id);
+        $auditLog->log('asset.stcp_number_updated', $asset, $before, $after, $request->user()->id);
 
         return back()->with('success', 'STCP No. updated.');
     }
@@ -386,23 +396,38 @@ class AssetController extends Controller
         return back()->with('success', 'Case details updated.');
     }
 
-    public function update(UpdateAssetRequest $request, Asset $asset, \App\Services\AuditLogService $auditLog): RedirectResponse
-    {
+    public function update(
+        UpdateAssetRequest $request,
+        Asset $asset,
+        \App\Services\AuditLogService $auditLog,
+        \App\Services\AssetInfoHistoryService $history,
+    ): RedirectResponse {
         $assetFields = [
             'location_apprehended', 'apprehending_agency', 'mode',
             'has_ongoing_case', 'has_confiscation_order',
         ];
+        $incidentFields = [
+            'date_of_apprehension', 'place_of_apprehension',
+            'area', 'coordinates', 'apprehending_party',
+        ];
+        $claimantFields = [
+            'claimant_offender_name', 'claimant_address', 'claimant_contact_number',
+            'claimant_id_type', 'claimant_id_number',
+        ];
 
-        $before = $asset->only($assetFields);
+        // Snapshot of everything the Edit modal can change
+        $snapshot = fn (Asset $a) => $a->only($assetFields)
+            + ($a->incident
+                ? $a->incident->only([...$incidentFields, ...$claimantFields])
+                    + ['has_claimant' => ! $a->incident->is_abandoned]
+                : []);
+
+        $before         = $asset->only($assetFields);
+        $snapshotBefore = $snapshot($asset);
 
         $asset->update($request->only($assetFields));
 
         if ($asset->incident_id) {
-            $incidentFields = [
-                'date_of_apprehension', 'place_of_apprehension',
-                'area', 'coordinates', 'apprehending_party',
-            ];
-
             $incidentData = array_filter(
                 $request->only($incidentFields),
                 fn ($v) => $v !== null,
@@ -411,21 +436,11 @@ class AssetController extends Controller
             if ($request->has('has_claimant') && $request->input('mode') !== 'turned_over') {
                 $hasClaimant = (bool) $request->has_claimant;
                 $incidentData['is_abandoned'] = ! $hasClaimant;
-                $incidentData['claimant_offender_name'] = $hasClaimant
-                    ? $request->claimant_offender_name
-                    : null;
-                $incidentData['claimant_address'] = $hasClaimant
-                    ? $request->claimant_address
-                    : null;
-                $incidentData['claimant_contact_number'] = $hasClaimant
-                    ? $request->claimant_contact_number
-                    : null;
-                $incidentData['claimant_id_type'] = $hasClaimant
-                    ? $request->claimant_id_type
-                    : null;
-                $incidentData['claimant_id_number'] = $hasClaimant
-                    ? $request->claimant_id_number
-                    : null;
+                $incidentData['claimant_offender_name']  = $hasClaimant ? $request->claimant_offender_name : null;
+                $incidentData['claimant_address']        = $hasClaimant ? $request->claimant_address : null;
+                $incidentData['claimant_contact_number'] = $hasClaimant ? $request->claimant_contact_number : null;
+                $incidentData['claimant_id_type']        = $hasClaimant ? $request->claimant_id_type : null;
+                $incidentData['claimant_id_number']      = $hasClaimant ? $request->claimant_id_number : null;
             }
 
             if (! empty($incidentData)) {
@@ -433,11 +448,24 @@ class AssetController extends Controller
             }
         }
 
+        $asset->refresh()->load('incident');
+
+        $history->record(
+            $asset,
+            $history->diff(
+                $snapshotBefore,
+                $snapshot($asset),
+                \App\Services\AssetInfoHistoryService::ASSET_LABELS,
+                \App\Services\AssetInfoHistoryService::PRIVATE_FIELDS,
+            ),
+            $request->user()->id,
+        );
+
         $auditLog->log(
             'asset.updated',
             $asset,
             $before,
-            $asset->fresh()->only($assetFields),
+            $asset->only($assetFields),
             $request->user()->id,
         );
 

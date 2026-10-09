@@ -51,6 +51,7 @@ class ReportController extends Controller
         );
 
         $recentActivity = AssetCaseStatusHistory::query()
+            ->where('event_type', 'status_change')
             ->with(['asset', 'changedBy'])
             ->latest('changed_at')
             ->limit(10)

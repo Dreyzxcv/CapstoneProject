@@ -61,7 +61,8 @@ class AssetAlertService
             ->where('type', AssetType::Log->value)
             ->where('current_status', AssetStatus::ForDisposal->value)
             ->whereHas('statusHistory', function ($q) use ($threshold) {
-                $q->where('status', AssetStatus::ForDisposal->value)
+                $q->where('event_type', 'status_change')
+                    ->where('status', AssetStatus::ForDisposal->value)
                     ->where('changed_at', '<=', $threshold);
             })
             ->get();

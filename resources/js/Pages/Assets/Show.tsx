@@ -784,6 +784,51 @@ function DocumentGroup({
     );
 }
 
+function InfoUpdateEntry({ entry }: { entry: StatusHistoryEntry }) {
+    const fields = entry.changed_fields ?? [];
+
+    return (
+        <div className="flex flex-wrap justify-between gap-2 border-b border-gray-100 pb-2 text-sm">
+            <div className="min-w-0 flex-1 break-words">
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                    <Pencil className="h-3 w-3" />
+                    Information updated
+                </span>
+
+                {fields.length > 0 && (
+                    <ul className="mt-1.5 space-y-0.5 text-xs text-gray-600">
+                        {fields.map((f, i) => (
+                            <li key={`${f.label}-${i}`}>
+                                <span className="font-medium text-gray-700">{f.label}</span>
+                                {f.private ? (
+                                    <span className="text-gray-500"> updated</span>
+                                ) : (
+                                    <>
+                                        <span className="text-gray-500">: </span>
+                                        <span className="text-gray-400 line-through">{f.from ?? "—"}</span>
+                                        <span className="text-gray-400"> → </span>
+                                        <span className="text-gray-800">{f.to ?? "—"}</span>
+                                    </>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+
+            <div className="min-w-0 shrink-0 break-words text-right text-gray-500">
+                {entry.changed_by && (
+                    <p className="text-xs font-medium text-gray-700">{entry.changed_by.name}</p>
+                )}
+                {entry.changed_by?.roles?.[0] && (
+                    <p className="text-[11px] text-gray-400">{(entry.changed_by.roles[0] as any).name}</p>
+                )}
+                <p className="text-xs">{new Date(entry.changed_at).toLocaleString()}</p>
+            </div>
+        </div>
+    );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AssetsShow({
@@ -2183,6 +2228,7 @@ export default function AssetsShow({
                             type DocEvent = (typeof docEvents)[number];
                             type TimelineItem =
                                 | { kind: "status"; id: string; entry: StatusHistoryEntry; docs: DocEvent[] }
+                                | { kind: "info"; id: string; entry: StatusHistoryEntry }
                                 | { kind: "documents"; id: string; docs: DocEvent[] };
 
                             const items: TimelineItem[] = [];
@@ -2198,6 +2244,11 @@ export default function AssetsShow({
                             for (const event of timeline) {
                                 if (event.kind === "document") {
                                     buffer.push(event);
+                                    continue;
+                                }
+                                if (event.entry.event_type === "info_updated") {
+                                    flush();
+                                    items.push({ kind: "info", id: event.id, entry: event.entry });
                                     continue;
                                 }
                                 if (event.entry.status === "documents_uploaded") {
@@ -2224,7 +2275,10 @@ export default function AssetsShow({
                                                 </div>
                                             );
                                         }
-
+                                        
+                                        if (item.kind === "info") {
+                                            return <InfoUpdateEntry key={item.id} entry={item.entry} />;
+                                        }
                                         const entry = item.entry;
                                         return (
                                             <div

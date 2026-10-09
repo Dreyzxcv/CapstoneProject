@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 
 class AssetPieceController extends Controller
 {
-    public function update(Request $request, AssetPiece $piece)
+    public function update(Request $request, AssetPiece $piece, \App\Services\AuditLogService $auditLog, \App\Services\AssetInfoHistoryService $history)
     {
         $this->authorize('update', $piece->asset);
 
@@ -53,7 +53,25 @@ class AssetPieceController extends Controller
             }
         }
 
+        $labels = [
+            'species'        => 'Species',
+            'vehicle_type'   => 'Vehicle type',
+            'plate_number'   => 'Plate / conveyance no.',
+            'equipment_type' => 'Equipment type',
+            'serial_number'  => 'Serial number',
+            'description'    => 'Description',
+            'length'         => 'Length (in)',
+            'width'          => 'Width (in)',
+            'height'         => 'Height (in)',
+            'volume_bd_ft'   => 'Volume (bd.ft)',
+            'volume_cu_m'    => 'Volume (cu.m)',
+        ];
+
+        $before = $piece->only(array_keys($labels));
+
         $piece->update($validated);
+
+        $after = $piece->refresh()->only(array_keys($labels));
 
         // Recompute asset-level aggregates if volumes changed
         if ($asset->type === 'log') {
@@ -61,6 +79,17 @@ class AssetPieceController extends Controller
             $asset->volume_cu_m     = $asset->pieces()->sum('volume_cu_m');
             $asset->estimated_value = $asset->pieces()->sum('estimated_value');
             $asset->save();
+        }
+
+        $changes = array_map(
+            fn ($c) => ['label' => "Piece {$piece->piece_number}: {$c['label']}"] + $c,
+            $history->diff($before, $after, $labels),
+        );
+
+        $history->record($asset->fresh(), $changes, $request->user()->id);
+
+        if ($changes !== []) {
+            $auditLog->log('asset.piece_updated', $piece, $before, $after, $request->user()->id);
         }
 
         return back();

@@ -37,7 +37,7 @@ const selectClass =
 type ColumnKey = 'asset_code' | 'type' | 'municipality' | 'status';
 
 const COLUMN_DEFS: Array<{ key: ColumnKey; label: string }> = [
-    { key: 'asset_code', label: 'AAP No.' },
+    { key: 'asset_code', label: 'Asset ID' },
     { key: 'type', label: 'Type' },
     { key: 'municipality', label: 'Municipality' },
     { key: 'status', label: 'Status' },
@@ -289,7 +289,7 @@ export default function AssetsIndex({ assets, filters, statuses, types }: Assets
                                         <tr>
                                             {visibleColumns.asset_code && (
                                                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                                                    AAP No.
+                                                    Asset ID
                                                 </th>
                                             )}
 

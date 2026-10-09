@@ -6,12 +6,14 @@ namespace App\Actions;
 use App\Models\Asset;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\AssetInfoHistoryService;
 use DomainException;
 
 class UpdateCaseDetails
 {
     public function __construct(
         protected AuditLogService $auditLogService,
+        protected AssetInfoHistoryService $historyService,
     ) {}
 
     public function execute(Asset $asset, array $data, User $user): Asset
@@ -20,7 +22,8 @@ class UpdateCaseDetails
             throw new DomainException('This asset does not have an ongoing case.');
         }
 
-        $before = $asset->only(['case_number', 'court_branch', 'next_hearing_date', 'case_outcome']);
+        $tracked = ['case_number', 'court_branch', 'next_hearing_date', 'case_outcome'];
+        $before  = $asset->only($tracked);
 
         $asset->update([
             'case_number' => $data['case_number'] ?? $asset->case_number,
@@ -29,14 +32,18 @@ class UpdateCaseDetails
             'case_outcome' => $data['case_outcome'] ?? $asset->case_outcome,
         ]);
 
-        $this->auditLogService->log(
-            'asset.case_details_updated',
-            $asset,
-            $before,
-            $asset->fresh()->only(['case_number', 'court_branch', 'next_hearing_date', 'case_outcome']),
-            $user->id,
-        );
+        $fresh = $asset->fresh();
+        $after = $fresh->only($tracked);
 
-        return $asset->fresh();
+        $this->historyService->record($fresh, $this->historyService->diff($before, $after, [
+            'case_number'       => 'Case number',
+            'court_branch'      => 'Court / branch',
+            'next_hearing_date' => 'Next hearing date',
+            'case_outcome'      => 'Case outcome',
+        ]), $user->id);
+
+        $this->auditLogService->log('asset.case_details_updated', $asset, $before, $after, $user->id);
+
+        return $fresh;
     }
 }

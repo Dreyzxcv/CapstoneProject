@@ -13,8 +13,10 @@ class AssetCaseStatusHistory extends Model
     protected $fillable = [
         'asset_id',
         'status',
+        'event_type',
         'changed_by',
         'notes',
+        'changed_fields',
         'changed_at',
     ];
 
@@ -22,6 +24,7 @@ class AssetCaseStatusHistory extends Model
     {
         return [
             'status' => AssetStatus::class,
+            'changed_fields' => 'array',
             'changed_at' => 'datetime',
         ];
     }

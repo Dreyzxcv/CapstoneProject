@@ -129,6 +129,13 @@ export interface StatusHistoryEntry {
     changed_by?: Omit<User, 'roles'> & {
         roles: Array<{ id: number; name: string; guard_name: string }>;
     };
+    event_type?: 'status_change' | 'info_updated';
+    changed_fields?: Array<{
+        label: string;
+        from?: string | null;
+        to?: string | null;
+        private?: boolean;
+    }> | null;
 }
 
 export interface JevLineItem {
