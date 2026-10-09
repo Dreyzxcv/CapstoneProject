@@ -6,7 +6,7 @@ import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
 import InputError from "@/Components/InputError";
 import Modal from "@/Components/Modal";
-import { Asset, Disposal, PageProps } from "@/types";
+import { Asset, PageProps } from "@/types";
 import { documentUrl } from "@/lib/utils";
 import {
     Head,
@@ -63,6 +63,7 @@ interface ShowProps {
         generateQr: boolean;
         edit: boolean;
         releaseDonation: boolean;
+        viewDisposalHistory: boolean;
         processDisposal: boolean;
         resolveCase: boolean;
         updateCaseDetails: boolean;
@@ -815,9 +816,6 @@ export default function AssetsShow({
         import("@/types").AssetPiece | null
     >(null);
     const [showRequiredDocsModal, setShowRequiredDocsModal] = useState(false);
-    const [viewingDisposal, setViewingDisposal] = useState<Disposal | null>(
-        null,
-    );
     const [showEditModal, setShowEditModal] = useState(false);
     const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
 
@@ -1910,178 +1908,6 @@ export default function AssetsShow({
                     </Card>
                 </div>
 
-                <Modal
-                    show={viewingDisposal !== null}
-                    onClose={() => setViewingDisposal(null)}
-                    maxWidth="lg"
-                >
-                    {viewingDisposal && (
-                        <div className="p-6">
-                            <h2 className="text-lg font-medium capitalize text-gray-900">
-                                {viewingDisposal.disposal_type.replace(
-                                    /_/g,
-                                    " ",
-                                )}{" "}
-                                Disposal
-                            </h2>
-                            <p className="mt-1 text-sm text-gray-600">
-                                Processed{" "}
-                                {new Date(
-                                    viewingDisposal.processed_at,
-                                ).toLocaleString()}
-                            </p>
-
-                            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                                <div>
-                                    <dt className="text-gray-500">Quantity</dt>
-                                    <dd className="text-gray-900">
-                                        {viewingDisposal.quantity} unit(s)
-                                    </dd>
-                                </div>
-                                {viewingDisposal.volume_bd_ft && (
-                                    <div>
-                                        <dt className="text-gray-500">
-                                            Volume (bd.ft)
-                                        </dt>
-                                        <dd className="text-gray-900">
-                                            {viewingDisposal.volume_bd_ft}
-                                        </dd>
-                                    </div>
-                                )}
-                                {viewingDisposal.details &&
-                                    Object.entries(viewingDisposal.details).map(
-                                        ([key, value]) =>
-                                            value ? (
-                                                <div key={key}>
-                                                    <dt className="text-gray-500 capitalize">
-                                                        {key.replace(/_/g, " ")}
-                                                    </dt>
-                                                    <dd className="text-gray-900">
-                                                        {String(value)}
-                                                    </dd>
-                                                </div>
-                                            ) : null,
-                                    )}
-                            </dl>
-
-                            {viewingDisposal.donation && (
-                                <div className="mt-4 border-t border-gray-100 pt-4">
-                                    <p className="text-sm font-semibold text-gray-700">
-                                        Donation
-                                    </p>
-                                    <p className="mt-1 text-sm text-gray-600">
-                                        {
-                                            viewingDisposal.donation
-                                                .requester_name
-                                        }
-                                        {viewingDisposal.donation.agency_name
-                                            ? ` (${viewingDisposal.donation.agency_name})`
-                                            : ""}
-                                    </p>
-                                    <p className="text-sm text-gray-500">
-                                        {[
-                                            viewingDisposal.donation.street,
-                                            viewingDisposal.donation.barangay,
-                                            viewingDisposal.donation
-                                                .municipality,
-                                        ]
-                                            .filter(Boolean)
-                                            .join(", ") || "No address on file"}
-                                    </p>
-                                </div>
-                            )}
-
-                            <div className="mt-4 flex flex-wrap gap-3 border-t border-gray-100 pt-4">
-                                {documentUrl(
-                                    viewingDisposal.report_pdf_path,
-                                ) && (
-                                    <a
-                                        href={
-                                            documentUrl(
-                                                viewingDisposal.report_pdf_path,
-                                            ) ?? "#"
-                                        }
-                                        className="text-sm text-emerald-700 hover:underline"
-                                    >
-                                        Download Report
-                                    </a>
-                                )}
-                                {documentUrl(
-                                    viewingDisposal.donation
-                                        ?.deed_of_donation_path,
-                                ) && (
-                                    <a
-                                        href={
-                                            documentUrl(
-                                                viewingDisposal.donation
-                                                    ?.deed_of_donation_path,
-                                            ) ?? "#"
-                                        }
-                                        className="text-sm text-emerald-700 hover:underline"
-                                    >
-                                        Download Deed of Donation
-                                    </a>
-                                )}
-                                {documentUrl(
-                                    viewingDisposal.donation?.waybill_pdf_path,
-                                ) && (
-                                    <a
-                                        href={
-                                            documentUrl(
-                                                viewingDisposal.donation
-                                                    ?.waybill_pdf_path,
-                                            ) ?? "#"
-                                        }
-                                        className="text-sm text-emerald-700 hover:underline"
-                                    >
-                                        Download Waybill
-                                    </a>
-                                )}
-                                {documentUrl(
-                                    viewingDisposal.ics_record?.pdf_path,
-                                ) && (
-                                    <a
-                                        href={
-                                            documentUrl(
-                                                viewingDisposal.ics_record
-                                                    ?.pdf_path,
-                                            ) ?? "#"
-                                        }
-                                        className="text-sm text-emerald-700 hover:underline"
-                                    >
-                                        Download ICS
-                                    </a>
-                                )}
-                                {documentUrl(
-                                    viewingDisposal.par_record?.pdf_path,
-                                ) && (
-                                    <a
-                                        href={
-                                            documentUrl(
-                                                viewingDisposal.par_record
-                                                    ?.pdf_path,
-                                            ) ?? "#"
-                                        }
-                                        className="text-sm text-emerald-700 hover:underline"
-                                    >
-                                        Download PAR
-                                    </a>
-                                )}
-                            </div>
-
-                            <div className="mt-6 flex justify-end border-t border-gray-100 pt-4">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => setViewingDisposal(null)}
-                                >
-                                    Close
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                </Modal>
-
                 <RequiredDocumentsModal
                     show={showRequiredDocsModal}
                     onClose={() => setShowRequiredDocsModal(false)}
@@ -2254,15 +2080,12 @@ export default function AssetsShow({
                     </Card>
                 )}
 
-                {showDisposalHistory && (
+                {showDisposalHistory && can.viewDisposalHistory && (
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">
-                                Disposal History
-                            </CardTitle>
+                            <CardTitle className="text-base">Disposal History</CardTitle>
                             <p className="text-sm text-gray-500">
-                                {totalDisposed} of {asset.quantity ?? 1} unit(s)
-                                disposed
+                                {totalDisposed} of {asset.quantity ?? 1} unit(s) disposed
                                 {remainingQuantity > 0
                                     ? ` — ${remainingQuantity} remaining`
                                     : " — fully disposed"}
@@ -2270,57 +2093,12 @@ export default function AssetsShow({
                             </p>
                         </CardHeader>
                         <CardContent>
-                            {disposals.length === 0 ? (
-                                <p className="text-sm text-gray-500">
-                                    No disposal actions recorded yet.
-                                </p>
-                            ) : (
-                                <div className="divide-y divide-gray-100">
-                                    {disposals.map((d) => (
-                                        <div
-                                            key={d.id}
-                                            className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
-                                        >
-                                            <div>
-                                                <p className="font-medium capitalize text-gray-800">
-                                                    {d.disposal_type.replace(
-                                                        /_/g,
-                                                        " ",
-                                                    )}{" "}
-                                                    — {d.quantity} unit(s)
-                                                </p>
-                                                {d.donation && (
-                                                    <p className="text-gray-500">
-                                                        {
-                                                            d.donation
-                                                                .requester_name
-                                                        }
-                                                        {d.donation.released_at
-                                                            ? ` — released ${new Date(d.donation.released_at).toLocaleDateString()}`
-                                                            : " — awaiting release"}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <p className="text-xs text-gray-400">
-                                                    {new Date(
-                                                        d.processed_at,
-                                                    ).toLocaleString()}
-                                                </p>
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setViewingDisposal(d)
-                                                    }
-                                                    className="text-xs font-medium text-emerald-700 hover:underline"
-                                                >
-                                                    View
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            <Link
+                                href={route("disposals.history", asset.id)}
+                                className="text-sm font-medium text-emerald-700 hover:underline"
+                            >
+                                View disposal history →
+                            </Link>
                         </CardContent>
                     </Card>
                 )}

@@ -251,18 +251,26 @@ export default function DisposalsIndex({ assets, mode, modeCounts, can }: Dispos
 
                                                 {/* Action */}
                                                 <td className="px-5 py-3.5 text-right">
-                                                    {can.process ? (
-                                                        <Link href={route('disposals.create', asset.id)}>
-                                                            <Button size="sm">Process</Button>
-                                                        </Link>
-                                                    ) : (
+                                                    <div className="flex items-center justify-end gap-3">
                                                         <Link
-                                                            href={route('assets.show', asset.id)}
-                                                            className="text-sm font-medium text-emerald-700 hover:underline"
+                                                            href={route('disposals.history', asset.id)}
+                                                            className="text-sm font-medium text-gray-600 hover:text-emerald-700 hover:underline"
                                                         >
-                                                            View
+                                                            History
                                                         </Link>
-                                                    )}
+                                                        {can.process ? (
+                                                            <Link href={route('disposals.create', asset.id)}>
+                                                                <Button size="sm">Process</Button>
+                                                            </Link>
+                                                        ) : (
+                                                            <Link
+                                                                href={route('assets.show', asset.id)}
+                                                                className="text-sm font-medium text-emerald-700 hover:underline"
+                                                            >
+                                                                View
+                                                            </Link>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );

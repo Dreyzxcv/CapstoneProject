@@ -98,6 +98,32 @@ class DisposalController extends Controller
         ]);
     }
 
+    public function history(Asset $asset): Response
+    {
+        $this->authorize('viewAny', Disposal::class);
+        $this->authorize('view', $asset);
+
+        $disposals = $asset->disposals()
+            ->with([
+                'donation',
+                'disposalJev',
+                'icsRecord',
+                'parRecord',
+                'processedBy:id,name',
+            ])
+            ->orderByDesc('processed_at')
+            ->orderByDesc('id')
+            ->get();
+
+        return Inertia::render('Disposals/History', [
+            'asset' => $asset->only([
+                'id', 'asset_code', 'aap_number', 'type',
+                'quantity', 'disposed_quantity', 'current_status',
+            ]),
+            'disposals' => $disposals,
+        ]);
+    }
+
     public function store(ProcessDisposalRequest $request, Asset $asset, ProcessDisposal $processDisposal): RedirectResponse
     {
         $this->authorize('create', Disposal::class);

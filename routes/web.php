@@ -76,6 +76,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/disposals/scan-lookup', [DisposalController::class, 'scanLookup'])
         ->middleware('throttle:qr-scan')
         ->name('disposals.scan-lookup');
+    Route::get('/assets/{asset}/disposals/history', [DisposalController::class, 'history'])->name('disposals.history');
     Route::get('/assets/{asset}/disposals/create', [DisposalController::class, 'create'])->name('disposals.create');
     Route::post('/assets/{asset}/disposals', [DisposalController::class, 'store'])->name('disposals.store');
     Route::post('/disposals/{disposal}/release-donation', [DisposalController::class, 'releaseDonation'])->name('disposals.release-donation');
