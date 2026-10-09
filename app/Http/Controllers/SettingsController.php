@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\BackupController;
+use Illuminate\Support\Facades\Storage;
 use App\Models\BackupSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,6 +48,8 @@ class SettingsController extends Controller
                 'day_of_week'    => $settings->day_of_week,
                 'retention_days' => $settings->retention_days,
                 'next_run'       => $settings->nextRunAt()?->toIso8601String(),
+                'backup_path'  => $settings->backup_path,
+                'default_path' => Storage::disk('local')->path('backups'),
             ],
         ]);
     }
