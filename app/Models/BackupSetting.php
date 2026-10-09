@@ -4,12 +4,13 @@ namespace App\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class BackupSetting extends Model
 {
     protected $fillable = [
         'auto_enabled', 'frequency', 'time', 'day_of_week',
-        'retention_days', 'last_auto_run_at',
+        'retention_days', 'last_auto_run_at', 'backup_path',
     ];
 
     protected function casts(): array
@@ -73,5 +74,12 @@ class BackupSetting extends Model
         }
 
         return null;
+    }
+
+    public function directory(): string
+    {
+        return $this->backup_path
+            ? rtrim($this->backup_path, '\\/')
+            : Storage::disk('local')->path('backups');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Model;
 
 class BackupRecord extends Model
@@ -9,6 +10,7 @@ class BackupRecord extends Model
     protected $fillable = [
         'filename',
         'path',
+        'full_path',
         'size_bytes',
         'status',
         'progress',
@@ -43,5 +45,10 @@ class BackupRecord extends Model
         }
 
         return number_format($bytes / 1_024, 2) . ' KB';
+    }
+
+    public function absolutePath(): string
+    {
+        return $this->full_path ?: Storage::disk('local')->path($this->path);
     }
 }
