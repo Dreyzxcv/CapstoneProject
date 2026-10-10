@@ -63,6 +63,21 @@ const EQUIPMENT_OPTIONS = [
 ];
 const BD_FT_TO_CU_M = 0.002359737;
 
+// Soft pulsing highlight used to guide the user to the next required field.
+const HIGHLIGHT_CSS = `
+@keyframes nfPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.45); }
+    50%      { box-shadow: 0 0 0 6px rgba(5, 150, 105, 0); }
+}
+.nf-highlight {
+    border-color: #059669 !important;
+    animation: nfPulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    .nf-highlight { animation: none; box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.35); }
+}
+`;
+
 // ── Valid ID types with optional prefix and placeholder ──────────────────────
 
 interface ValidIdConfig {
@@ -206,12 +221,13 @@ function StepIndicator({ current }: { current: number }) {
 // ── Navigation bar ────────────────────────────────────────────────────────────
 
 function StepNav({
-    step, totalSteps, onBack, onNext, nextLabel = 'Continue', nextDisabled = false, processing = false,
+    step, totalSteps, onBack, onNext, nextLabel = 'Continue', nextDisabled = false, processing = false, highlightNext = false,
 }: {
     step: number; totalSteps: number;
     onBack?: () => void; onNext?: () => void;
-    nextLabel?: string; nextDisabled?: boolean; processing?: boolean;
+    nextLabel?: string; nextDisabled?: boolean; processing?: boolean; highlightNext?: boolean;
 }) {
+    const highlightClass = highlightNext && !nextDisabled ? 'nf-highlight' : undefined;
     return (
         <div className="flex items-center justify-between pt-2 pb-8">
             <div>
@@ -227,12 +243,12 @@ function StepNav({
                     <Button type="button" variant="ghost" className="text-gray-500">Cancel</Button>
                 </Link>
                 {step < totalSteps ? (
-                    <Button type="button" onClick={onNext} disabled={nextDisabled}>
+                    <Button type="button" onClick={onNext} disabled={nextDisabled} className={highlightClass}>
                         {nextLabel}
                         <ChevronRight className="ml-1.5 h-4 w-4" />
                     </Button>
                 ) : (
-                    <Button type="button" onClick={onNext} disabled={processing || nextDisabled}>
+                    <Button type="button" onClick={onNext} disabled={processing || nextDisabled} className={highlightClass}>
                         {processing ? 'Recording…' : 'Confirm & Record'}
                     </Button>
                 )}
@@ -246,7 +262,6 @@ function StepNav({
 export default function IncidentsCreate({
     types, modes, municipalities, barangaysByMunicipality, nextAssetSequence, marketPrices,
 }: CreateProps) {
-    const defaultMunicipality = municipalities[0]?.value ?? '';
     const defaultAgency = 'PENRO Catanduanes MES';
 
     const [step, setStep] = useState(1);
@@ -264,10 +279,10 @@ export default function IncidentsCreate({
     const { data, setData, post, processing, errors, transform } = useForm({
         intake_mode: '',
         date_of_apprehension: '',
-        place_of_apprehension: defaultMunicipality,
+        place_of_apprehension: '',
         area: '',
         coordinates: '',
-        has_claimant: true as boolean,
+        has_claimant: null as boolean | null,   // null = user hasn't chosen yet
         claimant_offender_name: '',
         claimant_address: '',
         claimant_contact_number: '',
@@ -279,7 +294,7 @@ export default function IncidentsCreate({
         apprehending_parties: ['PENRO Catanduanes MES'] as string[],
         initial_custodian_name: '',
         date_report_submitted: '',
-        assets: [emptyAssetRow({ municipality: defaultMunicipality, agency: defaultAgency, mode: '' })] as AssetRow[],
+        assets: [emptyAssetRow({ municipality: '', agency: defaultAgency, mode: '' })] as AssetRow[],
     });
 
     useEffect(() => {
@@ -409,7 +424,7 @@ export default function IncidentsCreate({
         const firstUnused = types.find((t) => !usedTypes.includes(t.value))?.value ?? types[0].value;
         setData('assets', [
             ...data.assets,
-            { ...emptyAssetRow({ municipality: data.place_of_apprehension || defaultMunicipality, agency: defaultAgency, mode: data.intake_mode }), type: firstUnused },
+            { ...emptyAssetRow({ municipality: data.place_of_apprehension, agency: defaultAgency, mode: data.intake_mode }), type: firstUnused },
         ]);
     }
 
@@ -432,7 +447,9 @@ export default function IncidentsCreate({
         setData((prev) => ({
             ...prev,
             intake_mode: value,
-            has_claimant: value === 'turned_over' ? false : prev.has_claimant,
+            has_claimant: value === 'turned_over'
+                ? false
+                : (prev.intake_mode === 'turned_over' ? null : prev.has_claimant),
             claimant_offender_name: value === 'turned_over' ? '' : prev.claimant_offender_name,
             claimant_address: value === 'turned_over' ? '' : prev.claimant_address,
             claimant_contact_number: value === 'turned_over' ? '' : prev.claimant_contact_number,
@@ -493,7 +510,9 @@ export default function IncidentsCreate({
             data.area &&
             data.coordinates &&
             data.apprehending_parties.some((p) => p.trim() !== '') &&
-            (data.intake_mode === 'turned_over' || !data.has_claimant || (data.claimant_offender_name && data.claimant_address)) &&
+            (data.intake_mode === 'turned_over' ||
+                (data.has_claimant !== null &&
+                    (!data.has_claimant || (data.claimant_offender_name && data.claimant_address)))) &&
             (!data.has_confiscation_order || !!data.has_confiscation_order_file)
         );
     }
@@ -506,6 +525,59 @@ export default function IncidentsCreate({
                 return true;
             })
         );
+    }
+
+    // ── Guided highlight: returns the key of the NEXT required field ─────────
+    // Order here = the order the user is guided through. Returns 'next_btn'
+    // once everything required on the current step is filled.
+
+    function getNextTarget(): string {
+        if (step === 1) return data.intake_mode ? 'next_btn' : 'intake_mode';
+
+        if (step === 2) {
+            const isTurnedOver = data.intake_mode === 'turned_over';
+            if (!data.date_of_apprehension)   return 'date_of_apprehension';
+            if (!data.date_report_submitted)  return 'date_report_submitted';
+            if (!data.place_of_apprehension)  return 'place_of_apprehension';
+            if (!data.area)                   return 'area';
+            if (!data.coordinates)            return 'coordinates';
+            if (!data.apprehending_parties.some((p) => p.trim() !== '')) return 'apprehending_party';
+            if (!isTurnedOver && data.has_claimant === null) return 'claimant_choice';
+            if (!isTurnedOver && data.has_claimant) {
+                if (!data.claimant_offender_name) return 'claimant_name';
+                if (!data.claimant_address)       return 'claimant_address';
+            }
+            if (!isTurnedOver && data.has_confiscation_order && !data.has_confiscation_order_file) {
+                return 'confiscation_file';
+            }
+            return 'next_btn';
+        }
+
+        if (step === 3) {
+            for (let ai = 0; ai < data.assets.length; ai++) {
+                const asset = data.assets[ai];
+                for (let pi = 0; pi < asset.pieces.length; pi++) {
+                    const p = asset.pieces[pi];
+                    const k = (f: string) => `piece:${ai}:${pi}:${f}`;
+                    if (asset.type === 'log') {
+                        if (!p.species) return k('species');
+                        for (const dim of ['length', 'width', 'height'] as const) {
+                            const v = parseFloat(p[dim]);
+                            if (Number.isNaN(v) || v <= 0) return k(dim);
+                        }
+                        if (!p.estimated_value) return k('estimated_value');
+                    } else if (asset.type === 'vehicle') {
+                        if (!p.vehicle_type)  return k('vehicle_type');
+                        if (!p.plate_number)  return k('plate_number');
+                    } else if (asset.type === 'equipment') {
+                        if (!p.equipment_type) return k('equipment_type');
+                    }
+                }
+            }
+            return 'next_btn';
+        }
+
+        return 'next_btn';
     }
 
     function handleNext() {
@@ -529,12 +601,17 @@ export default function IncidentsCreate({
         });
     }
 
+    // Current highlight target + helper used by every field below.
+    const nextTarget = getNextTarget();
+    const hl = (key: string) => (nextTarget === key ? 'nf-highlight' : '');
+
     // ── Piece form ────────────────────────────────────────────────────────────
 
     function renderPieceForm(asset: AssetRow, ai: number, pi: number) {
         const piece     = asset.pieces[pi];
         const isLog     = asset.type === 'log';
         const isVehicle = asset.type === 'vehicle';
+        const pk = (f: string) => `piece:${ai}:${pi}:${f}`;
 
         return (
             <div key={pi} className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
@@ -559,6 +636,7 @@ export default function IncidentsCreate({
                         piece.speciesIsOther ? (
                             <div className="flex gap-2">
                                 <Input placeholder="Enter species" value={piece.species}
+                                    className={hl(pk('species'))}
                                     onChange={(e) => updatePiece(ai, pi, { species: e.target.value })} autoFocus required />
                                 <Button type="button" variant="outline" size="sm"
                                     onClick={() => updatePiece(ai, pi, { speciesIsOther: false, species: '' })}>
@@ -566,7 +644,8 @@ export default function IncidentsCreate({
                                 </Button>
                             </div>
                         ) : (
-                            <select value={piece.species} onChange={(e) => handlePieceSpeciesSelect(ai, pi, e.target.value)} className={selectClass}>
+                            <select value={piece.species} onChange={(e) => handlePieceSpeciesSelect(ai, pi, e.target.value)}
+                                className={`${selectClass} ${hl(pk('species'))}`}>
                                 <option value="" disabled>Select species…</option>
                                 {SPECIES_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                             </select>
@@ -575,6 +654,7 @@ export default function IncidentsCreate({
                         piece.speciesIsOther ? (
                             <div className="flex gap-2">
                                 <Input placeholder={speciesFieldPlaceholder(asset.type)} value={piece.equipment_type}
+                                    className={hl(pk('equipment_type'))}
                                     onChange={(e) => updatePiece(ai, pi, { equipment_type: e.target.value })} autoFocus required />
                                 <Button type="button" variant="outline" size="sm"
                                     onClick={() => updatePiece(ai, pi, { speciesIsOther: false, equipment_type: '' })}>
@@ -582,13 +662,15 @@ export default function IncidentsCreate({
                                 </Button>
                             </div>
                         ) : (
-                            <select value={piece.equipment_type} onChange={(e) => handlePieceEquipmentSelect(ai, pi, e.target.value)} className={selectClass}>
+                            <select value={piece.equipment_type} onChange={(e) => handlePieceEquipmentSelect(ai, pi, e.target.value)}
+                                className={`${selectClass} ${hl(pk('equipment_type'))}`}>
                                 <option value="" disabled>Select equipment type…</option>
                                 {EQUIPMENT_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                             </select>
                         )
                     ) : (
                         <Input placeholder={speciesFieldPlaceholder(asset.type)} value={piece.vehicle_type}
+                            className={hl(pk('vehicle_type'))}
                             onChange={(e) => updatePiece(ai, pi, { vehicle_type: e.target.value })} required />
                     )}
                     <InputError message={pieceError(ai, pi, 'species')} />
@@ -618,6 +700,7 @@ export default function IncidentsCreate({
                                     <Input key={dim} type="number" min="0" step="0.01"
                                         placeholder={dim.charAt(0).toUpperCase() + dim.slice(1)}
                                         value={piece[dim]}
+                                        className={hl(pk(dim))}
                                         onChange={(e) => handlePieceDimensionChange(ai, pi, dim, e.target.value)} required />
                                 ))}
                             </div>
@@ -642,7 +725,7 @@ export default function IncidentsCreate({
                             <Input type="number" step="0.01" min="0" value={piece.estimated_value}
                                 onChange={(e) => updatePiece(ai, pi, { estimated_value: e.target.value, estimated_value_auto: false })}
                                 readOnly={piece.estimated_value_auto}
-                                className={piece.estimated_value_auto ? 'bg-gray-100' : undefined} required />
+                                className={`${piece.estimated_value_auto ? 'bg-gray-100' : ''} ${hl(pk('estimated_value'))}`} required />
                             {piece.estimated_value_auto ? (
                                 <p className="text-xs text-emerald-700">
                                     Auto-computed: {piece.volume_bd_ft} bd.ft × ₱{marketPriceMap[`${piece.species}|${apprehensionYear}`]?.toFixed(2)} (market price {apprehensionYear})
@@ -659,6 +742,7 @@ export default function IncidentsCreate({
                     <div className="max-w-xs space-y-2">
                         <Label>Conveyance / Plate No.<span className="text-red-500">*</span></Label>
                         <Input value={piece.plate_number}
+                            className={hl(pk('plate_number'))}
                             onChange={(e) => updatePiece(ai, pi, { plate_number: e.target.value })} required />
                         <InputError message={pieceError(ai, pi, 'plate_number')} />
                     </div>
@@ -693,7 +777,7 @@ export default function IncidentsCreate({
                             className={`flex items-start gap-3 rounded-lg border-2 p-5 text-left transition ${
                                 data.intake_mode === 'apprehended'
                                     ? 'border-emerald-600 bg-emerald-50'
-                                    : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                                    : 'border-gray-200 bg-white hover:bg-gray-50'} ${hl('intake_mode')}`}>
                             <Shield className={`mt-0.5 h-5 w-5 shrink-0 ${data.intake_mode === 'apprehended' ? 'text-emerald-700' : 'text-gray-400'}`} />
                             <span>
                                 <span className="block text-sm font-semibold text-gray-900">Apprehended</span>
@@ -706,7 +790,7 @@ export default function IncidentsCreate({
                             className={`flex items-start gap-3 rounded-lg border-2 p-5 text-left transition ${
                                 data.intake_mode === 'turned_over'
                                     ? 'border-emerald-600 bg-emerald-50'
-                                    : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                                    : 'border-gray-200 bg-white hover:bg-gray-50'} ${hl('intake_mode')}`}>
                             <Truck className={`mt-0.5 h-5 w-5 shrink-0 ${data.intake_mode === 'turned_over' ? 'text-emerald-700' : 'text-gray-400'}`} />
                             <span>
                                 <span className="block text-sm font-semibold text-gray-900">Turned Over</span>
@@ -752,12 +836,14 @@ export default function IncidentsCreate({
                             <div className="space-y-2">
                                 <Label>{isTurnedOver ? 'Date of Turn-Over' : 'Date of Apprehension'}<span className="text-red-500">*</span></Label>
                                 <Input type="date" value={data.date_of_apprehension}
+                                    className={hl('date_of_apprehension')}
                                     onChange={(e) => handleDateOfApprehensionChange(e.target.value)} required />
                                 <InputError message={errors.date_of_apprehension} />
                             </div>
                             <div className="space-y-2">
                                 <Label>{isTurnedOver ? 'Date Submitted (Turn-Over Report)' : 'Date Submitted (Apprehension Report)'}<span className="text-red-500">*</span></Label>
                                 <Input type="date" value={data.date_report_submitted}
+                                    className={hl('date_report_submitted')}
                                     onChange={(e) => setData('date_report_submitted', e.target.value)} required />
                                 <InputError message={errors.date_report_submitted} />
                             </div>
@@ -773,15 +859,17 @@ export default function IncidentsCreate({
                             </div>
                             <div className="space-y-2">
                                 <Label>{isTurnedOver ? 'Municipality (Place of Turn-Over)' : 'Municipality (Place of Apprehension)'}<span className="text-red-500">*</span></Label>
-                                <select value={data.place_of_apprehension} onChange={(e) => handleMunicipalityChange(e.target.value)} className={selectClass} required>
-                                    <option value="" disabled>Select municipality…</option>
+                                <select value={data.place_of_apprehension} onChange={(e) => handleMunicipalityChange(e.target.value)}
+                                    className={`${selectClass} ${hl('place_of_apprehension')}`} required>
+                                    <option value="" disabled>-- Select Municipality --</option>
                                     {municipalities.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                                 </select>
                                 <InputError message={errors.place_of_apprehension} />
                             </div>
                             <div className="space-y-2">
                                 <Label>Land Class<span className="text-red-500">*</span></Label>
-                                <select value={data.area} onChange={(e) => setData('area', e.target.value)} className={selectClass} required>
+                                <select value={data.area} onChange={(e) => setData('area', e.target.value)}
+                                    className={`${selectClass} ${hl('area')}`} required>
                                     <option value="" disabled>Select land class…</option>
                                     <option value="Timberland">Timberland</option>
                                     <option value="Protected Area">Protected Area</option>
@@ -813,7 +901,7 @@ export default function IncidentsCreate({
                                             className="bg-gray-50"
                                             required
                                         />
-                                        <Button type="button" variant="outline" onClick={() => setShowCoordinatesPicker(true)}>
+                                        <Button type="button" variant="outline" className={hl('coordinates')} onClick={() => setShowCoordinatesPicker(true)}>
                                             Pick on Map
                                         </Button>
                                     </div>
@@ -823,6 +911,7 @@ export default function IncidentsCreate({
                                             placeholder="e.g. 13.5833, 124.2333"
                                             value={data.coordinates}
                                             onChange={(e) => setData('coordinates', e.target.value)}
+                                            className={hl('coordinates')}
                                             required
                                             autoFocus
                                         />
@@ -842,6 +931,7 @@ export default function IncidentsCreate({
                                     {data.apprehending_parties.map((party, i) => (
                                         <div key={i} className="flex gap-2">
                                             <Input value={party}
+                                                className={i === 0 ? hl('apprehending_party') : undefined}
                                                 onChange={(e) => updateApprehendingParty(i, e.target.value)}
                                                 placeholder="e.g. PENRO Catanduanes MES" required />
                                             {data.apprehending_parties.length > 1 && (
@@ -888,21 +978,24 @@ export default function IncidentsCreate({
                                         className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition ${
                                             data.has_claimant === val
                                                 ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-                                                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
+                                                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'} ${hl('claimant_choice')}`}>
                                         {val ? 'With Claimant' : 'Without Claimant (Abandoned)'}
                                     </button>
                                 ))}
                             </div>
                             <p className="text-xs text-gray-500">
-                                {data.has_claimant
-                                    ? 'A claimant/offender has come forward regarding this apprehension.'
-                                    : 'Abandoned — no claimant came forward. This proceeds toward automatic confiscation per DAO 97-32.'}
+                                {data.has_claimant === null
+                                    ? 'Select one above to continue.'
+                                    : data.has_claimant
+                                        ? 'A claimant/offender has come forward regarding this apprehension.'
+                                        : 'Abandoned — no claimant came forward. This proceeds toward automatic confiscation per DAO 97-32.'}
                             </p>
                             {data.has_claimant && (
                                 <div className="grid gap-4 md:grid-cols-2">
                                     <div className="space-y-2">
                                         <Label>Claimant / Offender Name<span className="text-red-500">*</span></Label>
                                         <Input value={data.claimant_offender_name}
+                                            className={hl('claimant_name')}
                                             onChange={(e) => setData('claimant_offender_name', e.target.value)} required />
                                         <InputError message={errors.claimant_offender_name} />
                                     </div>
@@ -920,6 +1013,7 @@ export default function IncidentsCreate({
                                             <Button
                                                 type="button"
                                                 variant="outline"
+                                                className={hl('claimant_address')}
                                                 onClick={() => {
                                                     // Pre-populate picker with current value if any
                                                     const parts = data.claimant_address.split(', ');
@@ -1093,7 +1187,7 @@ export default function IncidentsCreate({
                                     ) : (
                                         <label
                                             htmlFor="confiscation-order-file"
-                                            className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed border-red-200 bg-red-50 px-4 py-6 text-center hover:border-red-400 hover:bg-red-50 transition"
+                                            className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed border-red-200 bg-red-50 px-4 py-6 text-center hover:border-red-400 hover:bg-red-50 transition ${hl('confiscation_file')}`}
                                         >
                                             <svg className="h-6 w-6 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -1564,6 +1658,7 @@ export default function IncidentsCreate({
             }
         >
             <Head title={data.intake_mode === 'turned_over' ? 'New Turn-Over Intake' : 'New Apprehension Intake'} />
+            <style>{HIGHLIGHT_CSS}</style>
 
             <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6">
                 <StepIndicator current={step} />
@@ -1582,6 +1677,7 @@ export default function IncidentsCreate({
                         nextLabel={nextLabel}
                         nextDisabled={nextDisabled}
                         processing={processing}
+                        highlightNext={nextTarget === 'next_btn'}
                     />
                 </div>
             </div>
