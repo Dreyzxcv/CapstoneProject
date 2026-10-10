@@ -1,8 +1,8 @@
 # ForestTrack Installation Guide
 
-This guide covers a local Windows development setup using PHP on Windows and
-PostgreSQL in Docker. The application itself runs on the host; Docker runs the
-database.
+This guide covers Windows development and an office-LAN setup using IIS with
+PHP FastCGI, Caddy for HTTPS, and PostgreSQL in Docker. The application and
+database run on the host; other devices connect through Caddy.
 
 ## Requirements
 
@@ -10,13 +10,15 @@ Install these tools before setting up the project:
 
 | Tool | Required version / notes |
 |---|---|
-| Windows | Windows 10/11 64-bit |
+| Windows | 64-bit Windows edition with full IIS support (typically Pro, Enterprise, or Education; Windows Home does not include full IIS) |
 | Git | Current version, for cloning the repository |
 | PHP | 8.3 or newer in the 8.x series; PHP 8.3 is required by `composer.json` |
 | Composer | Composer 2 |
 | Node.js | 20.19+ or 22.12+; npm is included with Node.js |
 | Docker Desktop | Current version with Docker Compose; start Docker Desktop before running the database |
-| Caddy | Required when serving the application to other devices on the LAN over HTTPS |
+| IIS | Windows edition with IIS support; enable CGI and IIS Management Console |
+| IIS URL Rewrite | Required to route Laravel URLs to its front controller |
+| Caddy | Required for HTTPS when serving the application to other devices on the LAN |
 | Browser | Current Chrome or Edge; camera access for QR scanning requires HTTPS or localhost |
 
 ## PHP configuration
@@ -166,28 +168,114 @@ Build the frontend assets:
 npm run build
 ```
 
-## Run ForestTrack
+## Run locally for development
 
-Start the web server:
+For development on the host computer only, start:
 
 ```powershell
 php artisan serve
 ```
 
-In a second PowerShell window in the project folder, start the queue worker:
+In a second PowerShell window, start the queue worker:
 
 ```powershell
 php artisan queue:work --tries=1 --timeout=0 --sleep=3
 ```
 
-Open <http://127.0.0.1:8000> in a browser. The queue worker should remain
-running while using the application so queued work can be processed.
+Open <http://127.0.0.1:8000> on the host. Do not use `php artisan serve` for
+the shared LAN deployment; configure IIS with PHP FastCGI as described below.
+
+## Configure IIS with PHP FastCGI
+
+Use IIS to serve the Laravel `public` directory, with PHP running through
+FastCGI. Caddy will handle HTTPS and forward requests to IIS on loopback.
+
+1. Open **Turn Windows features on or off** and enable:
+   - **Internet Information Services**
+   - **World Wide Web Services > Common HTTP Features > Default Document**
+   - **World Wide Web Services > Common HTTP Features > Static Content**
+   - **World Wide Web Services > Common HTTP Features > HTTP Errors**
+   - **World Wide Web Services > Application Development Features > CGI**
+   - **Web Management Tools > IIS Management Console**
+
+   Restart Windows if prompted. CGI is required for IIS's FastCGI support.
+
+2. Install the **IIS URL Rewrite Module** from the
+   [Microsoft IIS URL Rewrite download page](https://www.iis.net/downloads/microsoft/url-rewrite).
+   Restart IIS Manager after installation. The repository includes
+   `public\web.config`, which uses this module to route Laravel requests to
+   `index.php`.
+
+3. In **IIS Manager > FastCGI Settings**, add an application:
+   - **Full Path:** the full path to `php-cgi.exe`, for example
+     `C:\php\php-8.3.31\php-cgi.exe`
+
+   In the FastCGI application's **Environment Variables** collection, add
+   `PHPRC` with the path to the PHP configuration file, for example
+   `C:\php\php-8.3.31\php.ini`. This makes IIS use the same configured PHP
+   extensions as the CLI.
+
+   Ensure the PHP binary's architecture matches the application pool setting
+   (normally 64-bit PHP with 32-bit applications disabled).
+
+4. In IIS Manager, create an application pool named `ForestTrackPool`:
+   - **.NET CLR version:** No Managed Code
+   - **Managed pipeline mode:** Integrated
+   - **Enable 32-Bit Applications:** False for 64-bit PHP
+   - **Start Mode:** AlwaysRunning
+   - **Idle Time-out (minutes):** `0` for a dedicated, always-on host
+
+   Add a handler mapping for the ForestTrack site (or at the server level):
+   - **Request path:** `*.php`
+   - **Module:** `FastCgiModule`
+   - **Executable:** the same full path to `php-cgi.exe`
+   - **Name:** `PHP_via_FastCGI`
+
+   If IIS Manager asks to create the corresponding FastCGI application, accept.
+   Leave FastCGI instance limits at their defaults initially; adjust them only
+   after measuring host CPU and memory while several clients are using the
+   application.
+
+5. Create an IIS website named `ForestTrack`:
+   - **Physical path:** the repository's `public` directory, for example
+     `C:\ForestTrack\public` (not the repository root)
+   - **Application pool:** `ForestTrackPool`
+   - **Binding:** HTTP, IP address `127.0.0.1`, port `8080`, no host name
+
+   Binding IIS only to loopback keeps direct IIS requests off the LAN; Caddy
+   will be the network-facing web server.
+
+6. Give the application-pool identity read access to the project and write
+   access only to Laravel's runtime directories. Run PowerShell as
+   Administrator, changing the project path if necessary:
+
+   ```powershell
+   $project = "C:\ForestTrack"
+   icacls $project /grant "IIS AppPool\ForestTrackPool:(OI)(CI)RX" /T
+   icacls "$project\storage" /grant "IIS AppPool\ForestTrackPool:(OI)(CI)M" /T
+   icacls "$project\bootstrap\cache" /grant "IIS AppPool\ForestTrackPool:(OI)(CI)M" /T
+   ```
+
+   If `upload_tmp_dir` or `sys_temp_dir` in `php.ini` points to a custom
+   directory, create it and grant the same application-pool identity Modify
+   access. Keep `.env` outside the IIS site root; the site's physical path must
+   remain the `public` directory.
+
+7. Start the `ForestTrackPool` application pool and `ForestTrack` website in
+   IIS Manager. Check the local health endpoint from PowerShell:
+
+   ```powershell
+   Invoke-WebRequest http://127.0.0.1:8080/up
+   ```
+
+   A successful response confirms IIS can serve Laravel. If it fails, check
+   the IIS logs under `C:\inetpub\logs\LogFiles` and the Laravel log at
+   `storage\logs\laravel.log`.
 
 ## Serve over the LAN with Caddy
 
-To access ForestTrack from other devices on the same network, use the host
-computer's LAN IPv4 address and Caddy as an HTTPS reverse proxy. Do not expose
-the PHP development server directly to the network.
+To access ForestTrack from other devices on the same network, put Caddy in
+front of the loopback-only IIS site.
 
 1. Find the host computer's LAN IPv4 address with:
 
@@ -195,9 +283,9 @@ the PHP development server directly to the network.
    ipconfig
    ```
 
-   Use the IPv4 address of the network adapter that the client devices can
-   reach (for example, `192.168.1.25`). Reserve that address in the router or
-   assign a static address so the URL does not change.
+   Use the IPv4 address of the network adapter that client devices can reach
+   (for example, `192.168.1.25`). Reserve that address in the router or assign
+   a static address so the URL does not change.
 
 2. Install Caddy on the host computer. One straightforward Windows option is
    Chocolatey. Open PowerShell as Administrator and run:
@@ -223,7 +311,7 @@ the PHP development server directly to the network.
    ```caddyfile
    https://192.168.1.25 {
        tls internal
-       reverse_proxy 127.0.0.1:8000
+       reverse_proxy 127.0.0.1:8080
    }
    ```
 
@@ -254,15 +342,17 @@ the PHP development server directly to the network.
    `APP_DEBUG=true`. Keep the generated `APP_KEY` and database credentials
    private.
 
-   Restart the Laravel server after changing `.env`:
+   Clear Laravel's cached configuration and recycle the IIS application pool
+   after changing `.env`:
 
    ```powershell
-   php artisan config:clear
-   php artisan serve --host=127.0.0.1 --port=8000
+   Import-Module WebAdministration
+   php artisan optimize:clear
+   Restart-WebAppPool -Name ForestTrackPool
    ```
 
-   Keep the queue worker running in a separate PowerShell window as described
-   above. Build frontend assets on the host with `npm run build`.
+   Keep the queue worker running as described above. Build frontend assets on
+   the host with `npm run build`.
 
 5. Open `https://192.168.1.25` from a device on the same LAN. Since the
    `tls internal` directive uses Caddy's internal certificate authority,
@@ -271,9 +361,10 @@ the PHP development server directly to the network.
    Caddy's certificate-trust guidance; `caddy trust` on the host does not
    automatically trust the certificate on other devices.
 
-Use a trusted network only, and do not expose the development server or
-PostgreSQL port to the public internet. If the host IP changes, update the
-Caddyfile and `APP_URL`, then restart Caddy and Laravel.
+Use a trusted network only. Do not expose IIS port `8080` or PostgreSQL port
+`5432` to the LAN or public internet. The Compose file binds PostgreSQL to
+`127.0.0.1` for host-only access. If the host IP changes, update the Caddyfile
+and `APP_URL`, then restart Caddy and recycle the IIS application pool.
 
 ## Verify the installation
 
