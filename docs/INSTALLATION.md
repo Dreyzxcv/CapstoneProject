@@ -16,6 +16,7 @@ Install these tools before setting up the project:
 | Composer | Composer 2 |
 | Node.js | 20.19+ or 22.12+; npm is included with Node.js |
 | Docker Desktop | Current version with Docker Compose; start Docker Desktop before running the database |
+| Caddy | Required when serving the application to other devices on the LAN over HTTPS |
 | Browser | Current Chrome or Edge; camera access for QR scanning requires HTTPS or localhost |
 
 ## PHP configuration
@@ -182,10 +183,97 @@ php artisan queue:work --tries=1 --timeout=0 --sleep=3
 Open <http://127.0.0.1:8000> in a browser. The queue worker should remain
 running while using the application so queued work can be processed.
 
-When using the project's ngrok tunnel, set `APP_URL` in `.env` to the
-HTTPS ngrok URL. Rebuild assets with `npm run build` after frontend changes;
-the Vite development server is not reachable through the tunnel in the current
-development setup.
+## Serve over the LAN with Caddy
+
+To access ForestTrack from other devices on the same network, use the host
+computer's LAN IPv4 address and Caddy as an HTTPS reverse proxy. Do not expose
+the PHP development server directly to the network.
+
+1. Find the host computer's LAN IPv4 address with:
+
+   ```powershell
+   ipconfig
+   ```
+
+   Use the IPv4 address of the network adapter that the client devices can
+   reach (for example, `192.168.1.25`). Reserve that address in the router or
+   assign a static address so the URL does not change.
+
+2. Install Caddy on the host computer. One straightforward Windows option is
+   Chocolatey. Open PowerShell as Administrator and run:
+
+   ```powershell
+   choco install caddy -y
+   ```
+
+   Close and reopen PowerShell, then verify the installation:
+
+   ```powershell
+   caddy version
+   ```
+
+   If Chocolatey is not installed, follow its
+   [Windows installation instructions](https://chocolatey.org/install), or
+   download the Windows binary from the
+   [official Caddy download page](https://caddyserver.com/download).
+
+3. In the project root, create a file named `Caddyfile` (no file extension)
+   with the host address. Replace the example IP with the actual address:
+
+   ```caddyfile
+   https://192.168.1.25 {
+       tls internal
+       reverse_proxy 127.0.0.1:8000
+   }
+   ```
+
+   For example, open Notepad from the project directory and save the file as
+   `Caddyfile` (set **Save as type** to **All files** so Notepad does not append
+   `.txt`). Validate the configuration and start Caddy from that directory:
+
+   ```powershell
+   caddy validate --config .\Caddyfile --adapter caddyfile
+   caddy run --config .\Caddyfile --adapter caddyfile
+   ```
+
+   Leave this PowerShell window open while ForestTrack is being served. Press
+   `Ctrl+C` to stop Caddy. Allow inbound TCP traffic to ports `443` and `80` in
+   Windows Firewall for the trusted local network. Port 80 allows Caddy to
+   redirect HTTP requests to HTTPS.
+
+4. Update `.env` to use the same HTTPS host address:
+
+   ```dotenv
+   APP_ENV=production
+   APP_DEBUG=false
+   APP_URL=https://192.168.1.25
+   SESSION_SECURE_COOKIE=true
+   ```
+
+   Because the host will serve the system to other users, do not run it with
+   `APP_DEBUG=true`. Keep the generated `APP_KEY` and database credentials
+   private.
+
+   Restart the Laravel server after changing `.env`:
+
+   ```powershell
+   php artisan config:clear
+   php artisan serve --host=127.0.0.1 --port=8000
+   ```
+
+   Keep the queue worker running in a separate PowerShell window as described
+   above. Build frontend assets on the host with `npm run build`.
+
+5. Open `https://192.168.1.25` from a device on the same LAN. Since the
+   `tls internal` directive uses Caddy's internal certificate authority,
+   client devices must trust Caddy's root CA for the certificate to be trusted
+   without browser warnings. Install the root CA on each client device using
+   Caddy's certificate-trust guidance; `caddy trust` on the host does not
+   automatically trust the certificate on other devices.
+
+Use a trusted network only, and do not expose the development server or
+PostgreSQL port to the public internet. If the host IP changes, update the
+Caddyfile and `APP_URL`, then restart Caddy and Laravel.
 
 ## Verify the installation
 

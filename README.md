@@ -98,14 +98,10 @@ custody.
 
 ## Installation and Local Development
 
-> **Note:** this project is served through an ngrok tunnel during development,
-> which means the Vite dev server (`npm run dev`) is not reachable remotely.
-> The working frontend workflow is `npm run build` followed by a hard refresh
-> (`Ctrl+Shift+R`) after every source change.
-
 See the [installation guide](docs/INSTALLATION.md) for required tools,
 PHP extensions, PostgreSQL Docker setup, environment configuration, and
-commands to run the application locally.
+commands to run the application locally or make it available on the LAN over
+HTTPS using Caddy and the host computer's IP address.
 
 ## Project Status
 
