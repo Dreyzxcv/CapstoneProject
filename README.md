@@ -114,6 +114,10 @@ and are intentionally on hold pending sign-off.
 
 - [`docs/INSTALLATION.md`](docs/INSTALLATION.md) — prerequisites and
   step-by-step local installation
+- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — role-based instructions for
+  staff using ForestTrack
+- [`docs/OPERATIONS_RUNBOOK.md`](docs/OPERATIONS_RUNBOOK.md) — LAN host
+  startup, maintenance, and operational checks
 - [`docs/MVP_DEVELOPMENT_PROMPT.md`](docs/MVP_DEVELOPMENT_PROMPT.md) — full
   MVP scope, data model, and security requirements
 - [`docs/BACKUP_PLAN.md`](docs/BACKUP_PLAN.md) — backup/restore plan for
