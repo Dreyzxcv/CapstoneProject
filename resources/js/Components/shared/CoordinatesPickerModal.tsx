@@ -11,6 +11,21 @@ const CATANDUANES_BOUNDS: [[number, number], [number, number]] = [
 ];
 const CATANDUANES_CENTER: [number, number] = [13.75, 124.24];
 
+// Soft pulsing highlight that guides the user: Latitude -> Longitude -> Zoom -> Use.
+const HIGHLIGHT_CSS = `
+@keyframes nfPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.45); }
+    50%      { box-shadow: 0 0 0 6px rgba(5, 150, 105, 0); }
+}
+.nf-highlight {
+    border-color: #059669 !important;
+    animation: nfPulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    .nf-highlight { animation: none; box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.35); }
+}
+`;
+
 interface CoordinatesPickerModalProps {
     show: boolean;
     onClose: () => void;
@@ -23,6 +38,10 @@ function parseCoordinates(value?: string): { lat: string; lng: string } {
     const match = value.match(/(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)/);
     if (!match) return { lat: '', lng: '' };
     return { lat: match[1], lng: match[3] };
+}
+
+function isNumber(value: string): boolean {
+    return value.trim() !== '' && !Number.isNaN(parseFloat(value));
 }
 
 export default function CoordinatesPickerModal({
@@ -42,6 +61,20 @@ export default function CoordinatesPickerModal({
     const [lat, setLat] = useState(parsed.lat);
     const [lng, setLng] = useState(parsed.lng);
     const [error, setError] = useState<string | null>(null);
+
+    // Remembers which lat/lng the map is currently showing (via Zoom, a map
+    // click, or the initial value). When the inputs differ from this, the
+    // Zoom button is the next thing to press.
+    const [zoomedKey, setZoomedKey] = useState('');
+    const currentKey = `${lat}|${lng}`;
+
+    // ── Guided highlight: which control should pulse next ────────────────
+    const nextTarget: 'lat' | 'lng' | 'zoom' | 'use' =
+        !isNumber(lat) ? 'lat'
+        : !isNumber(lng) ? 'lng'
+        : zoomedKey !== currentKey ? 'zoom'
+        : 'use';
+    const hl = (key: typeof nextTarget) => (nextTarget === key ? 'nf-highlight' : '');
 
     useEffect(() => {
         if (!show || !container || mapRef.current) return;
@@ -78,8 +111,12 @@ export default function CoordinatesPickerModal({
                 map.on('click', (e) => {
                     const { lat: clickLat, lng: clickLng } = e.latlng;
                     placeMarker(L, map, clickLat, clickLng);
-                    setLat(clickLat.toFixed(6));
-                    setLng(clickLng.toFixed(6));
+                    const latStr = clickLat.toFixed(6);
+                    const lngStr = clickLng.toFixed(6);
+                    setLat(latStr);
+                    setLng(lngStr);
+                    // The marker is already on the clicked point, so no Zoom needed.
+                    setZoomedKey(`${latStr}|${lngStr}`);
                     setError(null);
                 });
 
@@ -90,6 +127,7 @@ export default function CoordinatesPickerModal({
                 if (!Number.isNaN(initLat) && !Number.isNaN(initLng)) {
                     placeMarker(L, map, initLat, initLng);
                     map.setView([initLat, initLng], 14);
+                    setZoomedKey(`${parsed.lat}|${parsed.lng}`);
                 }
 
                 // The modal may finish its open transition (changing size)
@@ -120,6 +158,7 @@ export default function CoordinatesPickerModal({
         mapRef.current?.remove();
         mapRef.current = null;
         markerRef.current = null;
+        setZoomedKey('');
     }, [show]);
 
     function placeMarker(L: typeof import('leaflet'), map: LeafletMap, latVal: number, lngVal: number) {
@@ -154,6 +193,8 @@ export default function CoordinatesPickerModal({
             if (!map) return;
             placeMarker(L, map, latNum, lngNum);
             map.setView([latNum, lngNum], 15, { animate: true });
+            // Zoom done -> move the pulse to "Use These Coordinates".
+            setZoomedKey(`${lat}|${lng}`);
         });
     }
 
@@ -186,6 +227,7 @@ export default function CoordinatesPickerModal({
 
     return (
         <Modal show={show} onClose={onClose} maxWidth="2xl">
+            <style>{HIGHLIGHT_CSS}</style>
             <div className="p-6">
                 <h2 className="text-lg font-medium text-gray-900">Pick Coordinates</h2>
                 <p className="mt-1 text-sm text-gray-600">
@@ -202,6 +244,7 @@ export default function CoordinatesPickerModal({
                             inputMode="decimal"
                             placeholder="13.5833"
                             value={lat}
+                            className={hl('lat')}
                             onChange={(e) => setLat(e.target.value)}
                         />
                     </div>
@@ -213,11 +256,17 @@ export default function CoordinatesPickerModal({
                             inputMode="decimal"
                             placeholder="124.2333"
                             value={lng}
+                            className={hl('lng')}
                             onChange={(e) => setLng(e.target.value)}
                         />
                     </div>
                     <div className="flex items-end">
-                        <Button type="button" variant="secondary" onClick={handleZoomToCoordinates}>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            className={hl('zoom')}
+                            onClick={handleZoomToCoordinates}
+                        >
                             Zoom
                         </Button>
                     </div>
@@ -234,7 +283,7 @@ export default function CoordinatesPickerModal({
                     <Button type="button" variant="outline" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button type="button" onClick={handleUseLocation}>
+                    <Button type="button" className={hl('use')} onClick={handleUseLocation}>
                         Use These Coordinates
                     </Button>
                 </div>
