@@ -1,31 +1,31 @@
-# LogTrack Insight
+# ForestTrack
 
-**A QR-Based Forest Asset Inventory and GIS Mapping System with Data Analytics**
+**A QR-Based Forest Asset Inventory and GIS Mapping System**
 Developed for DENR-PENRO Catanduanes (Provincial Environment and Natural Resources Office)
 
 ---
 
 ## About
 
-LogTrack Insight replaces the manual, paper-based tracking of confiscated forest
-assets — logs, equipment (chainsaws and similar tools), and vehicles — with a
-centralized, role-restricted, QR-code-driven web platform.
+ForestTrack is a web-based asset inventory and monitoring system designed to
+streamline the tracking of confiscated forest resources and related government
+property. It replaces manual documentation with a centralized, role-based
+platform that uses QR codes, GIS mapping, and analytics to support secure and
+transparent custody monitoring.
 
-Every confiscated asset gets a unique QR code that links to its live digital
-profile: confiscation details, origin, species, legal status, custody history,
-and every generated document. The system tracks each asset from **intake at
-MES** through **Property custody**, **Accounting (JEV processing)**, and
-**final disposition** (donation, decay, fabrication, release, or forfeiture),
-with a full audit trail at every step. Apprehension locations are also
-captured and plotted on an interactive GIS map, giving PENRO staff and
-management spatial visibility into where confiscations are concentrated
-across Catanduanes.
+Each confiscated asset is assigned a unique QR code linked to its digital
+record, including its origin, species, legal status, custody history, and
+supporting documents. The system follows the asset from **intake at MES** to
+**property custody**, **accounting and JEV processing**, and **final disposal**
+(donation, decay, fabrication, release, or forfeiture), while maintaining a
+complete audit trail at every step. Apprehension locations are also captured
+and mapped to provide spatial visibility into confiscation trends across
+Catanduanes.
 
-This project was built to close a documented accountability gap: COA audits
-have repeatedly flagged DENR field offices, including PENRO Catanduanes, for
-lacking a clear inventory system for seized and confiscated assets — resulting
-in millions of pesos in confiscated logs and equipment left to deteriorate,
-untracked, in government custody.
+The project addresses the accountability gap in managing seized and
+confiscated forest assets, where limited documentation and inconsistent
+tracking often lead to missing records, delays, and loss of value in public
+custody.
 
 ## Core Features
 
@@ -54,22 +54,24 @@ untracked, in government custody.
 - **Append-only audit log** — every create/update/status-change/scan is
   recorded with user, timestamp, IP, and before/after values
 
-## Domain Flow (summary)
+## System Workflow
 
-1. **MES Intake** — asset is received as Apprehended, Abandoned, or Turned
-   Over; MES encodes the details (including GPS coordinates of apprehension)
-   and generates an Acknowledgement Receipt
-2. **Property Custody** — the Property Custodian verifies documentation,
-   signs the receipt, generates the QR tag, and marks the asset as stored
-3. **Case Branch** — assets with an ongoing court case remain in custody
-   only; assets with a confiscation/forfeiture order proceed to Accounting
-4. **Property & Accounting** — Accounting issues a JEV; once uploaded, the
-   asset status moves to "For Disposal"
-5. **Disposal**, branched by asset type:
+1. **Incident Intake** — the asset is recorded as apprehended, abandoned, or
+   turned over, with location and supporting details captured at MES
+2. **QR Tagging & Validation** — the Property Custodian verifies the record,
+   generates and assigns the QR tag, and confirms storage or custody status
+3. **Case Review & Monitoring** — assets under legal action remain in custody
+   while status updates, documents, and audit records are tracked
+4. **Accounting & Disposal Preparation** — accounting reviews the asset and
+   prepares required JEV and disposition documents before final action
+5. **Disposal & Reporting** — the asset is released, donated, forfeited,
+   fabricated, or reported as decayed, with the result reflected in the
+   dashboard and audit trail
+
    - **Logs** — donation, decay report, or fabrication into other items
    - **Equipment** — damaged/disabled to prevent reuse
-   - **Conveyance** — released to owner (within a 15-day appeal window) or
-     forfeited to government
+   - **Conveyance** — released to owner within the appeal period or forfeited
+     to government
 
 ## Tech Stack
 
@@ -94,31 +96,16 @@ untracked, in government custody.
 | Accounting Officer | Creates JEVs, processes disposal documentation |
 | PENRO Management | Read-only dashboard, analytics, compliance report generation |
 
-## Local Development
+## Installation and Local Development
 
 > **Note:** this project is served through an ngrok tunnel during development,
 > which means the Vite dev server (`npm run dev`) is not reachable remotely.
 > The working frontend workflow is `npm run build` followed by a hard refresh
 > (`Ctrl+Shift+R`) after every source change.
 
-```bash
-# Install dependencies
-composer install
-npm install
-
-# Environment setup
-cp .env.example .env
-php artisan key:generate
-
-# Database
-php artisan migrate
-php artisan db:seed   # seeds roles/permissions + demo data
-
-# Frontend build
-npm run build
-```
-
-Then serve with `php artisan serve` (or your configured ngrok tunnel).
+See the [installation guide](docs/INSTALLATION.md) for required tools,
+PHP extensions, PostgreSQL Docker setup, environment configuration, and
+commands to run the application locally.
 
 ## Project Status
 
@@ -129,6 +116,8 @@ and are intentionally on hold pending sign-off.
 
 ## Documentation
 
+- [`docs/INSTALLATION.md`](docs/INSTALLATION.md) — prerequisites and
+  step-by-step local installation
 - [`docs/MVP_DEVELOPMENT_PROMPT.md`](docs/MVP_DEVELOPMENT_PROMPT.md) — full
   MVP scope, data model, and security requirements
 - [`docs/BACKUP_PLAN.md`](docs/BACKUP_PLAN.md) — backup/restore plan for
@@ -136,8 +125,8 @@ and are intentionally on hold pending sign-off.
 
 ## Academic Context
 
-LogTrack Insight is a thesis project developed under the College of
-Information and Communications Technology (CICT), Catanduanes State
-University, in partnership with DENR-PENRO Catanduanes, and evaluated
-against ISO/IEC 25010 software quality characteristics (Functional
-Suitability, Usability, Security, Reliability, Performance Efficiency).
+ForestTrack is a thesis project developed under the College of Information
+and Communications Technology (CICT), Catanduanes State University, in
+partnership with DENR-PENRO Catanduanes, and evaluated against ISO/IEC 25010
+software quality characteristics (Functional Suitability, Usability,
+Security, Reliability, Performance Efficiency).
