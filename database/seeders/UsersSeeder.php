@@ -12,9 +12,9 @@ class UsersSeeder extends Seeder
     {
         $users = [
             ['name' => 'System Admin',      'email' => 'admin@penro-catanduanes.gov.ph',      'role' => 'System Admin'],
-            ['name' => 'MES Officer',        'email' => 'mes@penro-catanduanes.gov.ph',        'role' => 'MES Officer'],
-            ['name' => 'Property Custodian', 'email' => 'custodian@penro-catanduanes.gov.ph',  'role' => 'Property Custodian'],
-            ['name' => 'Accounting Officer', 'email' => 'accounting@penro-catanduanes.gov.ph', 'role' => 'Accounting Officer'],
+            ['name' => 'Mikko Bobier',        'email' => 'mes@penro-catanduanes.gov.ph',        'role' => 'MES Officer'],
+            ['name' => 'Khaliq Aguilar', 'email' => 'custodian@penro-catanduanes.gov.ph',  'role' => 'Property Custodian'],
+            ['name' => 'Lenard Llorca', 'email' => 'accounting@penro-catanduanes.gov.ph', 'role' => 'Accounting Officer'],
             ['name' => 'PENRO Supervisor',   'email' => 'management@penro-catanduanes.gov.ph', 'role' => 'PENRO Management'],
         ];
 
