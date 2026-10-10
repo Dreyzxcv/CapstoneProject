@@ -6,8 +6,8 @@ export default function ApplicationLogo({
 }: ImgHTMLAttributes<HTMLImageElement>) {
     return (
         <img
-            src="/images/logtrack-logo.png"
-            alt="ForesTrack"
+            src="/images/foresttrack-logo.png"
+            alt="ForestTrack"
             className={className}
             {...props}
         />

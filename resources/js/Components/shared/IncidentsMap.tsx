@@ -224,7 +224,15 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                             }
                         </div>
                     </div>`,
-                    { className: 'incident-popup-wrapper', closeButton: true },
+                    {
+                        className: 'incident-popup-wrapper',
+                        closeButton: true,
+                        maxWidth: 260,
+                        // Keep the popup clear of the toolbar on the top edge
+                        // and the zoom buttons at the bottom.
+                        autoPanPaddingTopLeft: [16, 72],
+                        autoPanPaddingBottomRight: [16, 16],
+                    },
                 );
 
                 if (mapView !== 'heat') marker.addTo(map);
@@ -315,6 +323,19 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
         };
     }, [incidents, mapView, mapReady]);
 
+    // Keep Leaflet in sync whenever its container changes size (phone
+    // rotation, browser resize, sidebar collapse) — not only on fullscreen.
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container || !mapReady || typeof ResizeObserver === 'undefined') return;
+
+        const observer = new ResizeObserver(() => {
+            mapRef.current?.invalidateSize();
+        });
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, [mapReady]);
+
     // Leaflet measures its container on init/resize, but it has no way to
     // know we've just changed the container's CSS position/size via the
     // fullscreen toggle below, so we have to explicitly nudge it.
@@ -389,7 +410,7 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                 }
                 .incident-popup-wrapper .leaflet-popup-content {
                     margin: 0;
-                    width: 240px !important;
+                    width: min(240px, calc(100vw - 96px)) !important;
                 }
                 .incident-popup-wrapper .leaflet-popup-tip-container {
                     margin-top: -1px;
@@ -554,6 +575,14 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                 .incident-map-shell .leaflet-control-attribution:hover {
                     opacity: 1;
                 }
+                @media (max-width: 639px) {
+                    /* Bigger tap targets for the zoom buttons on phones */
+                    .incident-map-shell .leaflet-control-zoom a {
+                        width: 36px;
+                        height: 36px;
+                        line-height: 36px;
+                    }
+                }
             `}</style>
 
             {/* Backdrop behind the fullscreen map */}
@@ -594,10 +623,14 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                 <div ref={containerRef} className="h-full w-full" />
 
                 {/* Map view toggle: Normal vs Satellite */}
-                <div className="absolute left-3 top-3 z-[1000] flex items-center rounded-lg bg-white/95 p-1 shadow-md ring-1 ring-black/5 backdrop-blur-sm">
+                {/* On phones only the active view shows its label, so the bar
+                    never runs underneath the fullscreen button. */}
+                <div className="absolute left-3 top-3 z-[1000] flex max-w-[calc(100%-4.5rem)] items-center rounded-lg bg-white/95 p-1 shadow-md ring-1 ring-black/5 backdrop-blur-sm sm:max-w-none">
                     <button
                         type="button"
                         onClick={() => setMapView('normal')}
+                        aria-label="Normal map"
+                        aria-pressed={mapView === 'normal'}
                         className={
                             'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ' +
                             (mapView === 'normal'
@@ -605,12 +638,14 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                                 : 'text-gray-600 hover:bg-gray-100')
                         }
                     >
-                        <MapIcon className="h-3.5 w-3.5" />
-                        Normal
+                        <MapIcon className="h-3.5 w-3.5 shrink-0" />
+                        <span className={mapView === 'normal' ? '' : 'hidden sm:inline'}>Normal</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setMapView('satellite')}
+                        aria-label="Satellite map"
+                        aria-pressed={mapView === 'satellite'}
                         className={
                             'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ' +
                             (mapView === 'satellite'
@@ -618,12 +653,14 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                                 : 'text-gray-600 hover:bg-gray-100')
                         }
                     >
-                        <Satellite className="h-3.5 w-3.5" />
-                        Satellite
+                        <Satellite className="h-3.5 w-3.5 shrink-0" />
+                        <span className={mapView === 'satellite' ? '' : 'hidden sm:inline'}>Satellite</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setMapView('heat')}
+                        aria-label="Heat map"
+                        aria-pressed={mapView === 'heat'}
                         className={
                             'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ' +
                             (mapView === 'heat'
@@ -631,8 +668,8 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                                 : 'text-gray-600 hover:bg-gray-100')
                         }
                     >
-                        <Flame className="h-3.5 w-3.5" />
-                        Heat Map
+                        <Flame className="h-3.5 w-3.5 shrink-0" />
+                        <span className={mapView === 'heat' ? '' : 'hidden sm:inline'}>Heat Map</span>
                     </button>
                 </div>
 
@@ -644,30 +681,31 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                 >
                     {isFullscreen ? (
                         <>
-                            <Minimize2 className="h-3.5 w-3.5" />
-                            Exit Fullscreen
+                            <Minimize2 className="h-3.5 w-3.5 shrink-0" />
+                            <span className="hidden sm:inline">Exit Fullscreen</span>
                         </>
                     ) : (
                         <>
-                            <Maximize2 className="h-3.5 w-3.5" />
-                            Fullscreen
+                            <Maximize2 className="h-3.5 w-3.5 shrink-0" />
+                            <span className="hidden sm:inline">Fullscreen</span>
                         </>
                     )}
                 </button>
             </div>
             
             {mapView === 'heat' ? (
-                <div className="mt-3 flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 text-xs text-gray-600">
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 text-xs text-gray-600">
                     <span className="font-semibold text-gray-500">Concentration:</span>
                     <span>Low</span>
                     <span
-                        className="h-2.5 w-40 rounded-full"
+                        className="h-2.5 w-28 rounded-full sm:w-40"
                         style={{ background: 'linear-gradient(to right, #34d399, #fbbf24, #f97316, #dc2626)' }}
                     />
                     <span>High</span>
                 </div>
             ) : (
-                    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 text-xs text-gray-600">
+                    <div className="mt-3 flex flex-col gap-2.5 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 text-xs text-gray-600 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                         <span className="font-semibold text-gray-500">Asset type:</span>
                         <span className="flex items-center gap-1.5">
                             <span className="h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: '#34d399' }} />
@@ -686,7 +724,10 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                             Mixed
                         </span>
 
-                        <span className="ml-2 font-semibold text-gray-500">Status:</span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                        <span className="font-semibold text-gray-500">Status:</span>
                         <span className="flex items-center gap-1.5">
                             <span className="h-2.5 w-2.5 rounded-full border-2 border-white bg-gray-400 shadow-sm" />
                             Apprehended
@@ -695,6 +736,7 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                             <span className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-gray-900 bg-gray-400" />
                             Abandoned
                         </span>
+                        </div>
                     </div>
                 )}
             </>
