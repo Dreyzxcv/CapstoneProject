@@ -21,7 +21,7 @@ class MarketPriceController extends Controller
     {
         abort_unless($request->user()?->can('market_prices.manage'), 403);
 
-        return Inertia::render('Settings/MarketPrices/Index', [
+        return Inertia::render('Settings/Admin/MarketPrices/Index', [
             'marketPrices' => MarketPrice::orderByDesc('year')
                 ->orderBy('species')
                 ->orderBy('month')

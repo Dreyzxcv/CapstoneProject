@@ -38,7 +38,7 @@ class SettingsController extends Controller
 
         $settings = BackupSetting::current();
 
-        return Inertia::render('Settings/Backup', [
+        return Inertia::render('Settings/Admin/Backup', [
             'backupStatus'   => BackupController::latestStatus(),
             'canRunBackup'   => true,
             'backupSettings' => [
