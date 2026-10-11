@@ -30,7 +30,7 @@ class UsersController extends Controller
                 'last_login_at'=> $u->last_login_at?->toIso8601String(),
             ]);
  
-        return Inertia::render('Users/Index', [
+        return Inertia::render('Settings/Admin/Users/Index', [
             'users'          => $users,
             'availableRoles' => Role::orderBy('name')->pluck('name'),
             'authId'         => $request->user()->id,
