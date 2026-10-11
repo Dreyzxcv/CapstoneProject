@@ -45,7 +45,7 @@ class UsersController extends Controller
     {
         abort_unless($request->user()?->can('users.manage'), 403);
 
-        return Inertia::render('Users/Create', [
+        return Inertia::render('Settings/Admin/Users/Create', [
             'roles' => Role::orderBy('name')->pluck('name'),
         ]);
     }
