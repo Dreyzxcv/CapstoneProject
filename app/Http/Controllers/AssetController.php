@@ -277,7 +277,7 @@ class AssetController extends Controller
                 'verifyDocuments'   => $request->user()?->can('documents.verify') ?? false,
                 'issueJevOut'       => $request->user()?->can('jev.create') ?? false,
                 'uploadJevOut'      => $request->user()?->can('jev.upload') ?? false,
-                'edit'              => $request->user()?->can('assets.update') ?? false,
+                'edit' => $request->user()?->can('update', $asset) ?? false,
             ],
             'aapDocumentUploaded' => $asset->hasAapDocument(),
             'documentReviewStatus' => (function () use ($asset) {
@@ -402,6 +402,8 @@ class AssetController extends Controller
         \App\Services\AuditLogService $auditLog,
         \App\Services\AssetInfoHistoryService $history,
     ): RedirectResponse {
+        $this->authorize('update', $asset);
+
         $assetFields = [
             'location_apprehended', 'apprehending_agency', 'mode',
             'has_ongoing_case', 'has_confiscation_order',
