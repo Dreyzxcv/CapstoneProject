@@ -8,6 +8,7 @@ use App\Enums\AssetStatus;
 use App\Enums\AssetType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 class Asset extends Model
 {
     protected $hidden = ['qr_code_token'];
+    protected $appends = ['display_number'];
 
     protected $fillable = [
         'incident_id',
@@ -79,6 +81,17 @@ class Asset extends Model
             'disposed_volume_bd_ft' => 'decimal:2',
             'disposed_volume_cu_m' => 'decimal:4',
         ];
+    }
+
+    protected function displayNumber(): Attribute
+    {
+        return Attribute::get(function () {
+            $number = $this->mode === AssetMode::TurnedOver
+                ? $this->stcp_number
+                : $this->aap_number;
+
+            return $number ?: $this->asset_code;
+        });
     }
 
     public function itemLabel(): ?string
