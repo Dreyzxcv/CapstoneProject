@@ -418,6 +418,11 @@ class ReportController extends Controller
                 $q->where('requester_name', 'like', "%{$search}%")
                     ->orWhere('agency_name', 'like', "%{$search}%")
                     ->orWhereHas('disposals.asset', fn ($a) => $a->where('asset_code', 'like', "%{$search}%"));
+
+                // Match a formatted donation number such as "DON-2026-00034".
+                if (preg_match('/^DON-\d{4}-(\d+)$/i', $search, $m)) {
+                    $q->orWhere('id', (int) $m[1]);
+                }
             });
         }
 
@@ -433,9 +438,22 @@ class ReportController extends Controller
 
         $donations = $query->latest('id')->paginate(20)->withQueryString();
 
+        // Human-readable donation number, e.g. DON-2026-00034 (creation year + padded id).
+        $donations->through(function ($donation) {
+            $donation->setAttribute(
+                'donation_number',
+                sprintf('DON-%s-%05d', ($donation->created_at ?? now())->format('Y'), $donation->id),
+            );
+
+            return $donation;
+        });
+
         return Inertia::render('Reports/Donations', [
             'donations' => $donations,
-            'filters'   => ['status' => $status, 'search' => $search],
+            'filters' => ['status' => $status, 'search' => $search],
+            'can' => [
+                'releaseDonation' => $request->user()?->can('create', \App\Models\Disposal::class) ?? false,
+            ],
         ]);
     }
 
