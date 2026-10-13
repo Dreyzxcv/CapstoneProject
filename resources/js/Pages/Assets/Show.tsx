@@ -16,7 +16,7 @@ import {
     usePage,
     usePoll,
 } from "@inertiajs/react";
-import { FormEvent, useState } from "react";
+import { FormEvent, Fragment, useMemo, useState } from "react";
 import {
     FileText,
     MapPin,
@@ -152,77 +152,63 @@ function PieceModal({
         setEditing(false);
     }
 
-    // ── Table rows ──────────────────────────────────────────────────────────
+    // ── Section data ────────────────────────────────────────────────────────
 
-    type Row = {
+    type FieldDef = {
         label: string;
         value: React.ReactNode;
         editField?: React.ReactNode;
+        span?: number;
     };
 
-    const identityRows: Row[] = [];
-    const dimensionRows: Row[] = [];
-    const valuationRows: Row[] = [];
+    const identityFields: FieldDef[] = [];
+    const dimensionFields: FieldDef[] = [];
+    const valuationFields: FieldDef[] = [];
 
     if (asset.type === "log" || asset.type === "wildlife") {
-        identityRows.push({
+        identityFields.push({
             label: "Species",
             value: piece.species ?? "—",
             editField: (
                 <div>
                     <Input
                         value={form.data.species}
-                        onChange={(e) =>
-                            form.setData("species", e.target.value)
-                        }
+                        onChange={(e) => form.setData("species", e.target.value)}
                         className="h-8 text-sm"
                     />
-                    <InputError
-                        message={form.errors.species}
-                        className="mt-1"
-                    />
+                    <InputError message={form.errors.species} className="mt-1" />
                 </div>
             ),
         });
     }
 
     if (asset.type === "vehicle") {
-        identityRows.push(
+        identityFields.push(
             {
-                label: "Vehicle Type",
+                label: "Vehicle type",
                 value: piece.vehicle_type ?? "—",
                 editField: (
                     <div>
                         <Input
                             value={form.data.vehicle_type}
-                            onChange={(e) =>
-                                form.setData("vehicle_type", e.target.value)
-                            }
+                            onChange={(e) => form.setData("vehicle_type", e.target.value)}
                             className="h-8 text-sm"
                         />
-                        <InputError
-                            message={(form.errors as any).vehicle_type}
-                            className="mt-1"
-                        />
+                        <InputError message={(form.errors as any).vehicle_type} className="mt-1" />
                     </div>
                 ),
             },
             {
-                label: "Plate / Conveyance No.",
+                label: "Plate / conveyance no.",
                 value: piece.plate_number ?? "—",
                 editField: (
                     <div>
                         <Input
                             value={form.data.plate_number}
-                            onChange={(e) =>
-                                form.setData("plate_number", e.target.value)
-                            }
+                            onChange={(e) => form.setData("plate_number", e.target.value)}
                             className="h-8 text-sm"
                         />
-                        <InputError
-                            message={(form.errors as any).plate_number}
-                            className="mt-1"
-                        />
+                        <InputError message={(form.errors as any).plate_number} className="mt-1" />
                     </div>
                 ),
             },
@@ -230,28 +216,23 @@ function PieceModal({
     }
 
     if (asset.type === "equipment") {
-        identityRows.push(
+        identityFields.push(
             {
-                label: "Equipment Type",
+                label: "Equipment type",
                 value: piece.equipment_type ?? "—",
                 editField: (
                     <div>
                         <Input
                             value={form.data.equipment_type}
-                            onChange={(e) =>
-                                form.setData("equipment_type", e.target.value)
-                            }
+                            onChange={(e) => form.setData("equipment_type", e.target.value)}
                             className="h-8 text-sm"
                         />
-                        <InputError
-                            message={(form.errors as any).equipment_type}
-                            className="mt-1"
-                        />
+                        <InputError message={(form.errors as any).equipment_type} className="mt-1" />
                     </div>
                 ),
             },
             {
-                label: "Serial Number",
+                label: "Serial number",
                 value: (
                     <span className="font-mono tracking-wide">
                         {piece.serial_number ?? "—"}
@@ -261,183 +242,184 @@ function PieceModal({
                     <div>
                         <Input
                             value={form.data.serial_number}
-                            onChange={(e) =>
-                                form.setData("serial_number", e.target.value)
-                            }
+                            onChange={(e) => form.setData("serial_number", e.target.value)}
                             className="h-8 text-sm font-mono"
                         />
-                        <InputError
-                            message={(form.errors as any).serial_number}
-                            className="mt-1"
-                        />
+                        <InputError message={(form.errors as any).serial_number} className="mt-1" />
                     </div>
                 ),
             },
         );
     }
 
-    identityRows.push({
+    identityFields.push({
         label: "Description",
-        value: piece.description || <span className="text-gray-300">—</span>,
+        value: piece.description || <span className="text-gray-400">—</span>,
         editField: (
             <div>
                 <Input
                     value={form.data.description}
-                    onChange={(e) =>
-                        form.setData("description", e.target.value)
-                    }
+                    onChange={(e) => form.setData("description", e.target.value)}
                     className="h-8 text-sm"
                 />
-                <InputError
-                    message={(form.errors as any).description}
-                    className="mt-1"
-                />
+                <InputError message={(form.errors as any).description} className="mt-1" />
             </div>
         ),
     });
 
     if (asset.type === "log") {
-        dimensionRows.push(
+        dimensionFields.push(
             {
                 label: "Length (in)",
-                value: piece.length ?? "—",
+                value: piece.length != null ? Number(piece.length).toFixed(2) : "—",
                 editField: (
                     <div>
                         <Input
                             type="number"
                             value={form.data.length}
-                            onChange={(e) =>
-                                form.setData("length", e.target.value)
-                            }
+                            onChange={(e) => form.setData("length", e.target.value)}
                             className="h-8 text-sm"
                             step="0.01"
                             min="0"
                         />
-                        <InputError
-                            message={(form.errors as any).length}
-                            className="mt-1"
-                        />
+                        <InputError message={(form.errors as any).length} className="mt-1" />
                     </div>
                 ),
             },
             {
                 label: "Width (in)",
-                value: piece.width ?? "—",
+                value: piece.width != null ? Number(piece.width).toFixed(2) : "—",
                 editField: (
                     <div>
                         <Input
                             type="number"
                             value={form.data.width}
-                            onChange={(e) =>
-                                form.setData("width", e.target.value)
-                            }
+                            onChange={(e) => form.setData("width", e.target.value)}
                             className="h-8 text-sm"
                             step="0.01"
                             min="0"
                         />
-                        <InputError
-                            message={(form.errors as any).width}
-                            className="mt-1"
-                        />
+                        <InputError message={(form.errors as any).width} className="mt-1" />
                     </div>
                 ),
             },
             {
                 label: "Height (in)",
-                value: piece.height ?? "—",
+                value: piece.height != null ? Number(piece.height).toFixed(2) : "—",
                 editField: (
                     <div>
                         <Input
                             type="number"
                             value={form.data.height}
-                            onChange={(e) =>
-                                form.setData("height", e.target.value)
-                            }
+                            onChange={(e) => form.setData("height", e.target.value)}
                             className="h-8 text-sm"
                             step="0.01"
                             min="0"
                         />
-                        <InputError
-                            message={(form.errors as any).height}
-                            className="mt-1"
-                        />
+                        <InputError message={(form.errors as any).height} className="mt-1" />
                     </div>
                 ),
             },
             {
                 label: "Volume (bd.ft)",
-                value: piece.volume_bd_ft ?? "—",
-                // computed — no edit field
+                value: piece.volume_bd_ft != null
+                    ? Number(piece.volume_bd_ft).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : "—",
+                span: 2,
             },
             {
                 label: "Volume (cu.m)",
-                value: piece.volume_cu_m ?? "—",
+                value: piece.volume_cu_m != null
+                    ? Number(piece.volume_cu_m).toLocaleString("en-PH", { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+                    : "—",
             },
         );
 
-        valuationRows.push({
-            label: "Estimated Value",
-            value:
-                piece.estimated_value != null
-                    ? `₱ ${Number(piece.estimated_value).toLocaleString()}`
-                    : "—",
+        valuationFields.push({
+            label: "Estimated value",
+            value: piece.estimated_value != null
+                ? `₱ ${Number(piece.estimated_value).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : "—",
         });
     }
 
     if (asset.type === "equipment") {
-        valuationRows.push({
-            label: "Estimated Value",
-            value:
-                piece.estimated_value != null
-                    ? `₱ ${Number(piece.estimated_value).toLocaleString()}`
-                    : "—",
+        valuationFields.push({
+            label: "Estimated value",
+            value: piece.estimated_value != null
+                ? `₱ ${Number(piece.estimated_value).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : "—",
         });
     }
 
-    function TableSection({ title, rows }: { title?: string; rows: Row[] }) {
-        if (rows.length === 0) return null;
+    // ── Sub-components ───────────────────────────────────────────────────────
+
+    function FieldCell({ field }: { field: FieldDef }) {
         return (
-            <>
-                {title && (
-                    <tr>
-                        <td
-                            colSpan={2}
-                            className="bg-gray-50 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400"
-                        >
-                            {title}
-                        </td>
-                    </tr>
+            <div
+                className="bg-gray-50/70 p-2.5"
+                style={field.span ? { gridColumn: `span ${field.span}` } : undefined}
+            >
+                <p className="text-[11px] text-gray-400 mb-0.5">{field.label}</p>
+                {editing && field.editField ? (
+                    field.editField
+                ) : (
+                    <p className="text-sm font-medium text-gray-900 leading-snug">
+                        {field.value}
+                    </p>
                 )}
-                {rows.map((row, i) => (
-                    <tr
-                        key={row.label}
-                        className={i % 2 === 0 ? "bg-white" : "bg-gray-50/60"}
-                    >
-                        <td className="w-2/5 px-4 py-2.5 text-sm text-gray-500 align-top">
-                            {row.label}
-                        </td>
-                        <td className="px-4 py-2.5 text-sm font-medium text-gray-900 text-right align-top">
-                            {editing && row.editField
-                                ? row.editField
-                                : row.value}
-                        </td>
-                    </tr>
-                ))}
-            </>
+            </div>
         );
     }
 
-    const hasSections = dimensionRows.length > 0 || valuationRows.length > 0;
+    function Section({
+        title,
+        fields,
+        cols = 2,
+    }: {
+        title: string;
+        fields: FieldDef[];
+        cols?: number;
+    }) {
+        if (fields.length === 0) return null;
+        return (
+            <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
+                    {title}
+                </p>
+                <div
+                    className="rounded-lg overflow-hidden border border-gray-200 divide-y divide-gray-200"
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                        gap: "1px",
+                        background: "rgb(229 231 235)",
+                    }}
+                >
+                    {fields.map((f) => (
+                        <FieldCell key={f.label} field={f} />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    const hasSections = dimensionFields.length > 0 || valuationFields.length > 0;
 
     return (
-        <div className="overflow-hidden">
-            {/* ── Header ─────────────────────────────────────────────────── */}
-            <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-4">
-                <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-600 mb-0.5">
+        <form onSubmit={submitPieceEdit} className="flex flex-col max-h-[90dvh]">
+            {/* ── Header ──────────────────────────────────────────────────── */}
+            <div className="flex items-start gap-3 px-5 pt-5 pb-4 border-b border-gray-100">
+                <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 mb-0.5">
                         {asset.asset_code}
+                        {asset.type && (
+                            <span className="ml-2 text-gray-400 font-normal capitalize">
+                                · {asset.type}
+                            </span>
+                        )}
                     </p>
-                    <h2 className="text-2xl font-bold text-gray-900 leading-tight">
+                    <h2 className="text-xl font-semibold text-gray-900 leading-tight">
                         Piece {piece.piece_number}
                     </h2>
                     <p className="mt-0.5 text-xs text-gray-400">
@@ -449,86 +431,76 @@ function PieceModal({
                     </p>
                 </div>
 
-                <div className="flex items-start gap-3 shrink-0">
+                {/* QR code */}
+                <div className="flex flex-col items-center gap-1 shrink-0">
                     {isTagged && qrSvg ? (
                         <>
                             <button
                                 type="button"
                                 onClick={() => setQrLightbox(true)}
-                                className="h-16 w-16 rounded-lg border border-gray-200 p-1 bg-white shadow-sm overflow-hidden hover:ring-2 hover:ring-emerald-400 transition-all cursor-zoom-in"
+                                className="h-[68px] w-[68px] rounded-lg border border-gray-200 bg-white p-1 shadow-sm overflow-hidden hover:ring-2 hover:ring-emerald-400 transition-all cursor-zoom-in"
                                 title="Click to enlarge QR"
                                 dangerouslySetInnerHTML={{ __html: qrSvg }}
                             />
-                            {/* QR Lightbox */}
-                            {qrLightbox && (
-                                <div
-                                    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm"
-                                    onClick={() => setQrLightbox(false)}
-                                >
-                                    <div
-                                        className="relative flex flex-col items-center gap-3"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <div
-                                            className="h-72 w-72 rounded-2xl bg-white p-4 shadow-2xl"
-                                            dangerouslySetInnerHTML={{
-                                                __html: qrSvg,
-                                            }}
-                                        />
-                                        <p className="text-sm font-semibold text-white tracking-wide">
-                                            {asset.asset_code} — Piece{" "}
-                                            {piece.piece_number}
-                                        </p>
-                                        <button
-                                            type="button"
-                                            onClick={() => setQrLightbox(false)}
-                                            className="mt-1 text-xs text-white/60 hover:text-white transition-colors"
-                                        >
-                                            Click anywhere to close
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                            <p className="text-[10px] text-gray-400">View QR</p>
                         </>
                     ) : (
-                        <div className="h-16 w-16 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-[9px] text-gray-400 text-center leading-tight p-1">
-                            {isTagged ? "No QR" : "QR shows after tagging"}
+                        <div className="h-[68px] w-[68px] rounded-lg border border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1">
+                            <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75Z" />
+                            </svg>
+                            <p className="text-[9px] text-gray-300 text-center leading-tight px-1">
+                                {isTagged ? "No QR" : "After tagging"}
+                            </p>
                         </div>
                     )}
                 </div>
+
+                {/* Close button */}
+                <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Close"
+                    className="shrink-0 h-7 w-7 rounded-md border border-gray-200 bg-transparent flex items-center justify-center text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-colors"
+                >
+                    <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                        <path d="M3 3l10 10M13 3L3 13" strokeLinecap="round" />
+                    </svg>
+                </button>
             </div>
 
-            <div className="h-px bg-gray-100" />
+            {/* ── Body ────────────────────────────────────────────────────── */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                <Section
+                    title={hasSections ? "Identity" : "Details"}
+                    fields={identityFields}
+                    cols={identityFields.length === 1 ? 1 : 2}
+                />
+                {dimensionFields.length > 0 && (
+                    <Section title="Dimensions" fields={dimensionFields} cols={3} />
+                )}
+                {valuationFields.length > 0 && (
+                    <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
+                            Valuation
+                        </p>
+                        <div className="rounded-lg border border-gray-200 bg-gray-50/70 px-4 py-3 flex items-baseline gap-3">
+                            <span className="text-xs text-gray-400">
+                                {valuationFields[0].label}
+                            </span>
+                            <span className="ml-auto text-xl font-semibold text-gray-900 tabular-nums">
+                                {valuationFields[0].value}
+                            </span>
+                        </div>
+                    </div>
+                )}
+            </div>
 
-            {/* ── Table ──────────────────────────────────────────────────── */}
-            <form onSubmit={submitPieceEdit}>
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <tbody>
-                            <TableSection
-                                title={hasSections ? "Identity" : undefined}
-                                rows={identityRows}
-                            />
-                            {dimensionRows.length > 0 && (
-                                <TableSection
-                                    title="Dimensions"
-                                    rows={dimensionRows}
-                                />
-                            )}
-                            {valuationRows.length > 0 && (
-                                <TableSection
-                                    title="Valuation"
-                                    rows={valuationRows}
-                                />
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* ── Footer ─────────────────────────────────────────────── */}
-                <div className="h-px bg-gray-100 mt-1" />
-                <div className="flex items-center justify-between px-6 py-4">
-                    {canEdit ? (
+            {/* ── Footer ──────────────────────────────────────────────────── */}
+            <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50/50">
+                <div>
+                    {canEdit && (
                         editing ? (
                             <div className="flex items-center gap-2">
                                 <Button
@@ -537,9 +509,7 @@ function PieceModal({
                                     disabled={form.processing}
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white"
                                 >
-                                    {form.processing
-                                        ? "Saving…"
-                                        : "Save Changes"}
+                                    {form.processing ? "Saving…" : "Save changes"}
                                 </Button>
                                 <Button
                                     type="button"
@@ -560,27 +530,53 @@ function PieceModal({
                                 className="gap-1.5 text-gray-600"
                             >
                                 <Pencil className="h-3.5 w-3.5" />
-                                Edit Piece
+                                Edit piece
                             </Button>
                         )
-                    ) : (
-                        <span />
-                    )}
-
-                    {!editing && (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={onClose}
-                            className="text-gray-500"
-                        >
-                            Close
-                        </Button>
                     )}
                 </div>
-            </form>
-        </div>
+
+                {!editing && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={onClose}
+                        className="text-gray-500"
+                    >
+                        Close
+                    </Button>
+                )}
+            </div>
+
+            {/* ── QR Lightbox ─────────────────────────────────────────────── */}
+            {qrLightbox && qrSvg && (
+                <div
+                    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+                    onClick={() => setQrLightbox(false)}
+                >
+                    <div
+                        className="relative flex flex-col items-center gap-3"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div
+                            className="h-72 w-72 rounded-2xl bg-white p-4 shadow-2xl"
+                            dangerouslySetInnerHTML={{ __html: qrSvg }}
+                        />
+                        <p className="text-sm font-medium text-white tracking-wide">
+                            {asset.asset_code} — Piece {piece.piece_number}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setQrLightbox(false)}
+                            className="mt-1 text-xs text-white/60 hover:text-white transition-colors"
+                        >
+                            Click anywhere to close
+                        </button>
+                    </div>
+                </div>
+            )}
+        </form>
     );
 }
 
@@ -830,6 +826,563 @@ function InfoUpdateEntry({ entry }: { entry: StatusHistoryEntry }) {
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
+type PieceT = import("@/types").AssetPiece;
+type Col = {
+    header: string;
+    right?: boolean;
+    cell: (p: PieceT, count: number) => React.ReactNode;
+};
+
+const GROUP_PAGE_SIZE = 40;
+
+const txtKey = (v: unknown) => String(v ?? "").trim();
+const numKey = (v: unknown) => (v == null || v === "" ? "" : String(Number(v)));
+const dash = (v: unknown) => (v == null || v === "" ? "—" : String(v));
+const fmt = (v: unknown, d: number) =>
+    v == null || v === ""
+        ? "—"
+        : Number(v).toLocaleString("en-PH", {
+              minimumFractionDigits: d,
+              maximumFractionDigits: d,
+          });
+
+function pieceGroupKey(type: string, p: PieceT): string {
+    const x = p as any;
+    const common = [
+        txtKey(x.description),
+        x.disposed_at ? "disposed" : "active",
+        txtKey(x.disposal_id),
+    ];
+    let specific: string[];
+    switch (type) {
+        case "log":
+            specific = [
+                txtKey(p.species),
+                numKey(p.length),
+                numKey(p.width),
+                numKey(p.height),
+                numKey(p.volume_bd_ft),
+                numKey(p.volume_cu_m),
+                numKey(p.estimated_value),
+            ];
+            break;
+        case "wildlife":
+            specific = [txtKey(p.species)];
+            break;
+        case "vehicle":
+            specific = [txtKey(p.vehicle_type), txtKey(p.plate_number)];
+            break;
+        case "equipment":
+            specific = [
+                txtKey(p.equipment_type),
+                txtKey(p.serial_number),
+                numKey(p.estimated_value),
+            ];
+            break;
+        default:
+            return `solo-${p.id}`; // unknown type: never group
+    }
+    return JSON.stringify([...specific, ...common]);
+}
+
+/** [1,2,3,5,7,8] -> "1–3, 5, 7–8" */
+function formatRanges(nums: number[]): string {
+    const s = [...nums].sort((a, b) => a - b);
+    const out: string[] = [];
+    let start = s[0];
+    let prev = s[0];
+    for (let i = 1; i <= s.length; i++) {
+        const n = s[i];
+        if (n !== prev + 1) {
+            out.push(start === prev ? `${start}` : `${start}–${prev}`);
+            start = n;
+        }
+        prev = n;
+    }
+    return out.join(", ");
+}
+
+function Amount({
+    value,
+    n,
+    digits,
+    prefix = "",
+}: {
+    value: unknown;
+    n: number;
+    digits: number;
+    prefix?: string;
+}) {
+    if (value == null || value === "") return <>—</>;
+    return (
+        <span className="tabular-nums">
+            <span className="font-semibold text-gray-900">
+                {prefix}
+                {fmt(Number(value) * n, digits)}
+            </span>
+            {n > 1 && (
+                <span className="block text-[11px] font-normal text-gray-400">
+                    {prefix}
+                    {fmt(value, digits)} each
+                </span>
+            )}
+        </span>
+    );
+}
+
+function columnsFor(type: string): Col[] {
+    switch (type) {
+        case "log":
+            return [
+                {
+                    header: "Species",
+                    cell: (p) => (
+                        <span className="font-medium text-gray-900">
+                            {dash(p.species)}
+                        </span>
+                    ),
+                },
+                {
+                    header: "Dimensions (L×W×H)",
+                    cell: (p) =>
+                        [p.length, p.width, p.height].map(dash).join(" × "),
+                },
+                {
+                    header: "Vol. (bd.ft)",
+                    right: true,
+                    cell: (p, n) => (
+                        <Amount value={p.volume_bd_ft} n={n} digits={2} />
+                    ),
+                },
+                {
+                    header: "Vol. (cu.m)",
+                    right: true,
+                    cell: (p, n) => (
+                        <Amount value={p.volume_cu_m} n={n} digits={4} />
+                    ),
+                },
+                {
+                    header: "Est. Value",
+                    right: true,
+                    cell: (p, n) => (
+                        <Amount
+                            value={p.estimated_value}
+                            n={n}
+                            digits={2}
+                            prefix="₱"
+                        />
+                    ),
+                },
+            ];
+        case "wildlife":
+            return [
+                {
+                    header: "Species",
+                    cell: (p) => (
+                        <span className="font-medium text-gray-900">
+                            {dash(p.species)}
+                        </span>
+                    ),
+                },
+            ];
+        case "vehicle":
+            return [
+                {
+                    header: "Vehicle Type",
+                    cell: (p) => (
+                        <span className="font-medium capitalize text-gray-900">
+                            {dash(p.vehicle_type)}
+                        </span>
+                    ),
+                },
+                {
+                    header: "Plate / Conveyance No.",
+                    cell: (p) => dash(p.plate_number),
+                },
+            ];
+        case "equipment":
+            return [
+                {
+                    header: "Equipment Type",
+                    cell: (p) => (
+                        <span className="font-medium capitalize text-gray-900">
+                            {dash(p.equipment_type)}
+                        </span>
+                    ),
+                },
+                {
+                    header: "Serial No.",
+                    cell: (p) => (
+                        <span className="font-mono">{dash(p.serial_number)}</span>
+                    ),
+                },
+                {
+                    header: "Est. Value",
+                    right: true,
+                    cell: (p, n) => (
+                        <Amount
+                            value={p.estimated_value}
+                            n={n}
+                            digits={2}
+                            prefix="₱"
+                        />
+                    ),
+                },
+            ];
+        default:
+            return [];
+    }
+}
+
+function PieceChips({
+    pieces,
+    onViewPiece,
+}: {
+    pieces: PieceT[];
+    onViewPiece: (p: PieceT) => void;
+}) {
+    return (
+        <div className="max-h-44 overflow-y-auto rounded-md bg-gray-50 p-3">
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                Select a piece to view its details and QR code
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+                {pieces.map((p) => (
+                    <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => onViewPiece(p)}
+                        className="rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50"
+                    >
+                        #{p.piece_number}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function GroupedPiecesTable({
+    asset,
+    onViewPiece,
+}: {
+    asset: Asset;
+    onViewPiece: (p: PieceT) => void;
+}) {
+    const [query, setQuery] = useState("");
+    const [open, setOpen] = useState<Set<string>>(new Set());
+    const [limit, setLimit] = useState(GROUP_PAGE_SIZE);
+
+    const cols = useMemo(() => columnsFor(asset.type), [asset.type]);
+
+    const groups = useMemo(() => {
+        const map = new Map<string, PieceT[]>();
+        [...(asset.pieces ?? [])]
+            .sort((a, b) => a.piece_number - b.piece_number)
+            .forEach((p) => {
+                const k = pieceGroupKey(asset.type, p);
+                const arr = map.get(k);
+                if (arr) arr.push(p);
+                else map.set(k, [p]);
+            });
+        return Array.from(map, ([key, pieces]) => ({ key, pieces }));
+    }, [asset.pieces, asset.type]);
+
+    const q = query.trim().toLowerCase();
+    const filtered = q
+        ? groups.filter((g) => {
+              const p = g.pieces[0];
+              const hay = [
+                  p.species,
+                  p.vehicle_type,
+                  p.plate_number,
+                  p.equipment_type,
+                  p.serial_number,
+                  p.description,
+              ]
+                  .filter(Boolean)
+                  .join(" ")
+                  .toLowerCase();
+              return (
+                  hay.includes(q) ||
+                  g.pieces.some((x) => String(x.piece_number) === q)
+              );
+          })
+        : groups;
+    const visible = filtered.slice(0, limit);
+    const totalPieces = asset.pieces?.length ?? 0;
+
+    const totals = useMemo(() => {
+        if (asset.type !== "log") return null;
+        const ps = asset.pieces ?? [];
+        const sum = (f: (p: PieceT) => unknown) =>
+            ps.reduce((s, p) => s + (Number(f(p)) || 0), 0);
+        return {
+            bd: sum((p) => p.volume_bd_ft),
+            cu: sum((p) => p.volume_cu_m),
+            val: sum((p) => p.estimated_value),
+        };
+    }, [asset.pieces, asset.type]);
+
+    function toggle(key: string) {
+        setOpen((prev) => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+        });
+    }
+
+    const expandable = visible.filter((g) => g.pieces.length > 1);
+
+    return (
+        <div className="space-y-3">
+            {/* Summary + controls */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-gray-600">
+                    <span className="font-semibold text-gray-900">
+                        {totalPieces}
+                    </span>{" "}
+                    {totalPieces === 1 ? "piece" : "pieces"} in{" "}
+                    <span className="font-semibold text-gray-900">
+                        {groups.length}
+                    </span>{" "}
+                    {groups.length === 1 ? "group" : "groups"}
+                    {totals && (
+                        <span className="text-gray-400">
+                            {" "}
+                            · {fmt(totals.bd, 2)} bd.ft · {fmt(totals.cu, 4)}{" "}
+                            cu.m · ₱{fmt(totals.val, 2)}
+                        </span>
+                    )}
+                </p>
+                <div className="flex items-center gap-2">
+                    {expandable.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setOpen(
+                                    open.size > 0
+                                        ? new Set()
+                                        : new Set(expandable.map((g) => g.key)),
+                                )
+                            }
+                            className="text-xs font-medium text-emerald-700 hover:underline"
+                        >
+                            {open.size > 0 ? "Collapse all" : "Expand all"}
+                        </button>
+                    )}
+                    {groups.length > 5 && (
+                        <Input
+                            value={query}
+                            onChange={(e) => {
+                                setQuery(e.target.value);
+                                setLimit(GROUP_PAGE_SIZE);
+                            }}
+                            placeholder="Search species, plate, piece #…"
+                            className="h-8 w-56 text-xs"
+                        />
+                    )}
+                </div>
+            </div>
+
+            {filtered.length === 0 && (
+                <p className="py-6 text-center text-sm italic text-gray-400">
+                    No pieces match “{query}”.
+                </p>
+            )}
+
+            {/* Desktop table */}
+            {filtered.length > 0 && (
+                <div className="hidden max-h-[55vh] overflow-auto rounded-md border border-gray-200 sm:block">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead className="sticky top-0 z-10 bg-gray-50 shadow-[0_1px_0_0_rgb(229,231,235)]">
+                            <tr>
+                                <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                    Pieces
+                                </th>
+                                {cols.map((c) => (
+                                    <th
+                                        key={c.header}
+                                        className={`whitespace-nowrap px-3 py-2 font-medium text-gray-500 ${c.right ? "text-right" : "text-left"}`}
+                                    >
+                                        {c.header}
+                                    </th>
+                                ))}
+                                <th className="px-3 py-2 text-right font-medium text-gray-500">
+                                    Action
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                            {visible.map((g) => {
+                                const first = g.pieces[0];
+                                const n = g.pieces.length;
+                                const isOpen = open.has(g.key);
+                                const range = formatRanges(
+                                    g.pieces.map((p) => p.piece_number),
+                                );
+                                return (
+                                    <Fragment key={g.key}>
+                                        <tr className="align-top hover:bg-gray-50">
+                                            <td className="px-3 py-2">
+                                                {n > 1 ? (
+                                                    <button
+                                                        type="button"
+                                                        aria-expanded={isOpen}
+                                                        onClick={() => toggle(g.key)}
+                                                        className="flex items-center gap-1.5 text-left"
+                                                    >
+                                                        {isOpen ? (
+                                                            <ChevronUp className="h-3.5 w-3.5 text-gray-400" />
+                                                        ) : (
+                                                            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+                                                        )}
+                                                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                                                            ×{n}
+                                                        </span>
+                                                        <span
+                                                            title={`#${range}`}
+                                                            className="max-w-[9rem] truncate text-xs text-gray-500"
+                                                        >
+                                                            #{range}
+                                                        </span>
+                                                    </button>
+                                                ) : (
+                                                    <span className="pl-5 text-xs text-gray-500">
+                                                        #{first.piece_number}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            {cols.map((c, i) => (
+                                                <td
+                                                    key={c.header}
+                                                    className={`px-3 py-2 text-gray-700 ${c.right ? "whitespace-nowrap text-right" : ""}`}
+                                                >
+                                                    {c.cell(first, n)}
+                                                    {i === 0 && first.description && (
+                                                        <p className="mt-0.5 text-xs font-normal text-gray-400">
+                                                            {first.description}
+                                                        </p>
+                                                    )}
+                                                </td>
+                                            ))}
+                                            <td className="whitespace-nowrap px-3 py-2 text-right">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        n > 1
+                                                            ? toggle(g.key)
+                                                            : onViewPiece(first)
+                                                    }
+                                                    className="text-xs font-medium text-emerald-700 hover:underline"
+                                                >
+                                                    {n > 1
+                                                        ? isOpen
+                                                            ? "Hide pieces"
+                                                            : "Show pieces"
+                                                        : "View"}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {isOpen && n > 1 && (
+                                            <tr>
+                                                <td
+                                                    colSpan={cols.length + 2}
+                                                    className="bg-white px-3 pb-3 pt-0"
+                                                >
+                                                    <PieceChips
+                                                        pieces={g.pieces}
+                                                        onViewPiece={onViewPiece}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* Mobile cards */}
+            <div className="space-y-2 sm:hidden">
+                {visible.map((g) => {
+                    const first = g.pieces[0];
+                    const n = g.pieces.length;
+                    const isOpen = open.has(g.key);
+                    return (
+                        <div
+                            key={g.key}
+                            className="rounded-md border border-gray-200 bg-white p-3"
+                        >
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                    {n > 1 && (
+                                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                                            ×{n}
+                                        </span>
+                                    )}
+                                    <span className="text-xs text-gray-500">
+                                        #{formatRanges(g.pieces.map((p) => p.piece_number))}
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        n > 1 ? toggle(g.key) : onViewPiece(first)
+                                    }
+                                    className="text-xs font-medium text-emerald-700"
+                                >
+                                    {n > 1 ? (isOpen ? "Hide" : "Show pieces") : "View"}
+                                </button>
+                            </div>
+                            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
+                                {cols.map((c) => (
+                                    <div key={c.header}>
+                                        <dt className="text-[11px] text-gray-400">
+                                            {c.header}
+                                        </dt>
+                                        <dd className="text-gray-800">
+                                            {c.cell(first, n)}
+                                        </dd>
+                                    </div>
+                                ))}
+                            </dl>
+                            {first.description && (
+                                <p className="mt-1.5 text-xs text-gray-400">
+                                    {first.description}
+                                </p>
+                            )}
+                            {isOpen && n > 1 && (
+                                <div className="mt-2">
+                                    <PieceChips
+                                        pieces={g.pieces}
+                                        onViewPiece={onViewPiece}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            {filtered.length > limit && (
+                <div className="text-center">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLimit((l) => l + GROUP_PAGE_SIZE)}
+                    >
+                        Show more ({filtered.length - limit} groups remaining)
+                    </Button>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function AssetsShow({
     asset,
@@ -2355,250 +2908,76 @@ export default function AssetsShow({
             {/* ── Sibling asset pieces modal ───────────────────────────────── */}
             <Modal
                 show={selectedSibling !== null}
-                onClose={() => setSelectedSibling(null)}
+                onClose={() => {
+                    setSelectedSibling(null);
+                    setSelectedSiblingPiece(null);
+                }}
                 maxWidth="4xl"
             >
                 {selectedSibling && (
-                    <div className="max-h-[85vh] overflow-y-auto">
-                        {selectedSiblingPiece ? (
-                            // ── Piece detail view ──────────────────────────────────────
-                            <div>
-                                <PieceModal
-                                    piece={selectedSiblingPiece}
-                                    asset={selectedSibling}
-                                    qrSvg={
-                                        pieceQrSvgs[selectedSiblingPiece.id] ??
-                                        null
-                                    }
-                                    canEdit={false}
-                                    onClose={() =>
-                                        setSelectedSiblingPiece(null)
-                                    }
-                                />
-                            </div>
-                        ) : (
-                            // ── Pieces table view ──────────────────────────────────────
-                            <div className="p-6">
-                                {/* Header */}
-                                <div className="flex items-start justify-between gap-4 mb-4">
-                                    <div>
-                                        <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-600">
-                                            {selectedSibling.asset_code}
-                                        </p>
-                                        <h2 className="text-lg font-bold text-gray-900 capitalize">
-                                            {selectedSibling.type}
-                                        </h2>
-                                        <p className="text-xs text-gray-400">
-                                            {selectedSibling.pieces?.length ??
-                                                0}{" "}
-                                            piece(s) ·{" "}
-                                            {
-                                                selectedSibling.municipality_of_origin
-                                            }
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-3 shrink-0">
-                                        <AssetStatusBadge
-                                            status={
-                                                selectedSibling.current_status
-                                            }
-                                            label={selectedSibling.current_status.replace(
-                                                /_/g,
-                                                " ",
-                                            )}
-                                            disposedQuantity={
-                                                selectedSibling.disposed_quantity
-                                            }
-                                            quantity={selectedSibling.quantity}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setSelectedSibling(null)
-                                            }
-                                            className="text-gray-300 hover:text-gray-500 text-lg leading-none"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="h-px bg-gray-100 mb-4" />
-
-                                {selectedSibling.pieces &&
-                                selectedSibling.pieces.length > 0 ? (
-                                    <div className="overflow-x-auto rounded-md border border-gray-200">
-                                        <table className="min-w-full divide-y divide-gray-200 text-sm">
-                                            <thead className="bg-gray-50">
-                                                <tr>
-                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                        #
-                                                    </th>
-                                                    {(selectedSibling.type ===
-                                                        "log" ||
-                                                        selectedSibling.type ===
-                                                            "wildlife") && (
-                                                        <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                            Species
-                                                        </th>
-                                                    )}
-                                                    {selectedSibling.type ===
-                                                        "log" && (
-                                                        <>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Dimensions
-                                                                (L×W×H)
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Vol. (bd.ft)
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Vol. (cu.m)
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Est. Value
-                                                            </th>
-                                                        </>
-                                                    )}
-                                                    {selectedSibling.type ===
-                                                        "vehicle" && (
-                                                        <>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Vehicle Type
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Plate /
-                                                                Conveyance No.
-                                                            </th>
-                                                        </>
-                                                    )}
-                                                    {selectedSibling.type ===
-                                                        "equipment" && (
-                                                        <>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Equipment Type
-                                                            </th>
-                                                            <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                                Serial No.
-                                                            </th>
-                                                        </>
-                                                    )}
-                                                    <th className="px-3 py-2 text-left font-medium text-gray-500">
-                                                        Action
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100 bg-white">
-                                                {selectedSibling.pieces.map(
-                                                    (piece) => (
-                                                        <tr
-                                                            key={piece.id}
-                                                            className="hover:bg-gray-50"
-                                                        >
-                                                            <td className="px-3 py-2 text-gray-500">
-                                                                {
-                                                                    piece.piece_number
-                                                                }
-                                                            </td>
-                                                            {(selectedSibling.type ===
-                                                                "log" ||
-                                                                selectedSibling.type ===
-                                                                    "wildlife") && (
-                                                                <td className="px-3 py-2 text-gray-900">
-                                                                    {piece.species ??
-                                                                        "—"}
-                                                                </td>
-                                                            )}
-                                                            {selectedSibling.type ===
-                                                                "log" && (
-                                                                <>
-                                                                    <td className="px-3 py-2 text-gray-900">
-                                                                        {[
-                                                                            piece.length,
-                                                                            piece.width,
-                                                                            piece.height,
-                                                                        ]
-                                                                            .map(
-                                                                                (
-                                                                                    v,
-                                                                                ) =>
-                                                                                    v !=
-                                                                                    null
-                                                                                        ? `${v}`
-                                                                                        : "—",
-                                                                            )
-                                                                            .join(
-                                                                                " × ",
-                                                                            )}
-                                                                    </td>
-                                                                    <td className="px-3 py-2 text-gray-900">
-                                                                        {piece.volume_bd_ft ??
-                                                                            "—"}
-                                                                    </td>
-                                                                    <td className="px-3 py-2 text-gray-900">
-                                                                        {piece.volume_cu_m ??
-                                                                            "—"}
-                                                                    </td>
-                                                                    <td className="px-3 py-2 text-gray-900">
-                                                                        {piece.estimated_value !=
-                                                                        null
-                                                                            ? `₱${Number(piece.estimated_value).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`
-                                                                            : "—"}
-                                                                    </td>
-                                                                </>
-                                                            )}
-                                                            {selectedSibling.type ===
-                                                                "vehicle" && (
-                                                                <>
-                                                                    <td className="px-3 py-2 text-gray-900 capitalize">
-                                                                        {piece.vehicle_type ??
-                                                                            "—"}
-                                                                    </td>
-                                                                    <td className="px-3 py-2 text-gray-900">
-                                                                        {piece.plate_number ??
-                                                                            "—"}
-                                                                    </td>
-                                                                </>
-                                                            )}
-                                                            {selectedSibling.type ===
-                                                                "equipment" && (
-                                                                <>
-                                                                    <td className="px-3 py-2 text-gray-900 capitalize">
-                                                                        {piece.equipment_type ??
-                                                                            "—"}
-                                                                    </td>
-                                                                    <td className="px-3 py-2 text-gray-900 font-mono">
-                                                                        {piece.serial_number ??
-                                                                            "—"}
-                                                                    </td>
-                                                                </>
-                                                            )}
-                                                            <td className="px-3 py-2">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        setSelectedSiblingPiece(
-                                                                            piece,
-                                                                        )
-                                                                    }
-                                                                    className="text-xs font-medium text-emerald-700 hover:underline"
-                                                                >
-                                                                    View
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    ),
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                ) : (
-                                    <p className="text-sm italic text-gray-400">
-                                        No pieces recorded yet.
-                                    </p>
-                                )}
-                            </div>
+                    <div
+                        key={selectedSibling.id}
+                        className="max-h-[85vh] overflow-y-auto"
+                    >
+                        {selectedSiblingPiece && (
+                            <PieceModal
+                                piece={selectedSiblingPiece}
+                                asset={selectedSibling}
+                                qrSvg={pieceQrSvgs[selectedSiblingPiece.id] ?? null}
+                                canEdit={false}
+                                onClose={() => setSelectedSiblingPiece(null)}
+                            />
                         )}
+
+                        {/* Kept mounted (just hidden) so search/expanded state survives */}
+                        <div className={selectedSiblingPiece ? "hidden" : "p-4 sm:p-6"}>
+                            <div className="mb-4 flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-600">
+                                        {selectedSibling.asset_code}
+                                    </p>
+                                    <h2 className="text-lg font-bold capitalize text-gray-900">
+                                        {selectedSibling.type}
+                                    </h2>
+                                    <p className="text-xs text-gray-400">
+                                        {selectedSibling.pieces?.length ?? 0} piece(s) ·{" "}
+                                        {selectedSibling.municipality_of_origin}
+                                    </p>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-3">
+                                    <AssetStatusBadge
+                                        status={selectedSibling.current_status}
+                                        label={selectedSibling.current_status.replace(/_/g, " ")}
+                                        disposedQuantity={selectedSibling.disposed_quantity}
+                                        quantity={selectedSibling.quantity}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedSibling(null);
+                                            setSelectedSiblingPiece(null);
+                                        }}
+                                        className="text-lg leading-none text-gray-300 hover:text-gray-500"
+                                        aria-label="Close"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="mb-4 h-px bg-gray-100" />
+
+                            {selectedSibling.pieces && selectedSibling.pieces.length > 0 ? (
+                                <GroupedPiecesTable
+                                    asset={selectedSibling}
+                                    onViewPiece={setSelectedSiblingPiece}
+                                />
+                            ) : (
+                                <p className="text-sm italic text-gray-400">
+                                    No pieces recorded yet.
+                                </p>
+                            )}
+                        </div>
                     </div>
                 )}
             </Modal>
