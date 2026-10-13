@@ -23,10 +23,7 @@ class StoreBatchDonationRequest extends FormRequest
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
 
             'requester_name' => ['required', 'string', 'max:255'],
-            'organization_type' => [
-                'required',
-                Rule::enum(DonationOrganizationType::class)->except([DonationOrganizationType::Individual]),
-            ],
+            'organization_type' => ['required', Rule::enum(DonationOrganizationType::class)],
             'organization_type_other' => ['required_if:organization_type,other', 'nullable', 'string', 'max:255'],
 
             // "Donee Office / Institution Name" — always required now,

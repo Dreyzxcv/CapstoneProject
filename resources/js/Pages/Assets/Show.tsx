@@ -1013,6 +1013,33 @@ export default function AssetsShow({
         }
     }
 
+    function handleReleaseDonation() {
+        if (
+            pendingDonationDisposal &&
+            confirm("Mark this donation as released to the requester?")
+        ) {
+            router.post(
+                route("disposals.release-donation", pendingDonationDisposal.id),
+            );
+        }
+    }
+
+    const releaseForm = useForm<{ photo: File | null }>({ photo: null });
+
+    function submitRelease(e: FormEvent) {
+        e.preventDefault();
+        if (!pendingDonationDisposal) return;
+        if (!confirm("Mark this donation as released to the requester?"))
+            return;
+        releaseForm.post(
+            route("disposals.release-donation", pendingDonationDisposal.id),
+            {
+                forceFormData: true,
+                preserveScroll: true,
+            },
+        );
+    }
+
     const receiptUrl = documentUrl(asset.acknowledgement_receipt?.pdf_path);
     const disposals = asset.disposals ?? [];
     const totalDisposed = disposals.reduce((sum, d) => sum + d.quantity, 0);
@@ -1036,7 +1063,20 @@ export default function AssetsShow({
         asset.current_status === "for_disposal" &&
         (asset.disposed_quantity ?? 0) > 0 &&
         (asset.disposed_quantity ?? 0) < (asset.quantity ?? 1);
-
+    // A donation disposal still awaiting physical release/confirmation, if any.
+    const pendingDonationDisposal = disposals.find(
+        (d) =>
+            d.disposal_type === "donation" &&
+            d.donation &&
+            !d.donation.released_at,
+    );
+    // The Donation Release card should only appear once JEV Out has been
+    // issued for this donation — the Release Order / Waybill (and the act of
+    // physically releasing the item) only make sense after that step.
+    const donationReadyForRelease = Boolean(
+        pendingDonationDisposal?.donation &&
+        pendingDonationDisposal.disposal_jev?.uploaded_at,
+    );
     const dateOfApprehension = asset.incident?.date_of_apprehension
         ? new Date(asset.incident.date_of_apprehension).toLocaleDateString()
         : "—";
@@ -1923,6 +1963,141 @@ export default function AssetsShow({
                     canVerify={can.verifyDocuments}
                 />
 
+                {/* QR + Donation */}
+                {donationReadyForRelease && (
+                    <div className="grid items-start gap-6 lg:grid-cols-3">
+                        {donationReadyForRelease &&
+                            pendingDonationDisposal?.donation && (
+                                <Card className="lg:col-span-2">
+                                    <CardHeader>
+                                        <CardTitle className="text-base">
+                                            {pendingDonationDisposal.donation
+                                                .released_at
+                                                ? "Donation Released"
+                                                : "Donation Release"}
+                                        </CardTitle>
+                                    </CardHeader>
+
+                                    <CardContent className="space-y-4">
+                                        {!pendingDonationDisposal.donation
+                                            .released_at && (
+                                            <>
+                                                <p className="text-sm text-gray-600">
+                                                    Deed of Donation is on file
+                                                    for{" "}
+                                                    <span className="font-medium">
+                                                        {
+                                                            pendingDonationDisposal
+                                                                .donation
+                                                                .requester_name
+                                                        }
+                                                    </span>
+                                                    . Mark as released once the
+                                                    item has been handed over.
+                                                </p>
+
+                                                {documentUrl(
+                                                    pendingDonationDisposal
+                                                        .donation
+                                                        .waybill_pdf_path,
+                                                ) && (
+                                                    <a
+                                                        href={
+                                                            documentUrl(
+                                                                pendingDonationDisposal
+                                                                    .donation
+                                                                    .waybill_pdf_path,
+                                                            ) ?? "#"
+                                                        }
+                                                        className="block text-sm text-emerald-700 hover:underline"
+                                                    >
+                                                        Download Donation
+                                                        Waybill (
+                                                        {
+                                                            pendingDonationDisposal.quantity
+                                                        }{" "}
+                                                        piece
+                                                        {pendingDonationDisposal.quantity ===
+                                                        1
+                                                            ? ""
+                                                            : "s"}
+                                                        )
+                                                    </a>
+                                                )}
+
+                                                {(
+                                                    pendingDonationDisposal.details as {
+                                                        delivery_coordinates?: string;
+                                                    }
+                                                )?.delivery_coordinates && (
+                                                    <IncidentLocationMap
+                                                        coordinates={
+                                                            (
+                                                                pendingDonationDisposal.details as {
+                                                                    delivery_coordinates?: string;
+                                                                }
+                                                            )
+                                                                .delivery_coordinates
+                                                        }
+                                                        placeName={
+                                                            pendingDonationDisposal
+                                                                .donation
+                                                                .requester_name
+                                                        }
+                                                        areaName="Delivery location"
+                                                    />
+                                                )}
+
+                                                {can.releaseDonation && (
+                                                    <form
+                                                        onSubmit={submitRelease}
+                                                        className="space-y-3"
+                                                    >
+                                                        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm text-gray-500 hover:border-emerald-400 hover:text-emerald-600">
+                                                            {releaseForm.data
+                                                                .photo
+                                                                ? releaseForm
+                                                                      .data
+                                                                      .photo
+                                                                      .name
+                                                                : "Attach release photo (opens camera on mobile)"}
+
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                capture="environment"
+                                                                className="hidden"
+                                                                onChange={(e) =>
+                                                                    releaseForm.setData(
+                                                                        "photo",
+                                                                        e.target
+                                                                            .files?.[0] ??
+                                                                            null,
+                                                                    )
+                                                                }
+                                                                required
+                                                            />
+                                                        </label>
+
+                                                        <Button
+                                                            type="submit"
+                                                            disabled={
+                                                                releaseForm.processing
+                                                            }
+                                                        >
+                                                            Mark Donation
+                                                            Released
+                                                        </Button>
+                                                    </form>
+                                                )}
+                                            </>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            )}
+                    </div>
+                )}
+
                 {asset.type === "vehicle" && asset.appeal_deadline && (
                     <Card>
                         <CardHeader>
@@ -2100,7 +2275,7 @@ export default function AssetsShow({
                                                 </div>
                                             );
                                         }
-
+                                        
                                         if (item.kind === "info") {
                                             return <InfoUpdateEntry key={item.id} entry={item.entry} />;
                                         }

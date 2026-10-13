@@ -11,7 +11,6 @@ use App\Models\AuditLog;
 use App\Services\PdfDocumentService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Response as HttpResponse;
 use Inertia\Inertia;
@@ -23,80 +22,29 @@ use App\Enums\Municipality;
 
 class ReportController extends Controller
 {
-    /** @var array<string, string> Valid period values → human label */
-    private const PERIOD_OPTIONS = [
-        '3m'  => 'Last 3 months',
-        '6m'  => 'Last 6 months',
-        '12m' => 'Last 12 months',
-        'all' => 'All time',
-    ];
-
-    private const DEFAULT_PERIOD = '6m';
-
-    /**
-     * Resolve a period string to a Carbon start date (or null for "all time").
-     */
-    private function periodStart(string $period): ?Carbon
-    {
-        return match ($period) {
-            '3m'  => now()->subMonths(3)->startOfMonth(),
-            '6m'  => now()->subMonths(6)->startOfMonth(),
-            '12m' => now()->subMonths(12)->startOfMonth(),
-            default => null, // all time
-        };
-    }
-
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', Asset::class);
 
-        $period = $request->input('period', self::DEFAULT_PERIOD);
-        if (! array_key_exists($period, self::PERIOD_OPTIONS)) {
-            $period = self::DEFAULT_PERIOD;
-        }
+        $baseQuery = Asset::query();
 
-        $chartYearInput = $request->input('chart_year', 'all');
-        $chartYear = ($chartYearInput !== 'all' && ctype_digit((string) $chartYearInput))
-            ? (int) $chartYearInput
-            : null;
-
-        if ($chartYear !== null) {
-            $periodStart = Carbon::create($chartYear, 1, 1)->startOfYear();
-            $periodEnd   = Carbon::create($chartYear, 12, 31)->endOfYear();
-            if ($periodEnd->greaterThan(now())) {
-                $periodEnd = now(); 
-            }
-            $periodLabel = (string) $chartYear;
-        } else {
-            $periodStart = $this->periodStart($period);
-            $periodEnd   = null;
-            $periodLabel = self::PERIOD_OPTIONS[$period];
+        $trendMonths = (int) $request->integer('months', 6);
+        if (! in_array($trendMonths, [3, 6, 12], true)) {
+            $trendMonths = 6;
         }
 
         $mapMonth = $request->input('map_month', 'all');
         $mapYear  = $request->input('map_year', 'all');
+        $chartMonth = $request->input('month', 'all');
+        $chartYear  = $request->input('year', 'all');
 
-        $dateExpr = 'COALESCE(incidents.date_of_apprehension, assets.created_at)';
-
-        $chartQuery = Asset::query()
-            ->leftJoin('incidents', 'incidents.id', '=', 'assets.incident_id');
-
-        if ($periodStart !== null) {
-            $chartQuery->whereRaw("{$dateExpr} >= ?", [$periodStart->toDateTimeString()]);
+        $chartQuery = Asset::query();
+        if ($chartYear !== 'all' && $chartYear !== null && $chartYear !== '') {
+            $chartQuery->whereYear('created_at', (int) $chartYear);
         }
-        if ($periodEnd !== null) {
-            $chartQuery->whereRaw("{$dateExpr} <= ?", [$periodEnd->toDateTimeString()]);
+        if ($chartMonth !== 'all' && $chartMonth !== null && $chartMonth !== '') {
+            $chartQuery->whereMonth('created_at', (int) $chartMonth + 1);
         }
-
-        // Years available in the dropdown
-        $chartYears = DB::table('assets')
-            ->leftJoin('incidents', 'incidents.id', '=', 'assets.incident_id')
-            ->selectRaw("EXTRACT(YEAR FROM {$dateExpr})::int as y")
-            ->distinct()
-            ->orderByDesc('y')
-            ->pluck('y')
-            ->map(fn ($y) => (int) $y)
-            ->all();
 
         $typeLabels = collect(AssetType::cases())->mapWithKeys(
             fn ($t) => [$t->value => $t->label()]
@@ -131,10 +79,17 @@ class ReportController extends Controller
                 'asset_types'           => $incident->assets->pluck('type')->map(fn ($t) => $t->value)->unique()->values(),
             ]);
 
+        $availableChartYears = Asset::query()
+            ->pluck('created_at')
+            ->map(fn ($date) => $date->year)
+            ->unique()
+            ->sortDesc()
+            ->values();
+
         return Inertia::render('Reports/Index', [
             'summary' => [
-                'total'      => Asset::count(),
-                'inStorage'  => Asset::whereNotIn('current_status', collect(AssetStatus::cases())
+                'total'       => Asset::count(),
+                'inStorage' => Asset::whereNotIn('current_status', collect(AssetStatus::cases())
                     ->filter(fn ($s) => $s->isTerminal())
                     ->map(fn ($s) => $s->value)
                     ->all()
@@ -143,8 +98,8 @@ class ReportController extends Controller
                 'underTrial'  => Asset::where('current_status', AssetStatus::UnderTrial)->count(),
             ],
             'byType' => (clone $chartQuery)
-                ->selectRaw('assets.type, count(*) as count')
-                ->groupBy('assets.type')
+                ->selectRaw('type, count(*) as count')
+                ->groupBy('type')
                 ->get()
                 ->map(fn ($row) => [
                     'type'  => $row->type instanceof AssetType ? $row->type->value : $row->type,
@@ -152,22 +107,20 @@ class ReportController extends Controller
                     'count' => $row->count,
                 ]),
             'byMunicipality' => (clone $chartQuery)
-                ->selectRaw('assets.municipality_of_origin, count(*) as count')
-                ->groupBy('assets.municipality_of_origin')
+                ->selectRaw('municipality_of_origin, count(*) as count')
+                ->groupBy('municipality_of_origin')
                 ->orderByDesc('count')
                 ->limit(10)
                 ->get(),
-            'trends'          => $this->buildMonthlyTrends($periodStart, $periodEnd),
-            'period'          => $period,
-            'periodLabel'     => $periodLabel,
-            'periodOptions'   => self::PERIOD_OPTIONS,
-            'chartYear'       => $chartYear !== null ? (string) $chartYear : 'all',
-            'chartYears'      => $chartYears,
-            'mapFilters'      => ['month' => $mapMonth, 'year' => $mapYear],
-            'typeLabels'      => $typeLabels,
-            'statusLabels'    => $statusLabels,
-            'recentActivity'  => $recentActivity,
-            'incidentLocations' => $incidentLocations,
+            'trends'              => $this->buildMonthlyTrends($baseQuery, $trendMonths),
+            'mapFilters' => ['month' => $mapMonth, 'year' => $mapYear],
+            'trendMonths'         => $trendMonths,
+            'chartFilters'        => ['month' => $chartMonth, 'year' => $chartYear],
+            'availableChartYears' => $availableChartYears,
+            'typeLabels'          => $typeLabels,
+            'statusLabels'        => $statusLabels,
+            'recentActivity'      => $recentActivity,
+            'incidentLocations'   => $incidentLocations,
             'can' => [
                 'export'        => $request->user()?->can('reports.export') ?? false,
                 'viewAudit'     => $request->user()?->can('viewAny', AuditLog::class) ?? false,
@@ -176,25 +129,18 @@ class ReportController extends Controller
         ]);
     }
 
-    private function buildMonthlyTrends(?Carbon $start, ?Carbon $end = null): array
+    private function buildMonthlyTrends(Builder $baseQuery, int $months): array
     {
-        $resolvedStart = $start ?? now()->subMonths(24)->startOfMonth();
-        $resolvedEnd   = $end ?? now();
-        $dateExpr      = 'COALESCE(incidents.date_of_apprehension, assets.created_at)';
+        $start = now()->subMonths($months - 1)->startOfMonth();
 
-        $assets = Asset::query()
-            ->leftJoin('incidents', 'incidents.id', '=', 'assets.incident_id')
-            ->whereRaw("{$dateExpr} >= ?", [$resolvedStart->toDateTimeString()])
-            ->whereRaw("{$dateExpr} <= ?", [$resolvedEnd->toDateTimeString()])
-            ->selectRaw("assets.type, {$dateExpr} as event_date")
-            ->get();
-
-        $months = (int) $resolvedStart->diffInMonths($resolvedEnd) + 1;
+        $assets = (clone $baseQuery)
+            ->where('created_at', '>=', $start)
+            ->get(['created_at', 'type']);
 
         $buckets = [];
         for ($i = 0; $i < $months; $i++) {
-            $period        = $resolvedStart->copy()->addMonths($i);
-            $key           = $period->format('Y-m');
+            $period       = $start->copy()->addMonths($i);
+            $key          = $period->format('Y-m');
             $buckets[$key] = [
                 'key'       => $key,
                 'month'     => $period->format('M Y'),
@@ -206,15 +152,18 @@ class ReportController extends Controller
         }
 
         foreach ($assets as $asset) {
-            $key = Carbon::parse($asset->event_date)->format('Y-m');
+            $key = $asset->created_at->format('Y-m');
+
             if (! isset($buckets[$key])) {
                 continue;
             }
 
             $type = $asset->type instanceof AssetType ? $asset->type->value : $asset->type;
+
             if (isset($buckets[$key][$type])) {
                 $buckets[$key][$type]++;
             }
+
             $buckets[$key]['total']++;
         }
 
@@ -295,15 +244,15 @@ class ReportController extends Controller
     public function auditLogs(Request $request): Response
     {
         $this->authorize('viewAny', AuditLog::class);
-
+ 
         $search   = trim((string) $request->input('search', ''));
         $dateFrom = $request->input('date_from');
         $dateTo   = $request->input('date_to');
-
+ 
         $query = AuditLog::query()
             ->with('user')
             ->latest('created_at');
-
+ 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('action', 'like', "%{$search}%")
@@ -312,17 +261,17 @@ class ReportController extends Controller
                   ->orWhere('model_type', 'like', "%{$search}%");
             });
         }
-
+ 
         if ($dateFrom) {
             $query->whereDate('created_at', '>=', $dateFrom);
         }
-
+ 
         if ($dateTo) {
             $query->whereDate('created_at', '<=', $dateTo);
         }
-
+ 
         $logs = $query->paginate(25)->withQueryString();
-
+ 
         return Inertia::render('Reports/AuditLogs', [
             'logs'    => $logs,
             'filters' => [
@@ -336,15 +285,15 @@ class ReportController extends Controller
     public function auditLogsExport(Request $request): StreamedResponse
     {
         $this->authorize('viewAny', AuditLog::class);
-
+ 
         $search   = trim((string) $request->input('search', ''));
         $dateFrom = $request->input('date_from');
         $dateTo   = $request->input('date_to');
-
+ 
         $query = AuditLog::query()
             ->with('user')
             ->latest('created_at');
-
+ 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('action', 'like', "%{$search}%")
@@ -353,28 +302,28 @@ class ReportController extends Controller
                   ->orWhere('model_type', 'like', "%{$search}%");
             });
         }
-
+ 
         if ($dateFrom) {
             $query->whereDate('created_at', '>=', $dateFrom);
         }
-
+ 
         if ($dateTo) {
             $query->whereDate('created_at', '<=', $dateTo);
         }
-
+ 
         $filename = 'audit-logs-' . now()->format('Y-m-d') . '.csv';
-
+ 
         return HttpResponse::stream(function () use ($query) {
             $handle = fopen('php://output', 'w');
-
+ 
             fputcsv($handle, ['Date/Time', 'User', 'Action', 'Model', 'Model ID', 'IP Address']);
-
+ 
             $query->chunk(500, function ($logs) use ($handle) {
                 foreach ($logs as $log) {
                     $shortModel = $log->model_type
                         ? (class_basename($log->model_type))
                         : '';
-
+ 
                     fputcsv($handle, [
                         $log->created_at->toDateTimeString(),
                         $log->user?->name ?? 'System',
@@ -385,7 +334,7 @@ class ReportController extends Controller
                     ]);
                 }
             });
-
+ 
             fclose($handle);
         }, 200, [
             'Content-Type'        => 'text/csv',
@@ -418,11 +367,6 @@ class ReportController extends Controller
                 $q->where('requester_name', 'like', "%{$search}%")
                     ->orWhere('agency_name', 'like', "%{$search}%")
                     ->orWhereHas('disposals.asset', fn ($a) => $a->where('asset_code', 'like', "%{$search}%"));
-
-                // Match a formatted donation number such as "DON-2026-00034".
-                if (preg_match('/^DON-\d{4}-(\d+)$/i', $search, $m)) {
-                    $q->orWhere('id', (int) $m[1]);
-                }
             });
         }
 
@@ -438,22 +382,9 @@ class ReportController extends Controller
 
         $donations = $query->latest('id')->paginate(20)->withQueryString();
 
-        // Human-readable donation number, e.g. DON-2026-00034 (creation year + padded id).
-        $donations->through(function ($donation) {
-            $donation->setAttribute(
-                'donation_number',
-                sprintf('DON-%s-%05d', ($donation->created_at ?? now())->format('Y'), $donation->id),
-            );
-
-            return $donation;
-        });
-
         return Inertia::render('Reports/Donations', [
             'donations' => $donations,
-            'filters' => ['status' => $status, 'search' => $search],
-            'can' => [
-                'releaseDonation' => $request->user()?->can('create', \App\Models\Disposal::class) ?? false,
-            ],
+            'filters'   => ['status' => $status, 'search' => $search],
         ]);
     }
 
@@ -473,9 +404,9 @@ class ReportController extends Controller
 
     protected function resolveAttributeTableData(Request $request): array
     {
-        $columns    = $this->attributeColumns();
-        $clauses    = $this->parseClauses($request->input('clauses', []), $columns);
-        $combinator = $request->input('combinator') === 'or' ? 'or' : 'and';
+        $columns      = $this->attributeColumns();
+        $clauses      = $this->parseClauses($request->input('clauses', []), $columns);
+        $combinator   = $request->input('combinator') === 'or' ? 'or' : 'and';
 
         $sortColumn = $request->input('sort', 'asset_id');
         if (! array_key_exists($sortColumn, $columns)) {
@@ -492,10 +423,10 @@ class ReportController extends Controller
             'assets'      => $assets,
             'columns'     => array_values($columns),
             'filters'     => [
-                'clauses'    => $clauses,
+                'clauses'   => $clauses,
                 'combinator' => $combinator,
-                'sort'       => $sortColumn,
-                'direction'  => $sortDirection,
+                'sort'      => $sortColumn,
+                'direction' => $sortDirection,
             ],
             'resultCount' => $assets->total(),
         ];
@@ -535,63 +466,74 @@ class ReportController extends Controller
     }
 
     /**
-     * Whitelisted column definitions for the attribute table.
+     * Whitelisted column definitions.
+     *
+     * Piece-level fields (species, description, dimensions, volume, value,
+     * plate_number) come from asset_pieces when the asset has pieces;
+     * asset-level fields (asset_code, type, mode, status, etc.) are always
+     * sourced from the assets table.
+     *
+     * Column keys must match the aliased SELECT columns produced by
+     * buildAttributeQuery() so sorting and filtering work correctly.
      */
     protected function attributeColumns(): array
     {
         return [
-            'asset_id'    => ['key' => 'asset_id',    'label' => 'ID',         'type' => 'number'],
-            'asset_code'  => ['key' => 'asset_code',  'label' => 'Asset Code', 'type' => 'text'],
-            'piece_number' => ['key' => 'piece_number', 'label' => 'Piece #',  'type' => 'number'],
-            'aap_number'  => ['key' => 'aap_number',  'label' => 'AAP No.',    'type' => 'text'],
+            // ── Asset-level identity ──────────────────────────────────────
+            'asset_id' => ['key' => 'asset_id', 'label' => 'ID', 'type' => 'number'],
+            'asset_code' => ['key' => 'asset_code', 'label' => 'Asset Code', 'type' => 'text'],
+            'piece_number' => ['key' => 'piece_number', 'label' => 'Piece #', 'type' => 'number'],
+            'aap_number' => ['key' => 'aap_number', 'label' => 'AAP No.', 'type' => 'text'],
             'type' => [
-                'key'     => 'type',
-                'label'   => 'Type',
-                'type'    => 'select',
+                'key'  => 'type',
+                'label' => 'Type',
+                'type' => 'select',
                 'options' => collect(AssetType::cases())->map(fn ($t) => ['value' => $t->value, 'label' => $t->label()]),
             ],
-            'species'        => ['key' => 'species',        'label' => 'Species (Log)',  'type' => 'text'],
+            // ── Piece-level measurement fields ────────────────────────────
+            'species' => ['key' => 'species', 'label' => 'Species (Log)', 'type' => 'text'],
             'equipment_type' => ['key' => 'equipment_type', 'label' => 'Equipment Type', 'type' => 'text'],
-            'vehicle_type'   => ['key' => 'vehicle_type',   'label' => 'Vehicle Type',   'type' => 'text'],
-            'description'    => ['key' => 'description',    'label' => 'Description',    'type' => 'text'],
-            'quantity'       => ['key' => 'quantity',        'label' => 'Quantity',       'type' => 'number'],
-            'quantity_unit'  => ['key' => 'quantity_unit',  'label' => 'Unit',           'type' => 'text'],
+            'vehicle_type' => ['key' => 'vehicle_type', 'label' => 'Vehicle Type', 'type' => 'text'],
+            'description' => ['key' => 'description', 'label' => 'Description', 'type' => 'text'],
+            'quantity' => ['key' => 'quantity', 'label' => 'Quantity', 'type' => 'number'],
+            'quantity_unit' => ['key' => 'quantity_unit', 'label' => 'Unit', 'type' => 'text'],
             'disposed_quantity' => ['key' => 'disposed_quantity', 'label' => 'Disposed Qty', 'type' => 'number'],
-            'length'         => ['key' => 'length',          'label' => 'Length',         'type' => 'number'],
-            'width'          => ['key' => 'width',           'label' => 'Width',          'type' => 'number'],
-            'height'         => ['key' => 'height',          'label' => 'Height',         'type' => 'number'],
-            'volume_bd_ft'   => ['key' => 'volume_bd_ft',   'label' => 'Volume (bd.ft)', 'type' => 'number'],
-            'volume_cu_m'    => ['key' => 'volume_cu_m',    'label' => 'Volume (cu.m)',  'type' => 'number'],
+            'length' => ['key' => 'length', 'label' => 'Length', 'type' => 'number'],
+            'width'  => ['key' => 'width',  'label' => 'Width',  'type' => 'number'],
+            'height' => ['key' => 'height', 'label' => 'Height', 'type' => 'number'],
+            'volume_bd_ft' => ['key' => 'volume_bd_ft', 'label' => 'Volume (bd.ft)', 'type' => 'number'],
+            'volume_cu_m'  => ['key' => 'volume_cu_m',  'label' => 'Volume (cu.m)',  'type' => 'number'],
             'estimated_value' => ['key' => 'estimated_value', 'label' => 'Estimated Value', 'type' => 'number'],
-            'plate_number'   => ['key' => 'plate_number',   'label' => 'Plate Number',   'type' => 'text'],
-            'serial_number'  => ['key' => 'serial_number',  'label' => 'Serial Number',  'type' => 'text'],
+            'plate_number' => ['key' => 'plate_number', 'label' => 'Plate Number', 'type' => 'text'],
+            'serial_number' => ['key' => 'serial_number', 'label' => 'Serial Number', 'type' => 'text'],
+            // ── Asset-level context ───────────────────────────────────────
             'municipality_of_origin' => [
-                'key'     => 'municipality_of_origin',
-                'label'   => 'Municipality',
-                'type'    => 'select',
+                'key'  => 'municipality_of_origin',
+                'label' => 'Municipality',
+                'type' => 'select',
                 'options' => collect(Municipality::cases())->map(fn ($m) => ['value' => $m->value, 'label' => $m->value]),
             ],
             'location_apprehended' => ['key' => 'location_apprehended', 'label' => 'Location Apprehended', 'type' => 'text'],
             'apprehending_agency'  => ['key' => 'apprehending_agency',  'label' => 'Apprehending Agency',  'type' => 'text'],
             'mode' => [
-                'key'     => 'mode',
-                'label'   => 'Mode',
-                'type'    => 'select',
+                'key'  => 'mode',
+                'label' => 'Mode',
+                'type' => 'select',
                 'options' => collect(AssetMode::cases())->map(fn ($m) => ['value' => $m->value, 'label' => $m->label()]),
             ],
-            'has_ongoing_case'       => ['key' => 'has_ongoing_case',       'label' => 'Ongoing Case',       'type' => 'boolean'],
+            'has_ongoing_case' => ['key' => 'has_ongoing_case', 'label' => 'Ongoing Case', 'type' => 'boolean'],
             'has_confiscation_order' => ['key' => 'has_confiscation_order', 'label' => 'Confiscation Order', 'type' => 'boolean'],
             'current_status' => [
-                'key'     => 'current_status',
-                'label'   => 'Status',
-                'type'    => 'select',
+                'key'  => 'current_status',
+                'label' => 'Status',
+                'type' => 'select',
                 'options' => collect(AssetStatus::cases())->map(fn ($s) => ['value' => $s->value, 'label' => $s->label()]),
             ],
             'case_number'       => ['key' => 'case_number',       'label' => 'Case Number',       'type' => 'text'],
-            'court_branch'      => ['key' => 'court_branch',      'label' => 'Court / Branch',    'type' => 'text'],
-            'next_hearing_date' => ['key' => 'next_hearing_date', 'label' => 'Next Hearing Date', 'type' => 'date'],
-            'appeal_deadline'   => ['key' => 'appeal_deadline',   'label' => 'Appeal Deadline',   'type' => 'date'],
-            'created_at'        => ['key' => 'created_at',        'label' => 'Date Created',      'type' => 'date'],
+            'court_branch'      => ['key' => 'court_branch',      'label' => 'Court / Branch',     'type' => 'text'],
+            'next_hearing_date' => ['key' => 'next_hearing_date', 'label' => 'Next Hearing Date',  'type' => 'date'],
+            'appeal_deadline'   => ['key' => 'appeal_deadline',   'label' => 'Appeal Deadline',    'type' => 'date'],
+            'created_at'        => ['key' => 'created_at',        'label' => 'Date Created',       'type' => 'date'],
         ];
     }
 
@@ -631,6 +573,18 @@ class ReportController extends Controller
         return $clauses;
     }
 
+    /**
+     * Build a unified flat query that returns one row per piece for assets
+     * that have pieces, and one row per asset for assets without pieces.
+     *
+     * Both branches SELECT the same aliased columns so they can be paginated
+     * and sorted uniformly. Piece-level fields (species, description,
+     * dimensions, volume, estimated_value, plate_number) come from
+     * asset_pieces in the first branch and from assets in the second.
+     *
+     * Filtering clauses are applied to the merged result via a wrapping
+     * subquery so WHERE conditions work across both branches.
+     */
     protected function buildAttributeQuery(array $clauses, string $combinator): \Illuminate\Database\Query\Builder
     {
         $assetCols = '
@@ -655,6 +609,7 @@ class ReportController extends Controller
             a.created_at
         ';
 
+        // Branch 1: assets that HAVE pieces — one row per piece
         $withPieces = DB::table('asset_pieces AS p')
             ->join('assets AS a', 'a.id', '=', 'p.asset_id')
             ->whereExists(function ($sub) {
@@ -679,6 +634,7 @@ class ReportController extends Controller
                 {$assetCols}
             ");
 
+        // Branch 2: assets that have NO pieces — one row per asset
         $withoutPieces = DB::table('assets AS a')
             ->whereNotExists(function ($sub) {
                 $sub->select(DB::raw(1))
@@ -702,11 +658,14 @@ class ReportController extends Controller
                 {$assetCols}
             ");
 
+        // UNION both branches into a single flat result set
         $union = $withPieces->unionAll($withoutPieces);
 
+        // Wrap in a subquery so we can apply WHERE clauses and ORDER BY
         $query = DB::table(DB::raw("({$union->toSql()}) AS rows"))
             ->mergeBindings($union);
 
+        // Apply filter clauses
         if (! empty($clauses)) {
             $query->where(function ($q) use ($clauses, $combinator) {
                 foreach ($clauses as $i => $clause) {
@@ -721,12 +680,17 @@ class ReportController extends Controller
         return $query;
     }
 
+    /**
+     * Apply a single filter clause to the raw DB query builder (not Eloquent).
+     * Column names here reference the aliased columns from buildAttributeQuery().
+     */
     protected function applyClauseRaw(\Illuminate\Database\Query\Builder $query, array $clause): void
     {
         $field    = $clause['field'];
         $operator = $clause['operator'];
         $value    = $clause['value'];
 
+        // Remap 'id' filter key → 'asset_id' alias used in the subquery
         if ($field === 'id') {
             $field = 'asset_id';
         }

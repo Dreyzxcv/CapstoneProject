@@ -38,11 +38,10 @@ import {
     BarChart2,
     PieChart as PieChartIcon,
     Image,
-    CalendarDays,
-    ChevronDown,
 } from 'lucide-react';
 import { IncidentsMap, IncidentLocation } from '@/Components/shared/IncidentsMap';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 
 interface TrendPoint {
     key: string;
@@ -63,15 +62,10 @@ interface ReportsIndexProps {
     byType: Array<{ type: string; label: string; count: number }>;
     byMunicipality: Array<{ municipality_of_origin: string; count: number }>;
     trends: TrendPoint[];
-    /** The active period key, e.g. "6m" */
-    period: string;
-    /** Human-readable label for the active period, e.g. "Last 6 months" */
-    periodLabel: string;
-    /** All valid period options from the server: { "3m": "Last 3 months", ... } */
-    periodOptions: Record<string, string>;
-    chartYear: string;
-    chartYears: number[];
+    trendMonths: number;
+    chartFilters: { month: string; year: string };
     mapFilters: { month: string; year: string };
+    availableChartYears: number[];
     typeLabels: Record<string, string>;
     statusLabels: Record<string, string>;
     recentActivity: Array<{
@@ -97,9 +91,9 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 const TYPE_LABEL_COLORS: Record<string, { fill: string; gradientId: string }> = {
-    'Log / Lumber':         { fill: '#047857', gradientId: 'grad-log' },
-    'Equipment / Tools':    { fill: '#d97706', gradientId: 'grad-equipment' },
-    'Conveyance / Vehicle': { fill: '#2563eb', gradientId: 'grad-vehicle' },
+    'Log / Lumber':          { fill: '#047857', gradientId: 'grad-log' },
+    'Equipment / Tools':     { fill: '#d97706', gradientId: 'grad-equipment' },
+    'Conveyance / Vehicle':  { fill: '#2563eb', gradientId: 'grad-vehicle' },
 };
 const FALLBACK_BAR_COLOR = '#6b7280';
 
@@ -318,12 +312,10 @@ export default function ReportsIndex({
     byType,
     byMunicipality,
     trends,
-    period,
-    periodLabel,
-    periodOptions,
-    chartYear,
-    chartYears,
+    trendMonths,
+    chartFilters,
     mapFilters,
+    availableChartYears,
     typeLabels,
     statusLabels,
     recentActivity,
@@ -332,6 +324,8 @@ export default function ReportsIndex({
 }: ReportsIndexProps) {
     usePoll(10000, { only: ['summary', 'byType', 'byMunicipality', 'trends', 'recentActivity'] });
 
+    const [chartMonth, setChartMonth] = useState<string>(chartFilters.month);
+    const [chartYear, setChartYear] = useState<string>(chartFilters.year);
     const [mapMonth, setMapMonth] = useState<string>(mapFilters.month);
     const [mapYear, setMapYear]   = useState<string>(mapFilters.year);
     const [showAttributeTable, setShowAttributeTable] = useState(false);
@@ -360,15 +354,13 @@ export default function ReportsIndex({
         return () => clearInterval(id);
     }, [lastUpdated]);
 
-    function handlePeriodChange(nextPeriod: string, nextYear: string = 'all') {
+    function handleChartFilterChange(nextMonth: string, nextYear: string) {
+        setChartMonth(nextMonth);
+        setChartYear(nextYear);
         router.get(
             route('reports.index'),
-            { period: nextPeriod, chart_year: nextYear, map_month: mapMonth, map_year: mapYear },
-            {
-                preserveState: true,
-                preserveScroll: true,
-                only: ['trends', 'byType', 'byMunicipality', 'period', 'periodLabel', 'chartYear'],
-            },
+            { month: nextMonth, year: nextYear, months: trendMonths, map_month: mapMonth, map_year: mapYear },
+            { preserveState: true, preserveScroll: true, only: ['byType', 'byMunicipality', 'chartFilters'] },
         );
     }
 
@@ -377,13 +369,18 @@ export default function ReportsIndex({
         setMapYear(nextYear);
         router.get(
             route('reports.index'),
-            { period, chart_year: chartYear, map_month: nextMonth, map_year: nextYear },
+            { month: chartMonth, year: chartYear, months: trendMonths, map_month: nextMonth, map_year: nextYear },
             { preserveState: true, preserveScroll: true, replace: true },
         );
     }
 
-    // Slug the period label for filenames: "Last 6 months" → "last-6-months"
-    const periodSlug = periodLabel.toLowerCase().replace(/\s+/g, '-');
+    function handleMonthsChange(months: number) {
+        router.get(
+            route('reports.index'),
+            { months, map_month: mapMonth, map_year: mapYear },
+            { preserveState: true, preserveScroll: true, only: ['trends', 'trendMonths'] },
+        );
+    }
 
     const typeChartData = byType.map((row) => ({
         name: row.label,
@@ -407,6 +404,7 @@ export default function ReportsIndex({
         isTop: index === 0,
     }));
 
+    // FIX 1: wider Y-axis so municipality names don't get clipped
     const muniYAxisWidth = useMemo(() => {
         if (!municipalityChartData.length) return 96;
         const longest = Math.max(...municipalityChartData.map((d) => d.name.length));
@@ -511,6 +509,7 @@ export default function ReportsIndex({
     }
 
     const activityGroups = useMemo(() => groupActivity(recentActivity), [recentActivity]);
+    const hasChartFilter = chartMonth !== 'all' || chartYear !== 'all';
     const hasMapFilter   = mapMonth !== 'all' || mapYear !== 'all';
 
     const TrendPctLabel = useCallback(
@@ -519,6 +518,7 @@ export default function ReportsIndex({
             if (index !== trends.length - 1 || trendPctChange === null) return null;
             const isNew    = !isFinite(trendPctChange);
             const isUp     = trendPctChange >= 0;
+            // FIX 3: amber for new/up instead of red — a confiscation spike is notable, not alarming
             const color    = isNew ? '#d97706' : isUp ? '#d97706' : '#10b981';
             const labelStr = isNew ? 'New ▲' : `${isUp ? '+' : ''}${trendPctChange}%`;
             return (
@@ -671,56 +671,6 @@ export default function ReportsIndex({
                     </CardContent>
                 </Card>
 
-                {/* ── Shared chart period filter ── */}
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <CalendarDays className="h-4 w-4 text-gray-400" />
-                        <span className="font-medium">Chart period</span>
-                        <span className="text-gray-400">—</span>
-                        <span className="text-gray-500">applies to trend, type, and municipality charts</span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                        {Object.entries(periodOptions).map(([key, label]) => (
-                            <button
-                                key={key}
-                                type="button"
-                                onClick={() => handlePeriodChange(key, 'all')}
-                                className={
-                                    'rounded-full px-3 py-1 text-xs font-semibold transition ' +
-                                    (chartYear === 'all' && period === key
-                                        ? 'bg-emerald-700 text-white shadow-sm'
-                                        : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')
-                                }
-                            >
-                                {label}
-                            </button>
-                        ))}
-                        <div className="relative">
-                            <select
-                                value={chartYear}
-                                onChange={(e) => handlePeriodChange(period, e.target.value)}
-                                className={
-                                    'appearance-none rounded-full py-1 pl-3 pr-7 text-xs font-semibold leading-4 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ' +
-                                    (chartYear !== 'all'
-                                        ? 'border border-emerald-700 bg-emerald-700 text-white shadow-sm'
-                                        : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')
-                                }
-                            >
-                                <option value="all">Specific year</option>
-                                {chartYears.map((y) => (
-                                    <option key={y} value={String(y)}>{y}</option>
-                                ))}
-                            </select>
-                            <ChevronDown
-                                className={
-                                    'pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 ' +
-                                    (chartYear !== 'all' ? 'text-white' : 'text-gray-400')
-                                }
-                            />
-                        </div>
-                    </div>
-                </div>
-
                 {/* ── Trend chart ── */}
                 <Card>
                     <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
@@ -728,6 +678,7 @@ export default function ReportsIndex({
                             <CardTitle className="text-base font-semibold text-gray-900">
                                 Confiscations Over Time
                                 {trendPctChange !== null && (
+                                    // FIX 3: amber instead of red for upward trend
                                     <span
                                         className={`ml-2 text-sm font-semibold ${trendPctChange >= 0 ? 'text-amber-500' : 'text-emerald-600'}`}
                                     >
@@ -737,13 +688,29 @@ export default function ReportsIndex({
                                     </span>
                                 )}
                             </CardTitle>
-                            <p className="text-sm text-gray-500">
-                                Monthly intake volume, broken down by asset type · <span className="font-medium text-gray-600">{periodLabel}</span>
-                            </p>
+                            <p className="text-sm text-gray-500">Monthly intake volume, broken down by asset type.</p>
                         </div>
-                        <ExportPngButton
-                            onClick={() => exportChartAsPng(trendChartRef, `trend-${periodSlug}.png`)}
-                        />
+                        <div className="flex items-center gap-2">
+                            <ExportPngButton
+                                onClick={() => exportChartAsPng(trendChartRef, `trend-chart-${trendMonths}m.png`)}
+                            />
+                            <div className="flex gap-1.5">
+                                {[3, 6, 12].map((m) => (
+                                    <button
+                                        key={m}
+                                        onClick={() => handleMonthsChange(m)}
+                                        className={
+                                            'rounded-full px-3 py-1 text-xs font-semibold transition ' +
+                                            (trendMonths === m
+                                                ? 'bg-emerald-700 text-white'
+                                                : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')
+                                        }
+                                    >
+                                        {m}M
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent className="h-72 pt-2">
                         <div ref={trendChartRef} className="h-full w-full">
@@ -799,13 +766,39 @@ export default function ReportsIndex({
                     </CardContent>
                 </Card>
 
-                {/* ── Breakdown charts ── */}
+                {/* ── Breakdown filter + charts ── */}
                 <div>
-                    <div className="mb-3 flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-500">Showing breakdowns for</span>
-                        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                            {periodLabel}
-                        </span>
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-gray-600">Filter breakdowns by:</span>
+                        <select
+                            value={chartMonth}
+                            onChange={(e) => handleChartFilterChange(e.target.value, chartYear)}
+                            className="h-8 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                        >
+                            <option value="all">All Months</option>
+                            {MONTH_NAMES.map((name, index) => (
+                                <option key={name} value={index}>{name}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={chartYear}
+                            onChange={(e) => handleChartFilterChange(chartMonth, e.target.value)}
+                            className="h-8 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                        >
+                            <option value="all">All Years</option>
+                            {availableChartYears.map((year) => (
+                                <option key={year} value={year}>{year}</option>
+                            ))}
+                        </select>
+                        {hasChartFilter && (
+                            <button
+                                type="button"
+                                onClick={() => handleChartFilterChange('all', 'all')}
+                                className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
+                            >
+                                Clear ×
+                            </button>
+                        )}
                     </div>
 
                     <div className="grid gap-6 lg:grid-cols-2">
@@ -818,6 +811,7 @@ export default function ReportsIndex({
                                         <CardTitle className="text-base font-semibold text-gray-900">Assets by Type</CardTitle>
                                         <p className="text-xs text-gray-500">Click a bar to filter the asset list.</p>
                                     </div>
+                                    {/* FIX 2: count + PNG + toggle all in one aligned row */}
                                     <div className="flex items-center gap-2">
                                         {typeChartData.some((d) => d.count > 0) && (
                                             <div className="text-right">
@@ -828,8 +822,9 @@ export default function ReportsIndex({
                                             </div>
                                         )}
                                         <ExportPngButton
-                                            onClick={() => exportChartAsPng(typeChartRef, `assets-by-type-${periodSlug}.png`)}
+                                            onClick={() => exportChartAsPng(typeChartRef, 'assets-by-type.png')}
                                         />
+                                        {/* Bar / Pie toggle — same row as PNG */}
                                         <div className="flex overflow-hidden rounded-md border border-gray-200">
                                             <button
                                                 type="button"
@@ -942,6 +937,7 @@ export default function ReportsIndex({
                         {/* Confiscations by Municipality */}
                         <Card>
                             <CardHeader className="pb-2">
+                                {/* FIX 4: municipality header matches type card layout — count + PNG in same row */}
                                 <div className="flex items-start justify-between">
                                     <div>
                                         <CardTitle className="text-base font-semibold text-gray-900">Confiscations by Municipality</CardTitle>
@@ -957,7 +953,7 @@ export default function ReportsIndex({
                                             </div>
                                         )}
                                         <ExportPngButton
-                                            onClick={() => exportChartAsPng(muniChartRef, `by-municipality-${periodSlug}.png`)}
+                                            onClick={() => exportChartAsPng(muniChartRef, 'by-municipality.png')}
                                         />
                                     </div>
                                 </div>
@@ -988,6 +984,7 @@ export default function ReportsIndex({
                                                     axisLine={false}
                                                     tickLine={false}
                                                 />
+                                                {/* FIX 1: dynamic width so long names don't get clipped */}
                                                 <YAxis
                                                     type="category"
                                                     dataKey="name"

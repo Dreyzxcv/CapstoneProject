@@ -3,7 +3,6 @@
 namespace App\Policies;
 
 use App\Models\Asset;
-use App\Enums\AssetStatus;
 use App\Models\User;
 
 class AssetPolicy
@@ -25,19 +24,8 @@ class AssetPolicy
 
     public function update(User $user, Asset $asset): bool
     {
-        $editableStatuses = [
-            AssetStatus::IntakeRecorded,
-            AssetStatus::Stored,
-            AssetStatus::DocumentsUploaded,
-            AssetStatus::PendingCustodyReview,
-        ];
-
-        if (! in_array($asset->current_status, $editableStatuses, true)) {
-            return false;
-        }
-
         return $user->can('assets.update');
-}
+    }
 
     public function markStored(User $user, Asset $asset): bool
     {
