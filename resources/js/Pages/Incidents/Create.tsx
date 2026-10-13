@@ -27,6 +27,7 @@ interface CreateProps {
 
 interface PieceRow {
     species: string;
+    quantity: string;
     equipment_type: string;
     vehicle_type: string;
     speciesIsOther: boolean;
@@ -62,6 +63,27 @@ const EQUIPMENT_OPTIONS = [
     'Hand Tools (Axe, Bolo, Wedge)','Others',
 ];
 const BD_FT_TO_CU_M = 0.002359737;
+const MAX_PIECE_QUANTITY = 500;
+const MAX_PIECES_PER_INCIDENT = 1000;
+
+function parseQuantity(q: string): number {
+    const n = Number(q);
+    return Number.isInteger(n) && n >= 1 ? n : 0;
+}
+function pieceQty(p: PieceRow): number { return parseQuantity(p.quantity) || 1; }
+function quantityAllowed(type: string, p: PieceRow): boolean {
+    if (type === 'vehicle') return false;
+    if (type === 'equipment') return p.serial_number.trim() === '';
+    return true;
+}
+function pieceRange(pieces: PieceRow[], index: number): string {
+    const start = pieces.slice(0, index).reduce((s, p) => s + pieceQty(p), 0) + 1;
+    const qty = pieceQty(pieces[index]);
+    return qty > 1 ? `${start}–${start + qty - 1}` : `${start}`;
+}
+function totalPiecesOf(assets: AssetRow[]): number {
+    return assets.reduce((s, a) => s + a.pieces.reduce((t, p) => t + pieceQty(p), 0), 0);
+}
 
 // Soft pulsing highlight used to guide the user to the next required field.
 const HIGHLIGHT_CSS = `
@@ -114,7 +136,7 @@ const selectClass =
 
 function emptyPieceRow(species = ''): PieceRow {
     return {
-        species, equipment_type: '', vehicle_type: '', speciesIsOther: false,
+        species, quantity: '1', equipment_type: '', vehicle_type: '', speciesIsOther: false,
         description: '', length: '', width: '', height: '',
         volume_bd_ft: '', volume_cu_m: '', estimated_value: '',
         estimated_value_auto: false, plate_number: '', serial_number: '',
@@ -137,6 +159,20 @@ function convertBdFtToCuM(bdFt: string): string {
     return Number.isNaN(v) || v <= 0 ? '' : (v * BD_FT_TO_CU_M).toFixed(4);
 }
 
+function formatWithCommas(raw: string): string {
+    if (!raw) return '';
+    const [int, dec] = raw.split('.');
+    const withCommas = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return dec !== undefined ? `${withCommas}.${dec}` : withCommas;
+}
+
+function sanitizeMoney(input: string): string {
+    const cleaned = input.replace(/[^\d.]/g, '');
+    const [int, ...rest] = cleaned.split('.');
+    if (rest.length === 0) return int;
+    return `${int}.${rest.join('').slice(0, 2)}`;
+}
+
 function calculateBdFt(l: string, w: string, h: string): string {
     const [lv, wv, hv] = [l, w, h].map(parseFloat);
     return [lv, wv, hv].some((v) => Number.isNaN(v) || v <= 0) ? '' : ((lv * wv * hv) / 12).toFixed(2);
@@ -152,6 +188,12 @@ function speciesFieldPlaceholder(type: string): string {
     if (type === 'vehicle')   return 'e.g. Motorcycle, Tricycle, Habal-habal';
     if (type === 'equipment') return 'e.g. Chainsaw, Power Saw';
     return 'Enter species';
+}
+
+function descriptionPlaceholder(type: string): string {
+    if (type === 'vehicle')   return 'e.g. color, make/model, condition';
+    if (type === 'equipment') return 'e.g. brand, condition, with case';
+    return 'e.g. squared, rough-cut, with bark';
 }
 
 // ── Step indicator ────────────────────────────────────────────────────────────
@@ -416,6 +458,9 @@ export default function IncidentsCreate({
     function updateAsset(index: number, field: keyof AssetRow, value: string | boolean) {
         const next = [...data.assets];
         next[index] = { ...next[index], [field]: value } as AssetRow;
+        if (field === 'type') {
+            next[index].pieces = next[index].pieces.map((p) => ({ ...p, quantity: '1' }));
+        }
         setData('assets', next);
     }
 
@@ -517,8 +562,13 @@ export default function IncidentsCreate({
         );
     }
     function canProceedStep3() {
+        if (totalPiecesOf(data.assets) > MAX_PIECES_PER_INCIDENT) return false;
         return data.assets.every((a) =>
             a.pieces.every((p) => {
+                const q = parseQuantity(p.quantity);
+                if (!q || q > MAX_PIECE_QUANTITY) return false;
+                if (q > 1 && !quantityAllowed(a.type, p)) return false;
+                if (!p.description.trim()) return false;
                 if (a.type === 'log')       return p.species && p.volume_bd_ft && p.estimated_value;
                 if (a.type === 'vehicle')   return p.vehicle_type && p.plate_number;
                 if (a.type === 'equipment') return p.equipment_type;
@@ -559,18 +609,24 @@ export default function IncidentsCreate({
                 for (let pi = 0; pi < asset.pieces.length; pi++) {
                     const p = asset.pieces[pi];
                     const k = (f: string) => `piece:${ai}:${pi}:${f}`;
+
+                    if (asset.type === 'log' && !p.species) return k('species');
+                    if (asset.type === 'vehicle' && !p.vehicle_type) return k('vehicle_type');
+                    if (asset.type === 'equipment' && !p.equipment_type) return k('equipment_type');
+
+                    const q = parseQuantity(p.quantity);
+                    if (!q || q > MAX_PIECE_QUANTITY) return k('quantity');
+
+                    if (!p.description.trim()) return k('description');
+
                     if (asset.type === 'log') {
-                        if (!p.species) return k('species');
                         for (const dim of ['length', 'width', 'height'] as const) {
                             const v = parseFloat(p[dim]);
                             if (Number.isNaN(v) || v <= 0) return k(dim);
                         }
                         if (!p.estimated_value) return k('estimated_value');
                     } else if (asset.type === 'vehicle') {
-                        if (!p.vehicle_type)  return k('vehicle_type');
-                        if (!p.plate_number)  return k('plate_number');
-                    } else if (asset.type === 'equipment') {
-                        if (!p.equipment_type) return k('equipment_type');
+                        if (!p.plate_number) return k('plate_number');
                     }
                 }
             }
@@ -593,10 +649,15 @@ export default function IncidentsCreate({
             apprehending_party: fd.apprehending_parties.filter((p) => p.trim() !== '').join('; '),
         }));
         post(route('incidents.store'), {
-            forceFormData: true,   // ← add this
+            forceFormData: true,
             onSuccess: () => {
                 setShowConfirmModal(false);
                 try { localStorage.removeItem(DRAFT_KEY); } catch {}
+            },
+            onError: (errs) => {
+                setShowConfirmModal(false);
+                const keys = Object.keys(errs);
+                setStep(keys.includes('intake_mode') ? 1 : keys.some((k) => !k.startsWith('assets')) ? 2 : 3);
             },
         });
     }
@@ -610,13 +671,15 @@ export default function IncidentsCreate({
     function renderPieceForm(asset: AssetRow, ai: number, pi: number) {
         const piece     = asset.pieces[pi];
         const isLog     = asset.type === 'log';
+        const canGroup = quantityAllowed(asset.type, piece)
+        const qty = pieceQty(piece);
         const isVehicle = asset.type === 'vehicle';
         const pk = (f: string) => `piece:${ai}:${pi}:${f}`;
 
         return (
             <div key={pi} className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
                 <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-700">Piece {pi + 1}</span>
+                    <span className="text-sm font-semibold text-gray-700">{qty > 1 ? `Pieces ${pieceRange(asset.pieces, pi)} (×${qty})` : `Piece ${pieceRange(asset.pieces, pi)}`}</span>
                     <div className="flex items-center gap-1">
                         <Button type="button" variant="ghost" size="sm" onClick={() => duplicatePiece(ai, pi)}>
                             <Copy className="h-3.5 w-3.5 mr-1" />Duplicate
@@ -629,63 +692,91 @@ export default function IncidentsCreate({
                     </div>
                 </div>
 
-                {/* Species / type */}
-                <div className="space-y-2">
-                    <Label>{speciesFieldLabel(asset.type)}<span className="text-red-500">*</span></Label>
-                    {isLog ? (
-                        piece.speciesIsOther ? (
-                            <div className="flex gap-2">
-                                <Input placeholder="Enter species" value={piece.species}
-                                    className={hl(pk('species'))}
-                                    onChange={(e) => updatePiece(ai, pi, { species: e.target.value })} autoFocus required />
-                                <Button type="button" variant="outline" size="sm"
-                                    onClick={() => updatePiece(ai, pi, { speciesIsOther: false, species: '' })}>
-                                    Choose from list
-                                </Button>
-                            </div>
+                <div className="grid items-start gap-4 md:grid-cols-[1fr_160px]">
+                    {/* Species / type */}
+                    <div className="space-y-2">
+                        <Label>{speciesFieldLabel(asset.type)}<span className="text-red-500">*</span></Label>
+                        {isLog ? (
+                            piece.speciesIsOther ? (
+                                <div className="flex gap-2">
+                                    <Input placeholder="Enter species" value={piece.species}
+                                        className={hl(pk('species'))}
+                                        onChange={(e) => updatePiece(ai, pi, { species: e.target.value })} autoFocus required />
+                                    <Button type="button" variant="outline" size="sm"
+                                        onClick={() => updatePiece(ai, pi, { speciesIsOther: false, species: '' })}>
+                                        Choose from list
+                                    </Button>
+                                </div>
+                            ) : (
+                                <select value={piece.species} onChange={(e) => handlePieceSpeciesSelect(ai, pi, e.target.value)}
+                                    className={`${selectClass} ${hl(pk('species'))}`}>
+                                    <option value="" disabled>Select species…</option>
+                                    {SPECIES_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            )
+                        ) : asset.type === 'equipment' ? (
+                            piece.speciesIsOther ? (
+                                <div className="flex gap-2">
+                                    <Input placeholder={speciesFieldPlaceholder(asset.type)} value={piece.equipment_type}
+                                        className={hl(pk('equipment_type'))}
+                                        onChange={(e) => updatePiece(ai, pi, { equipment_type: e.target.value })} autoFocus required />
+                                    <Button type="button" variant="outline" size="sm"
+                                        onClick={() => updatePiece(ai, pi, { speciesIsOther: false, equipment_type: '' })}>
+                                        Choose from list
+                                    </Button>
+                                </div>
+                            ) : (
+                                <select value={piece.equipment_type} onChange={(e) => handlePieceEquipmentSelect(ai, pi, e.target.value)}
+                                    className={`${selectClass} ${hl(pk('equipment_type'))}`}>
+                                    <option value="" disabled>Select equipment type…</option>
+                                    {EQUIPMENT_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            )
                         ) : (
-                            <select value={piece.species} onChange={(e) => handlePieceSpeciesSelect(ai, pi, e.target.value)}
-                                className={`${selectClass} ${hl(pk('species'))}`}>
-                                <option value="" disabled>Select species…</option>
-                                {SPECIES_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        )
-                    ) : asset.type === 'equipment' ? (
-                        piece.speciesIsOther ? (
-                            <div className="flex gap-2">
-                                <Input placeholder={speciesFieldPlaceholder(asset.type)} value={piece.equipment_type}
-                                    className={hl(pk('equipment_type'))}
-                                    onChange={(e) => updatePiece(ai, pi, { equipment_type: e.target.value })} autoFocus required />
-                                <Button type="button" variant="outline" size="sm"
-                                    onClick={() => updatePiece(ai, pi, { speciesIsOther: false, equipment_type: '' })}>
-                                    Choose from list
-                                </Button>
-                            </div>
-                        ) : (
-                            <select value={piece.equipment_type} onChange={(e) => handlePieceEquipmentSelect(ai, pi, e.target.value)}
-                                className={`${selectClass} ${hl(pk('equipment_type'))}`}>
-                                <option value="" disabled>Select equipment type…</option>
-                                {EQUIPMENT_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        )
-                    ) : (
-                        <Input placeholder={speciesFieldPlaceholder(asset.type)} value={piece.vehicle_type}
-                            className={hl(pk('vehicle_type'))}
-                            onChange={(e) => updatePiece(ai, pi, { vehicle_type: e.target.value })} required />
-                    )}
-                    <InputError message={pieceError(ai, pi, 'species')} />
+                            <Input placeholder={speciesFieldPlaceholder(asset.type)} value={piece.vehicle_type}
+                                className={hl(pk('vehicle_type'))}
+                                onChange={(e) => updatePiece(ai, pi, { vehicle_type: e.target.value })} required />
+                        )}
+                        <InputError message={pieceError(ai, pi, 'species')} />
+                    </div>
+
+                    {/* Quantity */}
+                    <div className="space-y-2">
+                        <Label>Quantity<span className="text-red-500">*</span></Label>
+                        <Input type="number" min={1} max={MAX_PIECE_QUANTITY} step={1}
+                            value={piece.quantity} disabled={!canGroup}
+                            className={hl(pk('quantity'))}
+                            onChange={(e) => updatePiece(ai, pi, { quantity: e.target.value })}
+                            onBlur={() => { if (!parseQuantity(piece.quantity)) updatePiece(ai, pi, { quantity: '1' }); }}
+                            required />
+                        <InputError message={pieceError(ai, pi, 'quantity')} />
+                    </div>
                 </div>
+
+                {/* Hint under the row */}
+                <p className="-mt-2 text-xs text-gray-500">
+                    {canGroup
+                        ? (isLog
+                            ? 'Use only if every piece has the same species, dimensions and description. Otherwise add a separate entry.'
+                            : 'Use only if every item has the same type and description. Otherwise add a separate entry.')
+                        : (isVehicle
+                            ? 'Each vehicle is entered separately (unique plate number).'
+                            : 'Equipment with a serial number is entered one at a time.')}
+                </p>
 
                 {/* Description */}
                 <div className="space-y-2">
-                    <Label>Description</Label>
+                    <Label>Description<span className="text-red-500">*</span></Label>
                     <Input value={piece.description}
+                        className={hl(pk('description'))}
                         onChange={(e) => updatePiece(ai, pi, { description: e.target.value })}
-                        placeholder="e.g. squared, rough-cut, with bark" />
+                        placeholder={descriptionPlaceholder(asset.type)}
+                        required />
+                    <InputError message={pieceError(ai, pi, 'description')} />
                     {pi > 0 && asset.pieces[pi - 1]?.description && (
                         <button type="button" className="text-xs text-emerald-700 hover:underline"
                             onClick={() => updatePiece(ai, pi, { description: asset.pieces[pi - 1].description })}>
-                            Same as Piece {pi} description
+                            Same as previous entry description
                         </button>
                     )}
                 </div>
@@ -722,13 +813,18 @@ export default function IncidentsCreate({
                         </div>
                         <div className="space-y-2">
                             <Label>Estimated Value (₱)<span className="text-red-500">*</span></Label>
-                            <Input type="number" step="0.01" min="0" value={piece.estimated_value}
-                                onChange={(e) => updatePiece(ai, pi, { estimated_value: e.target.value, estimated_value_auto: false })}
+                            <Input type="text" inputMode="decimal"
+                                value={formatWithCommas(piece.estimated_value)}
+                                onChange={(e) => updatePiece(ai, pi, {
+                                    estimated_value: sanitizeMoney(e.target.value),
+                                    estimated_value_auto: false,
+                                })}
                                 readOnly={piece.estimated_value_auto}
+                                placeholder="0.00"
                                 className={`${piece.estimated_value_auto ? 'bg-gray-100' : ''} ${hl(pk('estimated_value'))}`} required />
                             {piece.estimated_value_auto ? (
                                 <p className="text-xs text-emerald-700">
-                                    Auto-computed: {piece.volume_bd_ft} bd.ft × ₱{marketPriceMap[`${piece.species}|${apprehensionYear}`]?.toFixed(2)} (market price {apprehensionYear})
+                                    Auto-computed: {piece.volume_bd_ft} bd.ft × ₱{formatWithCommas(marketPriceMap[`${piece.species}|${apprehensionYear}`]?.toFixed(2) ?? '')} (market price {apprehensionYear})
                                 </p>
                             ) : piece.species && !piece.speciesIsOther && apprehensionYear ? (
                                 <p className="text-xs text-amber-700">No market price set for {piece.species} ({apprehensionYear}) — enter manually.</p>
@@ -752,10 +848,10 @@ export default function IncidentsCreate({
                     <div className="max-w-xs space-y-2">
                         <Label>Serial Number</Label>
                         <Input placeholder="e.g. SN-123456" value={piece.serial_number}
-                            onChange={(e) => updatePiece(ai, pi, { serial_number: e.target.value })} />
+                            onChange={(e) => updatePiece(ai, pi, { serial_number: e.target.value, ...(e.target.value.trim() ? { quantity: '1' } : {}) })} />
                         <InputError message={pieceError(ai, pi, 'serial_number')} />
                     </div>
-                )}
+                )}  
             </div>
         );
     }
@@ -1226,10 +1322,15 @@ export default function IncidentsCreate({
 
     // ── Step 3: Assets & Pieces ──────────────────────────────────────────────
     function assetTotals(asset: AssetRow) {
-        const totalBdFt = asset.pieces.reduce((s, p) => s + (parseFloat(p.volume_bd_ft) || 0), 0);
-        const totalCuM  = asset.pieces.reduce((s, p) => s + (parseFloat(p.volume_cu_m)  || 0), 0);
-        const totalVal  = asset.pieces.reduce((s, p) => s + (parseFloat(p.estimated_value) || 0), 0);
-        return { totalBdFt, totalCuM, totalVal };
+        let totalBdFt = 0, totalCuM = 0, totalVal = 0, totalPieces = 0;
+        asset.pieces.forEach((p) => {
+            const q = pieceQty(p);
+            totalPieces += q;
+            totalBdFt += (parseFloat(p.volume_bd_ft) || 0) * q;
+            totalCuM  += (parseFloat(p.volume_cu_m)  || 0) * q;
+            totalVal  += (parseFloat(p.estimated_value) || 0) * q;
+        });
+        return { totalBdFt, totalCuM, totalVal, totalPieces };
     }
 
     function renderStep3() {
@@ -1241,7 +1342,7 @@ export default function IncidentsCreate({
                             <CardTitle className="text-base">
                                 Item {ai + 1}
                                 <span className="ml-2 text-xs font-normal text-gray-500">
-                                    ({asset.pieces.length} {asset.pieces.length === 1 ? 'piece' : 'pieces'})
+                                    ({assetTotals(asset).totalPieces} {assetTotals(asset).totalPieces === 1 ? 'piece' : 'pieces'})
                                 </span>
                             </CardTitle>
                             {data.assets.length > 1 && (
@@ -1271,12 +1372,14 @@ export default function IncidentsCreate({
 
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-semibold text-gray-700">Pieces — encode each one individually</h4>
-                                    <span className="text-xs text-gray-500">{asset.pieces.length} {asset.pieces.length === 1 ? 'piece' : 'pieces'}</span>
+                                    <h4 className="text-sm font-semibold text-gray-700">Pieces — group identical pieces with Quantity</h4>
+                                    <span className="text-xs text-gray-500">
+                                        {asset.pieces.length} {asset.pieces.length === 1 ? 'entry' : 'entries'} · {assetTotals(asset).totalPieces} pieces
+                                    </span>
                                 </div>
                                 {asset.pieces.map((_, pi) => renderPieceForm(asset, ai, pi))}
 
-                                {asset.type === 'log' && asset.pieces.length > 1 && (() => {
+                                {asset.type === 'log' && assetTotals(asset).totalPieces > 1 && (() => {
                                     const { totalBdFt, totalCuM, totalVal } = assetTotals(asset);
                                     return (
                                         <div className="flex flex-wrap gap-4 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm">
@@ -1296,7 +1399,7 @@ export default function IncidentsCreate({
                                                 </span>
                                             )}
                                             <span className="ml-auto text-emerald-600 text-xs">
-                                                {asset.pieces.length} pieces
+                                                {assetTotals(asset).totalPieces} pieces
                                             </span>
                                         </div>
                                     );
@@ -1315,6 +1418,13 @@ export default function IncidentsCreate({
                         <Plus className="mr-1.5 h-4 w-4" />Add Another Item
                     </Button>
                 )}
+
+                {totalPiecesOf(data.assets) > MAX_PIECES_PER_INCIDENT && (
+                    <p className="text-sm text-red-600">
+                        An incident can hold at most {MAX_PIECES_PER_INCIDENT} pieces in total.
+                    </p>
+                )}
+                <InputError message={(errors as Record<string, string>).assets} />
             </div>
         );
     }
@@ -1481,7 +1591,7 @@ export default function IncidentsCreate({
 
                 {/* Assets */}
                 {(() => {
-                    const totalPieces = data.assets.reduce((sum, a) => sum + a.pieces.length, 0);
+                    const totalPieces = totalPiecesOf(data.assets);
                     const money = (v: string | number) =>
                         `₱${Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                     const num = (v: string | number, d = 2) =>
@@ -1506,17 +1616,16 @@ export default function IncidentsCreate({
                                 {data.assets.map((asset, ai) => {
                                     const isLog = asset.type === 'log';
                                     const isVehicle = asset.type === 'vehicle';
-                                    const { totalBdFt, totalCuM, totalVal } = assetTotals(asset);
+                                    const { totalBdFt, totalCuM, totalVal, totalPieces: itemPieces } = assetTotals(asset);
 
                                     const headers = isLog
-                                        ? ['#', 'Species', 'Dimensions (L × W × H)', 'Volume (bd.ft)', 'Est. Value']
+                                        ? ['Pieces', 'Species', 'Dimensions (L × W × H)', 'Qty', 'Volume (bd.ft)', 'Est. Value']
                                         : isVehicle
-                                            ? ['#', 'Vehicle Type', 'Plate No.', 'Description']
-                                            : ['#', 'Equipment Type', 'Serial No.', 'Description'];
+                                            ? ['Pieces', 'Vehicle Type', 'Plate No.', 'Qty', 'Description']
+                                            : ['Pieces', 'Equipment Type', 'Serial No.', 'Qty', 'Description'];
 
                                     return (
                                         <div key={ai} className="overflow-hidden rounded-lg border border-gray-200">
-                                            {/* Item header */}
                                             <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-3">
                                                 <div className="flex items-center gap-2">
                                                     <span className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
@@ -1527,84 +1636,87 @@ export default function IncidentsCreate({
                                                     </span>
                                                 </div>
                                                 <span className="text-xs text-gray-500">
-                                                    {asset.pieces.length} {asset.pieces.length === 1 ? 'piece' : 'pieces'}
+                                                    {itemPieces} {itemPieces === 1 ? 'piece' : 'pieces'}
                                                 </span>
                                             </div>
 
-                                            {/* Pieces table */}
                                             <div className="overflow-x-auto">
                                                 <table className="w-full text-sm">
                                                     <thead>
                                                         <tr className="border-b border-gray-100 text-left text-[11px] uppercase tracking-wide text-gray-400">
                                                             {headers.map((h, i) => (
-                                                                <th
-                                                                    key={h}
-                                                                    className={`whitespace-nowrap px-4 py-2 font-medium ${
-                                                                        isLog && i >= 3 ? 'text-right' : ''
-                                                                    }`}
-                                                                >
+                                                                <th key={h}
+                                                                    className={`whitespace-nowrap px-4 py-2 font-medium ${isLog && i >= 3 ? 'text-right' : ''}`}>
                                                                     {h}
                                                                 </th>
                                                             ))}
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-100">
-                                                        {asset.pieces.map((piece, pi) => (
-                                                            <tr key={pi} className="align-top">
-                                                                <td className="px-4 py-3 text-gray-400">{pi + 1}</td>
+                                                        {asset.pieces.map((piece, pi) => {
+                                                            const q = pieceQty(piece);
+                                                            return (
+                                                                <tr key={pi} className="align-top">
+                                                                    <td className="whitespace-nowrap px-4 py-3 text-gray-400">{pieceRange(asset.pieces, pi)}</td>
 
-                                                                {isLog && (
-                                                                    <>
-                                                                        <td className="px-4 py-3 font-semibold text-gray-900">
-                                                                            {piece.species || '—'}
-                                                                            {piece.description && (
-                                                                                <p className="mt-0.5 text-xs font-normal text-gray-500">{piece.description}</p>
-                                                                            )}
-                                                                        </td>
-                                                                        <td className="whitespace-nowrap px-4 py-3 text-gray-700">
-                                                                            {piece.length || '—'} × {piece.width || '—'} × {piece.height || '—'}
-                                                                        </td>
-                                                                        <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-gray-900">
-                                                                            {piece.volume_bd_ft ? num(piece.volume_bd_ft) : '—'}
-                                                                        </td>
-                                                                        <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-emerald-700">
-                                                                            {piece.estimated_value ? money(piece.estimated_value) : '—'}
-                                                                        </td>
-                                                                    </>
-                                                                )}
+                                                                    {isLog && (
+                                                                        <>
+                                                                            <td className="px-4 py-3 font-semibold text-gray-900">
+                                                                                {piece.species || '—'}
+                                                                                {piece.description && (
+                                                                                    <p className="mt-0.5 text-xs font-normal text-gray-500">{piece.description}</p>
+                                                                                )}
+                                                                            </td>
+                                                                            <td className="whitespace-nowrap px-4 py-3 text-gray-700">
+                                                                                {piece.length || '—'} × {piece.width || '—'} × {piece.height || '—'}
+                                                                            </td>
+                                                                            <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-gray-900">×{q}</td>
+                                                                            <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-gray-900">
+                                                                                {piece.volume_bd_ft ? num(parseFloat(piece.volume_bd_ft) * q) : '—'}
+                                                                                {q > 1 && piece.volume_bd_ft && (
+                                                                                    <p className="text-xs font-normal text-gray-500">{num(piece.volume_bd_ft)} each</p>
+                                                                                )}
+                                                                            </td>
+                                                                            <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-emerald-700">
+                                                                                {piece.estimated_value ? money(parseFloat(piece.estimated_value) * q) : '—'}
+                                                                                {q > 1 && piece.estimated_value && (
+                                                                                    <p className="text-xs font-normal text-gray-500">{money(piece.estimated_value)} each</p>
+                                                                                )}
+                                                                            </td>
+                                                                        </>
+                                                                    )}
 
-                                                                {isVehicle && (
-                                                                    <>
-                                                                        <td className="px-4 py-3 font-semibold text-gray-900">{piece.vehicle_type || '—'}</td>
-                                                                        <td className="px-4 py-3 font-mono text-gray-900">{piece.plate_number || '—'}</td>
-                                                                        <td className="px-4 py-3 text-gray-600">{piece.description || '—'}</td>
-                                                                    </>
-                                                                )}
+                                                                    {isVehicle && (
+                                                                        <>
+                                                                            <td className="px-4 py-3 font-semibold text-gray-900">{piece.vehicle_type || '—'}</td>
+                                                                            <td className="px-4 py-3 font-mono text-gray-900">{piece.plate_number || '—'}</td>
+                                                                            <td className="px-4 py-3 font-semibold tabular-nums text-gray-900">×{q}</td>
+                                                                            <td className="px-4 py-3 text-gray-600">{piece.description || '—'}</td>
+                                                                        </>
+                                                                    )}
 
-                                                                {asset.type === 'equipment' && (
-                                                                    <>
-                                                                        <td className="px-4 py-3 font-semibold text-gray-900">{piece.equipment_type || '—'}</td>
-                                                                        <td className="px-4 py-3 font-mono text-gray-900">{piece.serial_number || '—'}</td>
-                                                                        <td className="px-4 py-3 text-gray-600">{piece.description || '—'}</td>
-                                                                    </>
-                                                                )}
-                                                            </tr>
-                                                        ))}
+                                                                    {asset.type === 'equipment' && (
+                                                                        <>
+                                                                            <td className="px-4 py-3 font-semibold text-gray-900">{piece.equipment_type || '—'}</td>
+                                                                            <td className="px-4 py-3 font-mono text-gray-900">{piece.serial_number || '—'}</td>
+                                                                            <td className="px-4 py-3 font-semibold tabular-nums text-gray-900">×{q}</td>
+                                                                            <td className="px-4 py-3 text-gray-600">{piece.description || '—'}</td>
+                                                                        </>
+                                                                    )}
+                                                                </tr>
+                                                            );
+                                                        })}
                                                     </tbody>
 
-                                                    {/* Totals (logs only, 2+ pieces) */}
-                                                    {isLog && asset.pieces.length > 1 && (
+                                                    {isLog && itemPieces > 1 && (
                                                         <tfoot>
                                                             <tr className="border-t-2 border-emerald-100 bg-emerald-50">
                                                                 <td colSpan={3} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-emerald-800">
                                                                     Total · {num(totalCuM, 4)} cu.m
                                                                 </td>
-                                                                <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-emerald-800">
-                                                                    {num(totalBdFt)}
-                                                                </td>
-                                                                <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-emerald-800">
-                                                                    {money(totalVal)}
-                                                                </td>
+                                                                <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-emerald-800">×{itemPieces}</td>
+                                                                <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-emerald-800">{num(totalBdFt)}</td>
+                                                                <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-emerald-800">{money(totalVal)}</td>
                                                             </tr>
                                                         </tfoot>
                                                     )}
@@ -1793,7 +1905,14 @@ export default function IncidentsCreate({
                             type="button"
                             onClick={() => {
                                 if (savedDraft) {
-                                    setData(savedDraft.data);
+                                    setData({
+                                        ...savedDraft.data,
+                                        has_confiscation_order_file: null,
+                                        assets: (savedDraft.data.assets ?? []).map((a) => ({
+                                            ...a,
+                                            pieces: a.pieces.map((p) => ({ ...p, quantity: p.quantity ? String(p.quantity) : '1' })),
+                                        })),
+                                    });
                                     setStep(savedDraft.step);
                                 }
                                 setShowRestoreDraft(false);

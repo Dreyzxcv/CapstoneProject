@@ -52,7 +52,7 @@ class CreateIncidentWithAssets
             $hasConfiscationOrder = (bool) ($incidentData['has_confiscation_order'] ?? false);
 
             foreach ($assetsData as $index => $assetData) {
-                $pieces = $assetData['pieces'] ?? [];
+                $pieces = $this->expandPieces($assetData['pieces'] ?? []);
 
                 $assetData['quantity']      = max(1, count($pieces));
                 $assetData['quantity_unit'] = 'pcs';
@@ -144,6 +144,19 @@ class CreateIncidentWithAssets
         });
     }
 
+    protected function expandPieces(array $pieces): array
+    {
+        $expanded = [];
+        foreach ($pieces as $piece) {
+            $quantity = max(1, (int) ($piece['quantity'] ?? 1));
+            unset($piece['quantity']);
+            for ($i = 0; $i < $quantity; $i++) {
+                $expanded[] = $piece;
+            }
+        }
+        return $expanded;
+    }
+
     protected function generateIncidentCode(?string $dateOfApprehension = null, ?AssetMode $mode = null): string
     {
         $year = $dateOfApprehension
@@ -154,7 +167,7 @@ class CreateIncidentWithAssets
         $prefix = match ($mode) {
             AssetMode::Apprehended => 'AP',
             AssetMode::TurnedOver  => 'TO',
-            default                => 'AP',
+            default => 'AP',
         };
 
         return $prefix.'-'.$year.'-'.str_pad((string) $sequence, 5, '0', STR_PAD_LEFT);

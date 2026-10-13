@@ -622,9 +622,6 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
 
                 <div ref={containerRef} className="h-full w-full" />
 
-                {/* Map view toggle: Normal vs Satellite */}
-                {/* On phones only the active view shows its label, so the bar
-                    never runs underneath the fullscreen button. */}
                 <div className="absolute left-3 top-3 z-[1000] flex max-w-[calc(100%-4.5rem)] items-center rounded-lg bg-white/95 p-1 shadow-md ring-1 ring-black/5 backdrop-blur-sm sm:max-w-none">
                     <button
                         type="button"

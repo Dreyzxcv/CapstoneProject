@@ -12,6 +12,10 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 
 class StoreIncidentRequest extends FormRequest
 {
+
+    public const MAX_PIECE_QUANTITY = 500;
+    public const MAX_PIECES_PER_INCIDENT = 1000;
+
     public function authorize(): bool
     {
         return $this->user()?->can('incidents.create') ?? false;
@@ -171,6 +175,13 @@ class StoreIncidentRequest extends FormRequest
                 'string',
                 'max:255',
             ],
+            
+            'assets.*.pieces.*.quantity' => [
+                'nullable', 
+                'integer', 
+                'min:1', 
+                'max:' . self::MAX_PIECE_QUANTITY
+            ],
 
             'assets.*.pieces.*.equipment_type' => [
                 'nullable',
@@ -185,7 +196,7 @@ class StoreIncidentRequest extends FormRequest
             ],
 
             'assets.*.pieces.*.description' => [
-                'nullable',
+                'required',
                 'string',
                 'max:2000',
             ],
@@ -238,5 +249,41 @@ class StoreIncidentRequest extends FormRequest
                 'max:255',
             ],
         ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'assets.*.pieces.*.quantity.integer' => 'Quantity must be a whole number.',
+            'assets.*.pieces.*.quantity.min'     => 'Quantity must be at least 1.',
+            'assets.*.pieces.*.quantity.max'     => 'Quantity cannot exceed ' . self::MAX_PIECE_QUANTITY . ' per entry.',
+            'assets.*.pieces.*.description.required' => 'Description is required for every piece entry.',
+        ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $v) {
+            $total = 0;
+            foreach ((array) $this->input('assets', []) as $ai => $asset) {
+                foreach ((array) ($asset['pieces'] ?? []) as $pi => $piece) {
+                    $key = "assets.$ai.pieces.$pi.quantity";
+                    if ($v->errors()->has($key)) continue;
+
+                    $qty = (int) ($piece['quantity'] ?? 1);
+                    $total += max(1, $qty);
+
+                    if ($qty > 1 && ($asset['type'] ?? null) === 'vehicle') {
+                        $v->errors()->add($key, 'Vehicles must be entered one per entry (each has its own plate number).');
+                    }
+                    if ($qty > 1 && ($asset['type'] ?? null) === 'equipment' && filled($piece['serial_number'] ?? null)) {
+                        $v->errors()->add($key, 'Equipment with a serial number must be entered one per entry.');
+                    }
+                }
+            }
+            if ($total > self::MAX_PIECES_PER_INCIDENT) {
+                $v->errors()->add('assets', 'An incident can hold at most ' . self::MAX_PIECES_PER_INCIDENT . ' pieces in total.');
+            }
+        });
     }
 }
