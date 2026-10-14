@@ -115,12 +115,22 @@ class DisposalController extends Controller
             ->orderByDesc('id')
             ->get();
 
+        // Which piece numbers each disposal consumed: [disposal_id => [1, 2, ...]]
+        $piecesByDisposal = \App\Models\AssetPiece::query()
+            ->where('asset_id', $asset->id)
+            ->whereNotNull('disposal_id')
+            ->orderBy('piece_number')
+            ->get(['disposal_id', 'piece_number'])
+            ->groupBy('disposal_id')
+            ->map(fn ($rows) => $rows->pluck('piece_number')->values());
+
         return Inertia::render('Disposals/History', [
             'asset' => $asset->only([
                 'id', 'asset_code', 'aap_number', 'type',
                 'quantity', 'disposed_quantity', 'current_status',
             ]),
             'disposals' => $disposals,
+            'piecesByDisposal' => $piecesByDisposal,
         ]);
     }
 
@@ -161,16 +171,57 @@ class DisposalController extends Controller
                 : null,
         ], fn ($value) => $value !== null && $value !== '');
 
-        $processDisposal->execute(
-            $asset,
-            $type,
-            $request->user(),
-            $details,
-            $request->validated('quantity'),
-        );
+        // Fabrication-specific details live in the existing `details` JSON
+        // column, so no migration is needed. Only collected for Fabricated.
+        $storedAttachments = [];
+        if ($type === DisposalType::Fabricated) {
+            foreach ($request->file('fabrication_attachments', []) as $file) {
+                $storedAttachments[] = [
+                    'path' => $file->store('documents/fabrication-attachments', 'local'),
+                    'name' => $file->getClientOriginalName(),
+                ];
+            }
+
+            $details = array_merge($details, array_filter([
+                'fabricated_item' => $request->validated('fabricated_item'),
+                'fabricated_item_count' => (int) $request->validated('fabricated_item_count'),
+                'fabrication_date' => $request->validated('fabrication_date'),
+                'fabrication_location' => $request->validated('fabrication_location'),
+                'fabricator_name' => $request->validated('fabricator_name'),
+                'lumber_used_bd_ft' => $request->validated('lumber_used_bd_ft') !== null
+                    ? (float) $request->validated('lumber_used_bd_ft') : null,
+                'usable_remainder_bd_ft' => $request->validated('usable_remainder_bd_ft') !== null
+                    ? (float) $request->validated('usable_remainder_bd_ft') : null,
+                'scrap_bd_ft' => $request->validated('scrap_bd_ft') !== null
+                    ? (float) $request->validated('scrap_bd_ft') : null,
+                'fabrication_attachments' => $storedAttachments ?: null,
+            ], fn ($value) => $value !== null && $value !== ''));
+        }
+
+        try {
+            $disposal = $processDisposal->execute(
+                $asset,
+                $type,
+                $request->user(),
+                $details,
+                $request->validated('quantity'),
+                $request->validated('piece_ids') ?? [],
+            );
+        } catch (\Throwable $e) {
+            // Don't leave orphaned uploads behind if processing fails.
+            foreach ($storedAttachments as $att) {
+                \Illuminate\Support\Facades\Storage::disk('local')->delete($att['path']);
+            }
+            throw $e;
+        }
+
+        $message = 'Disposal processed successfully.';
+        if ($type === DisposalType::Fabricated && $disposal->icsRecord && $disposal->parRecord) {
+            $message .= " ICS {$disposal->icsRecord->document_number} and PAR {$disposal->parRecord->document_number} generated.";
+        }
 
         return redirect()->route('assets.show', $asset)
-            ->with('success', 'Disposal processed successfully.');
+            ->with('success', $message);
     }
 
     public function releaseDonation(Request $request, Disposal $disposal, ReleaseDonation $releaseDonation): RedirectResponse

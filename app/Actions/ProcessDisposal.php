@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Enums\AssetStatus;
 use App\Enums\DisposalType;
 use App\Models\Asset;
+use App\Models\AssetPiece;
 use App\Models\Disposal;
 use App\Models\Donation;
 use App\Models\IcsRecord;
@@ -24,8 +25,10 @@ class ProcessDisposal
         protected AuditLogService $auditLogService,
     ) {}
 
-    public function execute(Asset $asset, DisposalType $type, User $user, array $details = [], ?int $quantity = null): Disposal
+    public function execute(Asset $asset, DisposalType $type, User $user, array $details = [], ?int $quantity = null, array $pieceIds = []): Disposal
     {
+        $pieceIds = array_values(array_unique(array_map('intval', $pieceIds)));
+
         if ($asset->current_status !== AssetStatus::ForDisposal) {
             throw new DomainException('Asset is not marked for disposal.');
         }
@@ -41,13 +44,35 @@ class ProcessDisposal
             throw new DomainException('This AAP has already been fully disposed.');
         }
 
-        $quantity = $quantity ?? $remaining;
+        // When specific pieces were picked, each piece is exactly one unit.
+        $quantity = $quantity ?? (empty($pieceIds) ? $remaining : count($pieceIds));
 
         if ($quantity < 1 || $quantity > $remaining) {
             throw new DomainException("Disposal quantity must be between 1 and {$remaining} (the remaining, undisposed amount).");
         }
 
-        return DB::transaction(function () use ($asset, $type, $user, $details, $quantity, $remaining) {
+        if (! empty($pieceIds) && count($pieceIds) !== $quantity) {
+            throw new DomainException('Selected piece count does not match the quantity entered.');
+        }
+
+        return DB::transaction(function () use ($asset, $type, $user, $details, $quantity, $remaining, $pieceIds) {
+            // Lock the picked pieces and re-check them inside the transaction so
+            // two staff can't dispose the same piece at the same time.
+            if (! empty($pieceIds)) {
+                $pieces = AssetPiece::whereIn('id', $pieceIds)
+                    ->where('asset_id', $asset->id)
+                    ->lockForUpdate()
+                    ->get();
+
+                if ($pieces->count() !== count($pieceIds)) {
+                    throw new DomainException("One or more selected pieces do not belong to {$asset->asset_code}.");
+                }
+
+                if ($pieces->contains(fn (AssetPiece $piece) => $piece->disposed_at !== null)) {
+                    throw new DomainException("One or more selected pieces of {$asset->asset_code} have already been disposed.");
+                }
+            }
+
             // Partial disposals no longer split off a new Asset record — the
             // undisposed remainder simply stays on THIS asset, under the same
             // AAP code, and the asset stays "for_disposal" (still available
@@ -69,6 +94,15 @@ class ProcessDisposal
                 'processed_by' => $user->id,
                 'processed_at' => now(),
             ]);
+
+            if (! empty($pieceIds)) {
+                AssetPiece::whereIn('id', $pieceIds)
+                    ->where('asset_id', $asset->id)
+                    ->update([
+                        'disposal_id' => $disposal->id,
+                        'disposed_at' => now(),
+                    ]);
+            }
 
             $asset->increment('disposed_quantity', $quantity);
             if ($volumeForThisDisposal !== null) {

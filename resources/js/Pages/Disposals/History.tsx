@@ -21,10 +21,40 @@ interface HistoryProps {
             processed_by?: { id: number; name: string } | null;
         }
     >;
+    /** disposal id -> piece numbers consumed by that disposal */
+    piecesByDisposal?: Record<string, number[]>;
 }
 
 function label(value: string): string {
     return value.replace(/_/g, ' ');
+}
+
+const FABRICATION_KEYS = [
+    'fabricated_item',
+    'fabricated_item_count',
+    'fabrication_date',
+    'fabrication_location',
+    'fabricator_name',
+    'lumber_used_bd_ft',
+    'usable_remainder_bd_ft',
+    'scrap_bd_ft',
+    'fabrication_attachments',
+];
+
+interface FabricationAttachment {
+    path: string;
+    name: string;
+}
+
+function formatDate(value: unknown): string {
+    if (!value) return '';
+    const d = new Date(String(value).length === 10 ? `${value}T00:00:00` : String(value));
+    return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString();
+}
+
+function bdFt(value: unknown): string | null {
+    if (value === null || value === undefined || value === '') return null;
+    return `${value} bd.ft`;
 }
 
 function DocLink({ path, children }: { path: string | null | undefined; children: string }) {
@@ -43,7 +73,7 @@ function DocLink({ path, children }: { path: string | null | undefined; children
     );
 }
 
-export default function DisposalsHistory({ asset, disposals }: HistoryProps) {
+export default function DisposalsHistory({ asset, disposals, piecesByDisposal = {} }: HistoryProps) {
     const totalDisposed = disposals.reduce((sum, d) => sum + d.quantity, 0);
     const remaining = Math.max(0, (asset.quantity ?? 1) - totalDisposed);
 
@@ -98,10 +128,21 @@ export default function DisposalsHistory({ asset, disposals }: HistoryProps) {
                     </Card>
                 ) : (
                     disposals.map((d) => {
+                        const fab = (d.details ?? {}) as Record<string, any>;
+                        const isFabrication = d.disposal_type === 'fabricated';
+                        const fabAttachments: FabricationAttachment[] = Array.isArray(fab.fabrication_attachments)
+                            ? fab.fabrication_attachments
+                            : [];
+                        // Fabrication fields get their own section, so keep them out of the generic dump.
                         const detailEntries = Object.entries(d.details ?? {}).filter(
-                            ([, v]) => v !== null && v !== undefined && v !== '',
+                            ([k, v]) =>
+                                v !== null &&
+                                v !== undefined &&
+                                v !== '' &&
+                                !(isFabrication && FABRICATION_KEYS.includes(k)),
                         );
                         const jev = d.disposal_jev;
+                        const pieceNumbers = piecesByDisposal[String(d.id)] ?? [];
 
                         return (
                             <Card key={d.id}>
@@ -129,6 +170,64 @@ export default function DisposalsHistory({ asset, disposals }: HistoryProps) {
                                             </div>
                                         )}
                                     </dl>
+
+                                    {pieceNumbers.length > 0 && (
+                                        <div>
+                                            <p className="text-gray-500">Pieces</p>
+                                            <div className="mt-1 flex flex-wrap gap-1">
+                                                {pieceNumbers.map((n) => (
+                                                    <span
+                                                        key={n}
+                                                        className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white"
+                                                    >
+                                                        Piece {n}/{asset.quantity}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {isFabrication && (
+                                        <div className="border-t border-gray-100 pt-4">
+                                            <p className="font-semibold text-gray-700">Fabrication</p>
+                                            <dl className="mt-2 grid gap-3 sm:grid-cols-2">
+                                                {(
+                                                    [
+                                                        [
+                                                            'Item fabricated',
+                                                            fab.fabricated_item
+                                                                ? `${fab.fabricated_item}${
+                                                                      fab.fabricated_item_count ? ` × ${fab.fabricated_item_count}` : ''
+                                                                  }`
+                                                                : null,
+                                                        ],
+                                                        ['Completion date', formatDate(fab.fabrication_date) || null],
+                                                        ['Workshop / location', fab.fabrication_location],
+                                                        ['Fabricator / officer', fab.fabricator_name],
+                                                        ['Lumber used', bdFt(fab.lumber_used_bd_ft)],
+                                                        ['Usable remainder', bdFt(fab.usable_remainder_bd_ft)],
+                                                        ['Scrap', bdFt(fab.scrap_bd_ft)],
+                                                    ] as [string, string | null | undefined][]
+                                                ).map(([term, value]) => (
+                                                    <div key={term}>
+                                                        <dt className="text-gray-500">{term}</dt>
+                                                        <dd className={value ? 'break-words text-gray-900' : 'text-gray-400'}>
+                                                            {value || '—'}
+                                                        </dd>
+                                                    </div>
+                                                ))}
+                                            </dl>
+                                            {fabAttachments.length > 0 && (
+                                                <div className="mt-3 flex flex-wrap gap-4">
+                                                    {fabAttachments.map((a, i) => (
+                                                        <DocLink key={i} path={a.path}>
+                                                            {a.name || `Attachment ${i + 1}`}
+                                                        </DocLink>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {d.donation && (
                                         <div className="border-t border-gray-100 pt-4">
