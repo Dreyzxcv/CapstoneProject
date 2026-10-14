@@ -5,11 +5,12 @@ import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Shield, Trash2, Truck, X, ChevronRight, ChevronLeft, Check, Copy, Calculator } from 'lucide-react';
+import { Plus, Shield, Trash2, Truck, X, Copy, Calculator } from 'lucide-react';
 import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
+import MultiStepWizard from '@/Components/shared/MultiStepWizard';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -194,109 +195,6 @@ function descriptionPlaceholder(type: string): string {
     if (type === 'vehicle')   return 'e.g. color, make/model, condition';
     if (type === 'equipment') return 'e.g. brand, condition, with case';
     return 'e.g. squared, rough-cut, with bark';
-}
-
-// ── Step indicator ────────────────────────────────────────────────────────────
-
-function StepIndicator({ current }: { current: number }) {
-    return (
-        <div className="w-full">
-            {/* Mobile: compact pill */}
-            <div className="flex items-center justify-between sm:hidden px-1 mb-6">
-                <span className="text-sm font-semibold text-emerald-700">
-                    Step {current} of {STEPS.length}
-                </span>
-                <span className="text-sm text-gray-500">{STEPS[current - 1].label}</span>
-            </div>
-
-            {/* Desktop: full stepper */}
-            <nav className="hidden sm:flex items-center mb-8" aria-label="Form steps">
-                {STEPS.map((step, idx) => {
-                    const done    = current > step.id;
-                    const active  = current === step.id;
-                    const upcoming = current < step.id;
-
-                    return (
-                        <div key={step.id} className="flex items-center flex-1 last:flex-none">
-                            {/* Circle + label */}
-                            <div className="flex flex-col items-center gap-1 min-w-0">
-                                <div
-                                    className={[
-                                        'flex items-center justify-center w-9 h-9 rounded-full border-2 text-sm font-semibold shrink-0 transition-colors',
-                                        done    ? 'border-emerald-600 bg-emerald-600 text-white'         : '',
-                                        active  ? 'border-emerald-600 bg-white text-emerald-700'         : '',
-                                        upcoming? 'border-gray-300 bg-white text-gray-400'               : '',
-                                    ].join(' ')}
-                                >
-                                    {done ? <Check className="h-4 w-4" /> : step.id}
-                                </div>
-                                <div className="text-center leading-tight">
-                                    <p className={`text-xs font-semibold truncate ${active ? 'text-emerald-700' : done ? 'text-gray-700' : 'text-gray-400'}`}>
-                                        {step.label}
-                                    </p>
-                                    <p className={`text-[11px] truncate ${active ? 'text-gray-500' : 'text-gray-300'}`}>
-                                        {step.description}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Connector line */}
-                            {idx < STEPS.length - 1 && (
-                                <div className={`flex-1 h-0.5 mx-2 mb-5 rounded-full transition-colors ${done ? 'bg-emerald-500' : 'bg-gray-200'}`} />
-                            )}
-                        </div>
-                    );
-                })}
-            </nav>
-
-            {/* Progress bar (mobile) */}
-            <div className="sm:hidden h-1.5 w-full bg-gray-100 rounded-full mb-6 overflow-hidden">
-                <div
-                    className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                    style={{ width: `${((current - 1) / (STEPS.length - 1)) * 100}%` }}
-                />
-            </div>
-        </div>
-    );
-}
-
-// ── Navigation bar ────────────────────────────────────────────────────────────
-
-function StepNav({
-    step, totalSteps, onBack, onNext, nextLabel = 'Continue', nextDisabled = false, processing = false, highlightNext = false,
-}: {
-    step: number; totalSteps: number;
-    onBack?: () => void; onNext?: () => void;
-    nextLabel?: string; nextDisabled?: boolean; processing?: boolean; highlightNext?: boolean;
-}) {
-    const highlightClass = highlightNext && !nextDisabled ? 'nf-highlight' : undefined;
-    return (
-        <div className="flex items-center justify-between pt-2 pb-8">
-            <div>
-                {step > 1 && (
-                    <Button type="button" variant="outline" onClick={onBack}>
-                        <ChevronLeft className="mr-1.5 h-4 w-4" />
-                        Back
-                    </Button>
-                )}
-            </div>
-            <div className="flex gap-3">
-                <Link href={route('assets.index')}>
-                    <Button type="button" variant="ghost" className="text-gray-500">Cancel</Button>
-                </Link>
-                {step < totalSteps ? (
-                    <Button type="button" onClick={onNext} disabled={nextDisabled} className={highlightClass}>
-                        {nextLabel}
-                        <ChevronRight className="ml-1.5 h-4 w-4" />
-                    </Button>
-                ) : (
-                    <Button type="button" onClick={onNext} disabled={processing || nextDisabled} className={highlightClass}>
-                        {processing ? 'Recording…' : 'Confirm & Record'}
-                    </Button>
-                )}
-            </div>
-        </div>
-    );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -1773,25 +1671,25 @@ export default function IncidentsCreate({
             <style>{HIGHLIGHT_CSS}</style>
 
             <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6">
-                <StepIndicator current={step} />
-
-                <div className="space-y-6">
+                <MultiStepWizard
+                    variant="detailed"
+                    steps={STEPS}
+                    currentIndex={step - 1}
+                    onBack={() => setStep((s) => s - 1)}
+                    onNext={handleNext}
+                    nextLabel={nextLabel}
+                    finishLabel="Confirm & Record"
+                    processingLabel="Recording…"
+                    nextDisabled={nextDisabled}
+                    processing={processing}
+                    nextClassName={nextTarget === 'next_btn' ? 'nf-highlight' : undefined}
+                    cancelHref={route('assets.index')}
+                >
                     {step === 1 && renderStep1()}
                     {step === 2 && renderStep2()}
                     {step === 3 && renderStep3()}
                     {step === 4 && renderStep4()}
-
-                    <StepNav
-                        step={step}
-                        totalSteps={STEPS.length}
-                        onBack={() => setStep((s) => s - 1)}
-                        onNext={handleNext}
-                        nextLabel={nextLabel}
-                        nextDisabled={nextDisabled}
-                        processing={processing}
-                        highlightNext={nextTarget === 'next_btn'}
-                    />
-                </div>
+                </MultiStepWizard>
             </div>
 
             <CoordinatesPickerModal

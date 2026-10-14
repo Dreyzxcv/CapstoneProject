@@ -5,17 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Asset } from '@/types';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { FormEventHandler, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
-import { AlertCircle, Check, ChevronLeft, ChevronRight, MapPin, Plus, ScanLine, Trash2 } from 'lucide-react';
+import { AlertCircle, Check, ChevronRight, MapPin, Plus, ScanLine, Trash2 } from 'lucide-react';
 import AssetScanModal, { ScannedAsset } from '@/Components/shared/AssetScanModal';
 import PiecePickerModal, { AssetPieceData } from '@/Components/shared/PiecePickerModal';
+import MultiStepWizard from '@/Components/shared/MultiStepWizard';
 
-/* -------------------------------------------------------------------------- */
-/* Types                                                                      */
-/* -------------------------------------------------------------------------- */
 
 interface Option {
     value: string;
@@ -242,76 +240,6 @@ function Field({
     );
 }
 
-function StepIndicator({
-    steps,
-    current,
-    onJump,
-}: {
-    steps: { id: StepId; label: string }[];
-    current: number;
-    onJump: (index: number) => void;
-}) {
-    const pct = ((current + 1) / steps.length) * 100;
-
-    return (
-        <nav aria-label="Progress" className="mb-6">
-            {/* Mobile: compact progress bar */}
-            <div className="sm:hidden">
-                <div className="flex items-baseline justify-between text-sm">
-                    <span className="font-semibold text-gray-900">{steps[current].label}</span>
-                    <span className="text-xs text-gray-500">
-                        Step {current + 1} of {steps.length}
-                    </span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200">
-                    <div className="h-full rounded-full bg-emerald-600 transition-all" style={{ width: `${pct}%` }} />
-                </div>
-            </div>
-
-            {/* Desktop: full stepper */}
-            <ol className="hidden items-center sm:flex">
-                {steps.map((s, i) => {
-                    const done = i < current;
-                    const active = i === current;
-                    return (
-                        <li key={s.id} className={`flex items-center ${i < steps.length - 1 ? 'flex-1' : ''}`}>
-                            <button
-                                type="button"
-                                disabled={!done}
-                                onClick={() => onJump(i)}
-                                aria-current={active ? 'step' : undefined}
-                                className="flex items-center gap-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-default"
-                            >
-                                <span
-                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold ${
-                                        done
-                                            ? 'border-emerald-600 bg-emerald-600 text-white'
-                                            : active
-                                              ? 'border-emerald-600 bg-white text-emerald-700'
-                                              : 'border-gray-300 bg-white text-gray-400'
-                                    }`}
-                                >
-                                    {done ? <Check className="h-4 w-4" /> : i + 1}
-                                </span>
-                                <span
-                                    className={`text-sm font-medium ${
-                                        active ? 'text-gray-900' : done ? 'text-gray-700' : 'text-gray-400'
-                                    }`}
-                                >
-                                    {s.label}
-                                </span>
-                            </button>
-                            {i < steps.length - 1 && (
-                                <span className={`mx-3 h-0.5 flex-1 ${done ? 'bg-emerald-600' : 'bg-gray-200'}`} />
-                            )}
-                        </li>
-                    );
-                })}
-            </ol>
-        </nav>
-    );
-}
-
 function ReviewSection({ title, onEdit, children }: { title: string; onEdit?: () => void; children: ReactNode }) {
     return (
         <div className="rounded-lg border border-gray-200 p-4">
@@ -409,7 +337,7 @@ export default function DisposalsCreate({
         piece_ids: undefined,
     });
 
-    const { data, setData, post, processing, errors, clearErrors } = useForm({
+    const { data, setData, post, transform, processing, errors, clearErrors } = useForm({
         disposal_type: '',
         quantity: String(assetQuantity),
         lines: [defaultLine()] as DonationLine[],
@@ -826,6 +754,8 @@ export default function DisposalsCreate({
                 ? `Confirm disposal of ${quantityValue} of ${assetQuantity} unit(s)? The remaining ${remainder} unit(s) will be split into a new asset record and kept in storage.`
                 : 'Confirm disposal action? This cannot be undone.';
         if (confirm(confirmMsg)) {
+            // Send the picked pieces so the server marks exactly those as disposed.
+            transform((d) => ({ ...d, piece_ids: d.lines[0]?.piece_ids ?? [] }));
             post(route('disposals.store', asset.id), { onError: handleServerErrors });
         }
     };
@@ -1759,9 +1689,20 @@ export default function DisposalsCreate({
                     AAP No.: <strong>{aapOf(asset as any)}</strong> ({asset.type}) — {assetQuantity} unit(s) on hand
                 </p>
 
-                <StepIndicator steps={stepList} current={safeIndex} onJump={(i) => { setShowErrors(false); setStepIndex(i); }} />
-
-                <form onSubmit={submit} noValidate className="space-y-6">
+                <MultiStepWizard
+                    variant="compact"
+                    steps={stepList}
+                    currentIndex={safeIndex}
+                    isLast={isLast}
+                    onJump={(i) => { setShowErrors(false); setStepIndex(i); }}
+                    onBack={goBack}
+                    onNext={goNext}
+                    onSubmit={submit}
+                    submitOnLast
+                    finishLabel="Confirm Disposal"
+                    processing={processing}
+                    cancelHref={route('assets.show', asset.id)}
+                >
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-lg">{meta.title}</CardTitle>
@@ -1786,34 +1727,7 @@ export default function DisposalsCreate({
                             {renderStep()}
                         </CardContent>
                     </Card>
-
-                    <div className="flex flex-col-reverse gap-3 pb-8 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex gap-3">
-                            {safeIndex > 0 && (
-                                <Button key="back" type="button" variant="outline" onClick={goBack}>
-                                    <ChevronLeft className="mr-1 h-4 w-4" />
-                                    Back
-                                </Button>
-                            )}
-                            <Link href={route('assets.show', asset.id)}>
-                                <Button type="button" variant="outline">
-                                    Cancel
-                                </Button>
-                            </Link>
-                        </div>
-
-                        {isLast ? (
-                            <Button key="submit" type="submit" disabled={processing}>
-                                Confirm Disposal
-                            </Button>
-                        ) : (
-                            <Button key="next" type="button" onClick={goNext}>
-                                Next
-                                <ChevronRight className="ml-1 h-4 w-4" />
-                            </Button>
-                        )}
-                    </div>
-                </form>
+                </MultiStepWizard>
             </div>
 
             <CoordinatesPickerModal

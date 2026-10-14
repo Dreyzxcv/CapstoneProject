@@ -4,13 +4,14 @@ import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { FormEventHandler, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
-import { AlertCircle, Check, ChevronLeft, ChevronRight, MapPin, Plus, ScanLine, Trash2 } from 'lucide-react';
+import { AlertCircle, ChevronRight, MapPin, Plus, ScanLine, Trash2 } from 'lucide-react';
 import AssetScanModal, { ScannedAsset } from '@/Components/shared/AssetScanModal';
 import PiecePickerModal, { AssetPieceData } from '@/Components/shared/PiecePickerModal';
+import MultiStepWizard from '@/Components/shared/MultiStepWizard';
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -148,76 +149,6 @@ function Field({
             {hint && <p className="mt-1 text-xs text-gray-500">{hint}</p>}
             <InputError message={error} className="mt-1" />
         </div>
-    );
-}
-
-function StepIndicator({
-    steps,
-    current,
-    onJump,
-}: {
-    steps: { id: StepId; label: string }[];
-    current: number;
-    onJump: (index: number) => void;
-}) {
-    const pct = ((current + 1) / steps.length) * 100;
-
-    return (
-        <nav aria-label="Progress" className="mb-6">
-            {/* Mobile: compact progress bar */}
-            <div className="sm:hidden">
-                <div className="flex items-baseline justify-between text-sm">
-                    <span className="font-semibold text-gray-900">{steps[current].label}</span>
-                    <span className="text-xs text-gray-500">
-                        Step {current + 1} of {steps.length}
-                    </span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200">
-                    <div className="h-full rounded-full bg-emerald-600 transition-all" style={{ width: `${pct}%` }} />
-                </div>
-            </div>
-
-            {/* Desktop: full stepper */}
-            <ol className="hidden items-center sm:flex">
-                {steps.map((s, i) => {
-                    const done = i < current;
-                    const active = i === current;
-                    return (
-                        <li key={s.id} className={`flex items-center ${i < steps.length - 1 ? 'flex-1' : ''}`}>
-                            <button
-                                type="button"
-                                disabled={!done}
-                                onClick={() => onJump(i)}
-                                aria-current={active ? 'step' : undefined}
-                                className="flex items-center gap-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-default"
-                            >
-                                <span
-                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold ${
-                                        done
-                                            ? 'border-emerald-600 bg-emerald-600 text-white'
-                                            : active
-                                              ? 'border-emerald-600 bg-white text-emerald-700'
-                                              : 'border-gray-300 bg-white text-gray-400'
-                                    }`}
-                                >
-                                    {done ? <Check className="h-4 w-4" /> : i + 1}
-                                </span>
-                                <span
-                                    className={`text-sm font-medium ${
-                                        active ? 'text-gray-900' : done ? 'text-gray-700' : 'text-gray-400'
-                                    }`}
-                                >
-                                    {s.label}
-                                </span>
-                            </button>
-                            {i < steps.length - 1 && (
-                                <span className={`mx-3 h-0.5 flex-1 ${done ? 'bg-emerald-600' : 'bg-gray-200'}`} />
-                            )}
-                        </li>
-                    );
-                })}
-            </ol>
-        </nav>
     );
 }
 
@@ -1079,70 +1010,48 @@ export default function CreateBatchDonation({
                         </CardContent>
                     </Card>
                 ) : (
-                    <>
-                        <StepIndicator
-                            steps={stepList}
-                            current={safeIndex}
-                            onJump={(i) => {
-                                setShowErrors(false);
-                                setStepIndex(i);
-                            }}
-                        />
-
-                        <form onSubmit={submit} noValidate className="space-y-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg">{meta.title}</CardTitle>
-                                    <p className="text-sm text-gray-600">{meta.description}</p>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    {(errorCount > 0 || stepServerErrorCount > 0) && (
-                                        <div
-                                            ref={alertRef}
-                                            role="alert"
-                                            className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
-                                        >
-                                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                                            <span>
-                                                {errorCount > 0
-                                                    ? `Fix the ${errorCount} highlighted field${errorCount !== 1 ? 's' : ''} to continue.`
-                                                    : 'Some details were rejected. Review the highlighted fields.'}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {renderStep()}
-                                </CardContent>
-                            </Card>
-
-                            <div className="flex flex-col-reverse gap-3 pb-8 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="flex gap-3">
-                                    {safeIndex > 0 && (
-                                        <Button key="back" type="button" variant="outline" onClick={goBack}>
-                                            <ChevronLeft className="mr-1 h-4 w-4" />
-                                            Back
-                                        </Button>
-                                    )}
-                                    <Link href={route('disposals.index')}>
-                                        <Button type="button" variant="outline">
-                                            Cancel
-                                        </Button>
-                                    </Link>
-                                </div>
-
-                                {isLast ? (
-                                    <Button key="submit" type="submit" disabled={processing}>
-                                        Confirm Donation
-                                    </Button>
-                                ) : (
-                                    <Button key="next" type="button" onClick={goNext}>
-                                        Next
-                                        <ChevronRight className="ml-1 h-4 w-4" />
-                                    </Button>
+                    <MultiStepWizard
+                        variant="compact"
+                        steps={stepList}
+                        currentIndex={safeIndex}
+                        isLast={isLast}
+                        onJump={(i) => {
+                            setShowErrors(false);
+                            setStepIndex(i);
+                        }}
+                        onBack={goBack}
+                        onNext={goNext}
+                        onSubmit={submit}
+                        submitOnLast
+                        finishLabel="Confirm Donation"
+                        processing={processing}
+                        cancelHref={route('disposals.index')}
+                    >
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">{meta.title}</CardTitle>
+                                <p className="text-sm text-gray-600">{meta.description}</p>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {(errorCount > 0 || stepServerErrorCount > 0) && (
+                                    <div
+                                        ref={alertRef}
+                                        role="alert"
+                                        className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+                                    >
+                                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                                        <span>
+                                            {errorCount > 0
+                                                ? `Fix the ${errorCount} highlighted field${errorCount !== 1 ? 's' : ''} to continue.`
+                                                : 'Some details were rejected. Review the highlighted fields.'}
+                                        </span>
+                                    </div>
                                 )}
-                            </div>
-                        </form>
-                    </>
+
+                                {renderStep()}
+                            </CardContent>
+                        </Card>
+                    </MultiStepWizard>
                 )}
             </div>
 
