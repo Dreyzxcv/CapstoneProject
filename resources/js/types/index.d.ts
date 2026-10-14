@@ -25,6 +25,16 @@ export type PageProps<
     };
 };
 
+export interface IncidentClaimant {
+    id: number;
+    incident_id: number;
+    name: string;
+    address: string;
+    contact_number: string | null;
+    id_type: string | null;
+    id_number: string | null;
+}
+
 export interface Incident {
     id: number;
     incident_code: string;
@@ -32,12 +42,9 @@ export interface Incident {
     place_of_apprehension: string;
     area: string | null;
     coordinates: string | null;
-    claimant_offender_name: string | null;
-    claimant_address: string | null;
-    claimant_contact_number: string | null;
-    claimant_id_type: string | null;
-    claimant_id_number: string | null;
-    is_abandoned: boolean;
+    has_claimant: boolean;
+    is_abandoned?: boolean;
+    claimants?: IncidentClaimant[];
     apprehending_party: string;
     date_report_submitted: string | null;
 }

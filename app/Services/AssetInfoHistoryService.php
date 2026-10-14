@@ -21,19 +21,11 @@ class AssetInfoHistoryService
         'coordinates'             => 'Coordinates',
         'apprehending_party'      => 'Apprehending party',
         'has_claimant'            => 'Claimant came forward',
-        'claimant_offender_name'  => 'Claimant / offender name',
-        // Personal data: shown as "updated" only, never the values.
-        'claimant_address'        => 'Claimant contact and ID details',
-        'claimant_contact_number' => 'Claimant contact and ID details',
-        'claimant_id_type'        => 'Claimant contact and ID details',
-        'claimant_id_number'      => 'Claimant contact and ID details',
+        'claimants'               => 'Claimants',
     ];
 
     public const PRIVATE_FIELDS = [
-        'claimant_address',
-        'claimant_contact_number',
-        'claimant_id_type',
-        'claimant_id_number',
+        'claimants',
     ];
 
     /**

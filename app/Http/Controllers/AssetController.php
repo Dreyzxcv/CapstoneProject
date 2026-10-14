@@ -21,6 +21,7 @@ use App\Http\Requests\StoreAssetRequest;
 use App\Models\Asset;
 use App\Services\QrCodeService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -132,7 +133,7 @@ class AssetController extends Controller
             ->update(['read_at' => now()]);
 
         $asset->load([
-            'incident',
+            'incident.claimants',
             'pieces',
             'creator',
             'acknowledgementReceipt.signedByCustodian',
@@ -227,7 +228,7 @@ class AssetController extends Controller
                 'jev',
                 'disposals.donation',
                 'disposals.disposalJev',
-                'incident',
+                'incident.claimants',
                 'qrScans.scannedBy',
                 'statusHistory.changedBy.roles',
             ]),
@@ -410,45 +411,55 @@ class AssetController extends Controller
             'date_of_apprehension', 'place_of_apprehension',
             'area', 'coordinates', 'apprehending_party',
         ];
-        $claimantFields = [
-            'claimant_offender_name', 'claimant_address', 'claimant_contact_number',
-            'claimant_id_type', 'claimant_id_number',
-        ];
 
-        // Snapshot of everything the Edit modal can change
+        $asset->loadMissing('incident.claimants');
+
         $snapshot = fn (Asset $a) => $a->only($assetFields)
             + ($a->incident
-                ? $a->incident->only([...$incidentFields, ...$claimantFields])
-                    + ['has_claimant' => ! $a->incident->is_abandoned]
+                ? $a->incident->only($incidentFields) + [
+                    'has_claimant' => (bool) $a->incident->has_claimant,
+                    'claimants'    => $a->incident->claimants
+                        ->map(fn ($c) => trim("{$c->name} — {$c->address}"))
+                        ->implode('; '),
+                ]
                 : []);
 
         $before         = $asset->only($assetFields);
         $snapshotBefore = $snapshot($asset);
 
-        $asset->update($request->only($assetFields));
+        DB::transaction(function () use ($request, $asset, $assetFields, $incidentFields) {
+            $asset->update($request->only($assetFields));
 
-        if ($asset->incident_id) {
+            if (! $asset->incident_id) {
+                return;
+            }
+
             $incidentData = array_filter(
                 $request->only($incidentFields),
                 fn ($v) => $v !== null,
             );
 
             if ($request->has('has_claimant') && $request->input('mode') !== 'turned_over') {
-                $hasClaimant = (bool) $request->has_claimant;
-                $incidentData['is_abandoned'] = ! $hasClaimant;
-                $incidentData['claimant_offender_name']  = $hasClaimant ? $request->claimant_offender_name : null;
-                $incidentData['claimant_address']        = $hasClaimant ? $request->claimant_address : null;
-                $incidentData['claimant_contact_number'] = $hasClaimant ? $request->claimant_contact_number : null;
-                $incidentData['claimant_id_type']        = $hasClaimant ? $request->claimant_id_type : null;
-                $incidentData['claimant_id_number']      = $hasClaimant ? $request->claimant_id_number : null;
+                $claimants = $request->boolean('has_claimant')
+                    ? ($request->validated('claimants') ?? [])
+                    : [];
+
+                $incidentData['has_claimant'] = count($claimants) > 0;
+                $incidentData['is_abandoned'] = count($claimants) === 0;
+
+                $incident = $asset->incident;
+                $incident->claimants()->delete();
+                if ($claimants) {
+                    $incident->claimants()->createMany($claimants);
+                }
             }
 
             if (! empty($incidentData)) {
                 $asset->incident()->update($incidentData);
             }
-        }
+        });
 
-        $asset->refresh()->load('incident');
+        $asset->refresh()->load('incident.claimants');
 
         $history->record(
             $asset,

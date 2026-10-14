@@ -44,6 +44,20 @@ interface PieceRow {
     serial_number: string;
 }
 
+interface ClaimantRow {
+    name: string;
+    address: string;
+    contact_number: string;
+    id_type: string;
+    id_number: string;
+    id_type_other: boolean;
+}
+const MAX_CLAIMANTS = 20;
+
+function emptyClaimant(): ClaimantRow {
+    return { name: '', address: '', contact_number: '', id_type: '', id_number: '', id_type_other: false };
+}
+
 interface AssetRow {
     type: string;
     apprehending_agency: string;
@@ -207,10 +221,9 @@ export default function IncidentsCreate({
     const [step, setStep] = useState(1);
     const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
-    const [showAddressPicker, setShowAddressPicker] = useState(false);
     const [addressMunicipality, setAddressMunicipality] = useState('');
     const [addressBarangay, setAddressBarangay] = useState('');
-    const [idTypeIsOthers, setIdTypeIsOthers] = useState(false);
+    const [addressPickerIndex, setAddressPickerIndex] = useState<number | null>(null);
     const [coordsMode, setCoordsMode] = useState<'map' | 'manual'>('map');
     const DRAFT_KEY = 'forestrack_incident_draft';
     const [showRestoreDraft, setShowRestoreDraft] = useState(false);
@@ -222,12 +235,8 @@ export default function IncidentsCreate({
         place_of_apprehension: '',
         area: '',
         coordinates: '',
-        has_claimant: null as boolean | null,   // null = user hasn't chosen yet
-        claimant_offender_name: '',
-        claimant_address: '',
-        claimant_contact_number: '',
-        claimant_id_type: '',
-        claimant_id_number: '',
+        has_claimant: null as boolean | null,
+        claimants: [emptyClaimant()] as ClaimantRow[],
         has_ongoing_case: false as boolean,
         has_confiscation_order: false as boolean,
         has_confiscation_order_file: null as File | null,
@@ -381,6 +390,21 @@ export default function IncidentsCreate({
 
     // ── Incident-level helpers ───────────────────────────────────────────────
 
+    function updateClaimant(i: number, fields: Partial<ClaimantRow>) {
+        setData('claimants', data.claimants.map((c, idx) => (idx === i ? { ...c, ...fields } : c)));
+    }
+    function addClaimant() {
+        if (data.claimants.length >= MAX_CLAIMANTS) return;
+        setData('claimants', [...data.claimants, emptyClaimant()]);
+    }
+    function removeClaimant(i: number) {
+        if (data.claimants.length === 1) return;
+        setData('claimants', data.claimants.filter((_, idx) => idx !== i));
+    }
+    function claimantError(i: number, f: string) {
+        return (errors as Record<string, string>)[`claimants.${i}.${f}`];
+    }
+
     function handleMunicipalityChange(value: string) {
         setData('place_of_apprehension', value);
         setData('assets', data.assets.map((a) => ({ ...a, municipality_of_origin: value, location_apprehended: value })));
@@ -393,11 +417,7 @@ export default function IncidentsCreate({
             has_claimant: value === 'turned_over'
                 ? false
                 : (prev.intake_mode === 'turned_over' ? null : prev.has_claimant),
-            claimant_offender_name: value === 'turned_over' ? '' : prev.claimant_offender_name,
-            claimant_address: value === 'turned_over' ? '' : prev.claimant_address,
-            claimant_contact_number: value === 'turned_over' ? '' : prev.claimant_contact_number,
-            claimant_id_type: value === 'turned_over' ? '' : prev.claimant_id_type,
-            claimant_id_number: value === 'turned_over' ? '' : prev.claimant_id_number,
+            claimants: value === 'turned_over' ? [emptyClaimant()] : prev.claimants,
             assets: prev.assets.map((a) => ({ ...a, mode: value })),
         }));
     }
@@ -426,14 +446,10 @@ export default function IncidentsCreate({
     }
 
     function handleClaimantToggle(has: boolean) {
-        if (!has) setIdTypeIsOthers(false);
         setData((prev) => ({
-            ...prev, has_claimant: has,
-            claimant_offender_name: has ? prev.claimant_offender_name : '',
-            claimant_address: has ? prev.claimant_address : '',
-            claimant_contact_number: has ? prev.claimant_contact_number : '',
-            claimant_id_type: has ? prev.claimant_id_type : '',
-            claimant_id_number: has ? prev.claimant_id_number : '',
+            ...prev,
+            has_claimant: has,
+            claimants: has ? prev.claimants : [emptyClaimant()],
         }));
     }
 
@@ -454,8 +470,10 @@ export default function IncidentsCreate({
             data.coordinates &&
             data.apprehending_parties.some((p) => p.trim() !== '') &&
             (data.intake_mode === 'turned_over' ||
-                (data.has_claimant !== null &&
-                    (!data.has_claimant || (data.claimant_offender_name && data.claimant_address)))) &&
+            (data.has_claimant !== null &&
+                (!data.has_claimant ||
+                    (data.claimants.length > 0 &&
+                        data.claimants.every((c) => c.name.trim() && c.address.trim()))))) &&
             (!data.has_confiscation_order || !!data.has_confiscation_order_file)
         );
     }
@@ -492,8 +510,10 @@ export default function IncidentsCreate({
             if (!data.apprehending_parties.some((p) => p.trim() !== '')) return 'apprehending_party';
             if (!isTurnedOver && data.has_claimant === null) return 'claimant_choice';
             if (!isTurnedOver && data.has_claimant) {
-                if (!data.claimant_offender_name) return 'claimant_name';
-                if (!data.claimant_address)       return 'claimant_address';
+                const bad = data.claimants.findIndex((c) => !c.name.trim() || !c.address.trim());
+                if (bad !== -1) {
+                    return data.claimants[bad].name.trim() ? `claimant:${bad}:address` : `claimant:${bad}:name`;
+                }
             }
             if (!isTurnedOver && data.has_confiscation_order && !data.has_confiscation_order_file) {
                 return 'confiscation_file';
@@ -545,6 +565,9 @@ export default function IncidentsCreate({
         transform((fd) => ({
             ...fd,
             apprehending_party: fd.apprehending_parties.filter((p) => p.trim() !== '').join('; '),
+            claimants: fd.intake_mode !== 'turned_over' && fd.has_claimant
+                ? fd.claimants.map(({ id_type_other, ...c }) => c)
+                : [],
         }));
         post(route('incidents.store'), {
             forceFormData: true,
@@ -806,6 +829,117 @@ export default function IncidentsCreate({
 
     function renderStep2() {
         const isTurnedOver = data.intake_mode === 'turned_over';
+
+        function renderClaimantForm(c: ClaimantRow, i: number) {
+            const config = VALID_IDS.find((id) => id.label === c.id_type);
+            const idDisabled = !c.id_type && !c.id_type_other;
+            const isPhilSys = c.id_type === 'PhilSys (National ID)';
+
+            function handleIdNumberChange(raw: string) {
+                if (isPhilSys) {
+                    const digits = raw.replace(/\D/g, '').slice(0, 16);
+                    updateClaimant(i, { id_number: digits.replace(/(\d{4})(?=\d)/g, '$1-') });
+                } else {
+                    updateClaimant(i, { id_number: raw });
+                }
+            }
+
+            return (
+                <div key={i} className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-700">Claimant {i + 1}</span>
+                        {data.claimants.length > 1 && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removeClaimant(i)}>
+                                <X className="mr-1 h-3.5 w-3.5" />Remove
+                            </Button>
+                        )}
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label>Claimant / Offender Name<span className="text-red-500">*</span></Label>
+                            <Input value={c.name} className={hl(`claimant:${i}:name`)}
+                                onChange={(e) => updateClaimant(i, { name: e.target.value })} required />
+                            <InputError message={claimantError(i, 'name')} />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Claimant Address<span className="text-red-500">*</span></Label>
+                            <div className="flex gap-2">
+                                <Input value={c.address} placeholder="Municipality, Barangay"
+                                    readOnly className="cursor-default bg-white" required />
+                                <Button type="button" variant="outline" className={hl(`claimant:${i}:address`)}
+                                    onClick={() => {
+                                        const parts = c.address.split(', ');
+                                        setAddressMunicipality(parts[0] ?? '');
+                                        setAddressBarangay(parts[1] ?? '');
+                                        setAddressPickerIndex(i);
+                                    }}>
+                                    Pick Address
+                                </Button>
+                            </div>
+                            <InputError message={claimantError(i, 'address')} />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Contact Number</Label>
+                            <Input value={c.contact_number}
+                                onChange={(e) => updateClaimant(i, { contact_number: e.target.value })} />
+                            <InputError message={claimantError(i, 'contact_number')} />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-2">
+                                <Label>Valid ID Type</Label>
+                                {c.id_type_other ? (
+                                    <div className="flex gap-2">
+                                        <Input placeholder="Specify ID type" value={c.id_type} autoFocus
+                                            onChange={(e) => updateClaimant(i, { id_type: e.target.value })} />
+                                        <Button type="button" variant="outline" size="sm"
+                                            onClick={() => updateClaimant(i, { id_type_other: false, id_type: '', id_number: '' })}>
+                                            Back
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <select value={c.id_type} className={selectClass}
+                                        onChange={(e) => {
+                                            const selected = e.target.value;
+                                            if (selected === 'Others') {
+                                                updateClaimant(i, { id_type_other: true, id_type: '', id_number: '' });
+                                            } else {
+                                                updateClaimant(i, { id_type: selected, id_number: '' });
+                                            }
+                                        }}>
+                                        <option value="" disabled>Select ID type…</option>
+                                        {VALID_IDS.map((id) => (
+                                            <option key={id.label} value={id.label}>{id.label}</option>
+                                        ))}
+                                    </select>
+                                )}
+                                <InputError message={claimantError(i, 'id_type')} />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>ID Number</Label>
+                                <Input
+                                    value={c.id_number}
+                                    onChange={(e) => handleIdNumberChange(e.target.value)}
+                                    placeholder={idDisabled ? 'Select an ID type first'
+                                        : c.id_type_other ? 'Enter ID number'
+                                        : (config?.placeholder ?? 'Enter ID number')}
+                                    disabled={idDisabled}
+                                    inputMode={isPhilSys ? 'numeric' : undefined}
+                                    maxLength={isPhilSys ? 19 : undefined}
+                                    className={idDisabled ? 'bg-gray-50 text-gray-400' : undefined}
+                                />
+                                <InputError message={claimantError(i, 'id_number')} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div className="space-y-6">
                 <Card className="border-0 shadow-sm">
@@ -985,139 +1119,13 @@ export default function IncidentsCreate({
                                         : 'Abandoned — no claimant came forward. This proceeds toward automatic confiscation per DAO 97-32.'}
                             </p>
                             {data.has_claimant && (
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label>Claimant / Offender Name<span className="text-red-500">*</span></Label>
-                                        <Input value={data.claimant_offender_name}
-                                            className={hl('claimant_name')}
-                                            onChange={(e) => setData('claimant_offender_name', e.target.value)} required />
-                                        <InputError message={errors.claimant_offender_name} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Claimant Address<span className="text-red-500">*</span></Label>
-                                        <div className="flex gap-2">
-                                            <Input
-                                                value={data.claimant_address}
-                                                onChange={(e) => setData('claimant_address', e.target.value)}
-                                                placeholder="Municipality, Barangay"
-                                                readOnly
-                                                className="bg-gray-50 cursor-default"
-                                                required
-                                            />
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                className={hl('claimant_address')}
-                                                onClick={() => {
-                                                    // Pre-populate picker with current value if any
-                                                    const parts = data.claimant_address.split(', ');
-                                                    setAddressMunicipality(parts[0] ?? '');
-                                                    setAddressBarangay(parts[1] ?? '');
-                                                    setShowAddressPicker(true);
-                                                }}
-                                            >
-                                                Pick Address
-                                            </Button>
-                                        </div>
-                                        <InputError message={errors.claimant_address} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Contact Number</Label>
-                                        <Input value={data.claimant_contact_number}
-                                            onChange={(e) => setData('claimant_contact_number', e.target.value)} />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {/* Valid ID Type */}
-                                        <div className="space-y-2">
-                                            <Label>Valid ID Type</Label>
-                                            {idTypeIsOthers ? (
-                                                <div className="flex gap-2">
-                                                    <Input
-                                                        placeholder="Specify ID type"
-                                                        value={data.claimant_id_type}
-                                                        onChange={(e) => setData('claimant_id_type', e.target.value)}
-                                                        autoFocus
-                                                    />
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            setIdTypeIsOthers(false);
-                                                            setData('claimant_id_type', '');
-                                                            setData('claimant_id_number', '');
-                                                        }}
-                                                    >
-                                                        Back
-                                                    </Button>
-                                                </div>
-                                            ) : (
-                                                <select
-                                                    value={data.claimant_id_type}
-                                                    onChange={(e) => {
-                                                        const selected = e.target.value;
-                                                        if (selected === 'Others') {
-                                                            setIdTypeIsOthers(true);
-                                                            setData('claimant_id_type', '');
-                                                            setData('claimant_id_number', '');
-                                                        } else {
-                                                            const config = VALID_IDS.find((id) => id.label === selected);
-                                                            setData('claimant_id_type', selected);
-                                                            setData('claimant_id_number', config?.prefix ?? '');
-                                                        }
-                                                    }}
-                                                    className={selectClass}
-                                                >
-                                                    <option value="" disabled>Select ID type…</option>
-                                                    {VALID_IDS.map((id) => (
-                                                        <option key={id.label} value={id.label}>{id.label}</option>
-                                                    ))}
-                                                </select>
-                                            )}
-                                            <InputError message={errors.claimant_id_type} />
-                                        </div>
-
-                                        {/* ID Number */}
-                                        <div className="space-y-2">
-                                            <Label>ID Number</Label>
-                                            {(() => {
-                                                const config = VALID_IDS.find((id) => id.label === data.claimant_id_type);
-                                                const disabled = !data.claimant_id_type && !idTypeIsOthers;
-                                                const isPhilSys = data.claimant_id_type === 'PhilSys (National ID)';
-
-                                                function handleIdNumberChange(raw: string) {
-                                                    if (isPhilSys) {
-                                                        // Strip everything except digits
-                                                        const digits = raw.replace(/\D/g, '').slice(0, 16);
-                                                        // Insert dashes every 4 digits
-                                                        const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1-');
-                                                        setData('claimant_id_number', formatted);
-                                                    } else {
-                                                        setData('claimant_id_number', raw);
-                                                    }
-                                                }
-
-                                                return (
-                                                    <Input
-                                                        value={data.claimant_id_number}
-                                                        onChange={(e) => handleIdNumberChange(e.target.value)}
-                                                        placeholder={
-                                                            disabled
-                                                                ? 'Select an ID type first'
-                                                                : idTypeIsOthers
-                                                                    ? 'Enter ID number'
-                                                                    : (config?.placeholder ?? 'Enter ID number')
-                                                        }
-                                                        disabled={disabled}
-                                                        inputMode={isPhilSys ? 'numeric' : undefined}
-                                                        maxLength={isPhilSys ? 19 : undefined}
-                                                        className={disabled ? 'bg-gray-50 text-gray-400' : undefined}
-                                                    />
-                                                );
-                                            })()}
-                                            <InputError message={errors.claimant_id_number} />
-                                        </div>
-                                    </div>
+                                <div className="space-y-4">
+                                    {data.claimants.map((c, i) => renderClaimantForm(c, i))}
+                                    <Button type="button" variant="outline" size="sm" onClick={addClaimant}
+                                        disabled={data.claimants.length >= MAX_CLAIMANTS}>
+                                        <Plus className="mr-1.5 h-3.5 w-3.5" />Add claimant
+                                    </Button>
+                                    <InputError message={(errors as Record<string, string>).claimants} />
                                 </div>
                             )}
                         </CardContent>
@@ -1416,19 +1424,23 @@ export default function IncidentsCreate({
                                     <div className="border-t border-gray-100" />
 
                                     {data.has_claimant ? (
-                                        <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
-                                            <Field label="Claimant Name" value={data.claimant_offender_name} />
-                                            <Field label="Address" value={data.claimant_address} />
-                                            {data.claimant_contact_number && (
-                                                <Field label="Contact" value={data.claimant_contact_number} />
-                                            )}
-                                            {(data.claimant_id_type || data.claimant_id_number) && (
-                                                <Field
-                                                    label="Valid ID"
-                                                    value={[data.claimant_id_type, data.claimant_id_number].filter(Boolean).join(' · ')}
-                                                />
-                                            )}
-                                        </dl>
+                                        <div className="space-y-4">
+                                            {data.claimants.map((c, i) => (
+                                                <div key={i} className="space-y-2">
+                                                    {data.claimants.length > 1 && (
+                                                        <p className="text-xs font-semibold text-gray-500">Claimant {i + 1}</p>
+                                                    )}
+                                                    <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
+                                                        <Field label="Claimant Name" value={c.name} />
+                                                        <Field label="Address" value={c.address} />
+                                                        {c.contact_number && <Field label="Contact" value={c.contact_number} />}
+                                                        {(c.id_type || c.id_number) && (
+                                                            <Field label="Valid ID" value={[c.id_type, c.id_number].filter(Boolean).join(' · ')} />
+                                                        )}
+                                                    </dl>
+                                                </div>
+                                            ))}
+                                        </div>
                                     ) : (
                                         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
                                             <p className="text-sm font-medium text-amber-900">No claimant — recorded as abandoned</p>
@@ -1700,7 +1712,7 @@ export default function IncidentsCreate({
             />
 
             {/* Address picker modal */}
-            <Modal show={showAddressPicker} onClose={() => setShowAddressPicker(false)} maxWidth="sm">
+            <Modal show={addressPickerIndex !== null} onClose={() => setAddressPickerIndex(null)} maxWidth="sm">
                 <div className="p-6 space-y-5">
                     <div>
                         <h2 className="text-base font-semibold text-gray-900">Select Claimant Address</h2>
@@ -1744,15 +1756,15 @@ export default function IncidentsCreate({
                     </div>
 
                     <div className="flex justify-end gap-3 pt-1">
-                        <Button type="button" variant="outline" onClick={() => setShowAddressPicker(false)}>
-                            Cancel
-                        </Button>
+                        <Button type="button" variant="outline" onClick={() => setAddressPickerIndex(null)}>Cancel</Button>
                         <Button
                             type="button"
                             disabled={!addressMunicipality || !addressBarangay}
                             onClick={() => {
-                                setData('claimant_address', `${addressMunicipality}, ${addressBarangay}`);
-                                setShowAddressPicker(false);
+                                if (addressPickerIndex !== null) {
+                                    updateClaimant(addressPickerIndex, { address: `${addressMunicipality}, ${addressBarangay}` });
+                                }
+                                setAddressPickerIndex(null);
                             }}
                         >
                             Confirm Address
@@ -1805,6 +1817,9 @@ export default function IncidentsCreate({
                                 if (savedDraft) {
                                     setData({
                                         ...savedDraft.data,
+                                        claimants: Array.isArray(savedDraft.data.claimants) && savedDraft.data.claimants.length
+                                            ? savedDraft.data.claimants
+                                            : [emptyClaimant()],
                                         has_confiscation_order_file: null,
                                         assets: (savedDraft.data.assets ?? []).map((a) => ({
                                             ...a,

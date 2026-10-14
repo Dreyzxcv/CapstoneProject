@@ -13,6 +13,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 class StoreIncidentRequest extends FormRequest
 {
 
+    public const MAX_CLAIMANTS = 20;
     public const MAX_PIECE_QUANTITY = 500;
     public const MAX_PIECES_PER_INCIDENT = 1000;
 
@@ -56,43 +57,23 @@ class StoreIncidentRequest extends FormRequest
                 'boolean',
             ],
 
-            // Claimant information is not applicable to Turned Over
-            'claimant_offender_name' => [
-                'exclude_if:intake_mode,turned_over',
-                'required_if:has_claimant,true',
+            'claimants' => [
+                Rule::requiredIf(fn () => $this->claimantsRequired()),
                 'nullable',
-                'string',
-                'max:255',
+                'array',
+                'max:' . self::MAX_CLAIMANTS,
             ],
-
-            'claimant_address' => [
-                'exclude_if:intake_mode,turned_over',
-                'required_if:has_claimant,true',
-                'nullable',
-                'string',
-                'max:255',
+            'claimants.*.name' => [
+                Rule::requiredIf(fn () => $this->claimantsRequired()),
+                'nullable', 'string', 'max:255',
             ],
-
-            'claimant_contact_number' => [
-                'exclude_if:intake_mode,turned_over',
-                'nullable',
-                'string',
-                'max:50',
+            'claimants.*.address' => [
+                Rule::requiredIf(fn () => $this->claimantsRequired()),
+                'nullable', 'string', 'max:500',
             ],
-
-            'claimant_id_type' => [
-                'exclude_if:intake_mode,turned_over',
-                'nullable',
-                'string',
-                'max:100',
-            ],
-
-            'claimant_id_number' => [
-                'exclude_if:intake_mode,turned_over',
-                'nullable',
-                'string',
-                'max:100',
-            ],
+            'claimants.*.contact_number' => ['nullable', 'string', 'max:50'],
+            'claimants.*.id_type'        => ['nullable', 'string', 'max:100'],
+            'claimants.*.id_number'      => ['nullable', 'string', 'max:100'],
 
             'apprehending_party' => [
                 'required',
@@ -258,6 +239,9 @@ class StoreIncidentRequest extends FormRequest
             'assets.*.pieces.*.quantity.min'     => 'Quantity must be at least 1.',
             'assets.*.pieces.*.quantity.max'     => 'Quantity cannot exceed ' . self::MAX_PIECE_QUANTITY . ' per entry.',
             'assets.*.pieces.*.description.required' => 'Description is required for every piece entry.',
+            'claimants.required'          => 'Add at least one claimant.',
+            'claimants.*.name.required'   => 'Each claimant needs a name.',
+            'claimants.*.address.required'=> 'Each claimant needs an address.',
         ];
     }
 
@@ -285,5 +269,18 @@ class StoreIncidentRequest extends FormRequest
                 $v->errors()->add('assets', 'An incident can hold at most ' . self::MAX_PIECES_PER_INCIDENT . ' pieces in total.');
             }
         });
+    }
+
+    protected function claimantsRequired(): bool
+    {
+        return $this->input('intake_mode') !== 'turned_over' && $this->boolean('has_claimant');
+    }
+
+    protected function prepareForValidation(): void
+    {
+        // "No claimant" / "Turned over": never accept claimant rows.
+        if (! $this->claimantsRequired()) {
+            $this->merge(['claimants' => []]);
+        }
     }
 }

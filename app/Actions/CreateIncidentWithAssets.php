@@ -30,23 +30,32 @@ class CreateIncidentWithAssets
 
             $firstAssetMode = AssetMode::from($assetsData[0]['mode'] ?? 'apprehended');
 
+            $isTurnedOver = $firstAssetMode === AssetMode::TurnedOver;
+
+            $claimants = $isTurnedOver
+                ? []
+                : collect($incidentData['claimants'] ?? [])
+                    ->filter(fn ($c) => filled($c['name'] ?? null))
+                    ->map(fn ($c) => \Illuminate\Support\Arr::only($c, ['name', 'address', 'contact_number', 'id_type', 'id_number']))
+                    ->values()
+                    ->all();
+
             $incident = Incident::create([
-                'incident_code'           => $this->generateIncidentCode($incidentData['date_of_apprehension'] ?? null, $firstAssetMode),
-                'date_of_apprehension'    => $incidentData['date_of_apprehension'],
-                'place_of_apprehension'   => $incidentData['place_of_apprehension'],
-                'area'                    => $incidentData['area'] ?? null,
-                'coordinates'             => $incidentData['coordinates'] ?? null,
-                'claimant_offender_name'  => $incidentData['claimant_offender_name'] ?? null,
-                'has_claimant'            => $incidentData['has_claimant'] ?? true,
-                'claimant_address'        => $incidentData['claimant_address'] ?? null,
-                'claimant_contact_number' => $incidentData['claimant_contact_number'] ?? null,
-                'claimant_id_type'        => $incidentData['claimant_id_type'] ?? null,
-                'claimant_id_number'      => $incidentData['claimant_id_number'] ?? null,
-                'apprehending_party'      => $incidentData['apprehending_party'],
-                'initial_custodian_name'  => $incidentData['initial_custodian_name'] ?? null,
-                'date_report_submitted'   => $incidentData['date_report_submitted'] ?? null,
-                'created_by'              => $user->id,
+                'incident_code'          => $this->generateIncidentCode($incidentData['date_of_apprehension'] ?? null, $firstAssetMode),
+                'date_of_apprehension'   => $incidentData['date_of_apprehension'],
+                'place_of_apprehension'  => $incidentData['place_of_apprehension'],
+                'area'                   => $incidentData['area'] ?? null,
+                'coordinates'            => $incidentData['coordinates'] ?? null,
+                'has_claimant'           => count($claimants) > 0,
+                'apprehending_party'     => $incidentData['apprehending_party'],
+                'initial_custodian_name' => $incidentData['initial_custodian_name'] ?? null,
+                'date_report_submitted'  => $incidentData['date_report_submitted'] ?? null,
+                'created_by'             => $user->id,
             ]);
+
+            if ($claimants) {
+                $incident->claimants()->createMany($claimants);
+            }
 
             $hasOngoingCase       = (bool) ($incidentData['has_ongoing_case'] ?? false);
             $hasConfiscationOrder = (bool) ($incidentData['has_confiscation_order'] ?? false);
@@ -133,10 +142,9 @@ class CreateIncidentWithAssets
                         'uploaded_at'     => now(),
                     ]);
                 }
-                // ────────────────────────────────────────────────────────────
             }
 
-            $incident->load('assets');
+            $incident->load('assets', 'claimants');
 
             $this->auditLogService->log('incident.created', $incident, null, $incident->toArray(), $user->id);
 

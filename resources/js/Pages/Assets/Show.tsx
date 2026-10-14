@@ -81,6 +81,15 @@ interface ShowProps {
     };
 }
 
+interface ClaimantForm {
+    name: string;
+    address: string;
+    contact_number: string;
+    id_type: string;
+    id_number: string;
+    id_type_other: boolean;
+}
+
 // ─── Piece Detail / Edit Modal ────────────────────────────────────────────────
 
 const UNTAGGED_STATUSES = [
@@ -108,6 +117,10 @@ const VALID_IDS: { label: string; placeholder?: string }[] = [
     { label: "NBI Clearance", placeholder: "Enter clearance number" },
     { label: "Others" },
 ];
+
+const emptyClaimant = (): ClaimantForm => ({
+    name: '', address: '', contact_number: '', id_type: '', id_number: '', id_type_other: false,
+});
 
 function PieceModal({
     piece,
@@ -1427,14 +1440,17 @@ export default function AssetsShow({
         place_of_apprehension: asset.incident?.place_of_apprehension ?? "",
         area: asset.incident?.area ?? "",
         coordinates: asset.incident?.coordinates ?? "",
-        has_claimant:
-            asset.incident?.is_abandoned === false &&
-            !!asset.incident?.claimant_offender_name,
-        claimant_offender_name: asset.incident?.claimant_offender_name ?? "",
-        claimant_address: asset.incident?.claimant_address ?? "",
-        claimant_contact_number: asset.incident?.claimant_contact_number ?? "",
-        claimant_id_type: asset.incident?.claimant_id_type ?? "",
-        claimant_id_number: asset.incident?.claimant_id_number ?? "",
+        has_claimant: (asset.incident?.claimants?.length ?? 0) > 0,
+        claimants: ((asset.incident?.claimants?.length ?? 0) > 0
+            ? asset.incident!.claimants!.map((c) => ({
+                name: c.name,
+                address: c.address,
+                contact_number: c.contact_number ?? "",
+                id_type: c.id_type ?? "",
+                id_number: c.id_number ?? "",
+                id_type_other: !!c.id_type && !VALID_IDS.some((i) => i.label === c.id_type),
+            }))
+            : [emptyClaimant()]) as ClaimantForm[],
         apprehending_party: asset.incident?.apprehending_party ?? "",
         has_ongoing_case: asset.has_ongoing_case ?? false,
         has_confiscation_order: asset.has_confiscation_order ?? false,
@@ -1461,14 +1477,10 @@ export default function AssetsShow({
     }
 
     const [coordsMode, setCoordsMode] = useState<"map" | "manual">("map");
-    const [showAddressPicker, setShowAddressPicker] = useState(false);
     const [addressMunicipality, setAddressMunicipality] = useState("");
     const [addressBarangay, setAddressBarangay] = useState("");
-
-    const [idTypeIsOthers, setIdTypeIsOthers] = useState(() => {
-        const t = asset.incident?.claimant_id_type ?? "";
-        return t !== "" && !VALID_IDS.some((i) => i.label === t);
-    });
+    const [addressPickerIndex, setAddressPickerIndex] = useState<number | null>(null);
+    const incidentClaimants = asset.incident?.claimants ?? [];
 
     function handleEditMunicipalityChange(value: string) {
         editForm.setData((prev: any) => ({
@@ -1709,6 +1721,124 @@ export default function AssetsShow({
                             Return
                         </Button>
                     )}
+                </div>
+            </div>
+        );
+    }
+
+    function updateEditClaimant(i: number, fields: Partial<ClaimantForm>) {
+        editForm.setData(
+            "claimants",
+            editForm.data.claimants.map((c: ClaimantForm, idx: number) => (idx === i ? { ...c, ...fields } : c)),
+        );
+    }
+    const editClaimantError = (i: number, f: string) =>
+        (editForm.errors as any)[`claimants.${i}.${f}`];
+
+    function renderEditClaimant(c: ClaimantForm, i: number) {
+        const config = VALID_IDS.find((id) => id.label === c.id_type);
+        const idDisabled = !c.id_type && !c.id_type_other;
+        const isPhilSys = c.id_type === "PhilSys (National ID)";
+
+        function handleIdNumberChange(raw: string) {
+            if (isPhilSys) {
+                const digits = raw.replace(/\D/g, "").slice(0, 16);
+                updateEditClaimant(i, { id_number: digits.replace(/(\d{4})(?=\d)/g, "$1-") });
+            } else {
+                updateEditClaimant(i, { id_number: raw });
+            }
+        }
+
+        return (
+            <div key={i} className="space-y-3 rounded-lg border border-gray-200 bg-white p-3">
+                <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-700">Claimant {i + 1}</span>
+                    {editForm.data.claimants.length > 1 && (
+                        <Button type="button" variant="ghost" size="sm"
+                            onClick={() =>
+                                editForm.setData("claimants",
+                                    editForm.data.claimants.filter((_: ClaimantForm, idx: number) => idx !== i))
+                            }>
+                            ✕ Remove
+                        </Button>
+                    )}
+                </div>
+
+                <div className="space-y-1">
+                    <Label>Claimant / Offender Name</Label>
+                    <Input value={c.name} onChange={(e) => updateEditClaimant(i, { name: e.target.value })} />
+                    <InputError message={editClaimantError(i, "name")} />
+                </div>
+
+                <div className="space-y-1">
+                    <Label>Claimant Address</Label>
+                    <div className="flex gap-2">
+                        <Input value={c.address} placeholder="Municipality, Barangay" readOnly className="cursor-default bg-white" />
+                        <Button type="button" variant="outline"
+                            onClick={() => {
+                                const parts = c.address.split(", ");
+                                setAddressMunicipality(parts[0] ?? "");
+                                setAddressBarangay(parts[1] ?? "");
+                                setAddressPickerIndex(i);
+                            }}>
+                            Pick Address
+                        </Button>
+                    </div>
+                    <InputError message={editClaimantError(i, "address")} />
+                </div>
+
+                <div className="space-y-1">
+                    <Label>Contact Number</Label>
+                    <Input value={c.contact_number}
+                        onChange={(e) => updateEditClaimant(i, { contact_number: e.target.value })} />
+                    <InputError message={editClaimantError(i, "contact_number")} />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                        <Label>Valid ID Type</Label>
+                        {c.id_type_other ? (
+                            <div className="flex gap-2">
+                                <Input placeholder="Specify ID type" value={c.id_type} autoFocus
+                                    onChange={(e) => updateEditClaimant(i, { id_type: e.target.value })} />
+                                <Button type="button" variant="outline" size="sm"
+                                    onClick={() => updateEditClaimant(i, { id_type_other: false, id_type: "", id_number: "" })}>
+                                    Back
+                                </Button>
+                            </div>
+                        ) : (
+                            <select value={c.id_type} className={selectClass}
+                                onChange={(e) => {
+                                    const selected = e.target.value;
+                                    if (selected === "Others") {
+                                        updateEditClaimant(i, { id_type_other: true, id_type: "", id_number: "" });
+                                    } else {
+                                        updateEditClaimant(i, { id_type: selected, id_number: "" });
+                                    }
+                                }}>
+                                <option value="" disabled>Select ID type…</option>
+                                {VALID_IDS.map((id) => (
+                                    <option key={id.label} value={id.label}>{id.label}</option>
+                                ))}
+                            </select>
+                        )}
+                        <InputError message={editClaimantError(i, "id_type")} />
+                    </div>
+                    <div className="space-y-1">
+                        <Label>ID Number</Label>
+                        <Input
+                            value={c.id_number}
+                            onChange={(e) => handleIdNumberChange(e.target.value)}
+                            placeholder={idDisabled ? "Select an ID type first"
+                                : c.id_type_other ? "Enter ID number"
+                                : (config?.placeholder ?? "Enter ID number")}
+                            disabled={idDisabled}
+                            inputMode={isPhilSys ? "numeric" : undefined}
+                            maxLength={isPhilSys ? 19 : undefined}
+                            className={idDisabled ? "bg-gray-50 text-gray-400" : undefined}
+                        />
+                        <InputError message={editClaimantError(i, "id_number")} />
+                    </div>
                 </div>
             </div>
         );
@@ -2085,14 +2215,22 @@ export default function AssetsShow({
                                             {asset.incident.coordinates}
                                         </p>
                                     )}
-                                    <p>
+                                    <div className="md:col-span-2">
                                         <span className="font-medium">
-                                            {asset.incident.is_abandoned ? "Status:" : "Claimant / Offender:"}
+                                            {incidentClaimants.length > 1 ? "Claimants / Offenders:" : "Claimant / Offender:"}
                                         </span>{" "}
-                                        {asset.incident.is_abandoned
-                                            ? "Abandoned (no known claimant)"
-                                            : (asset.incident.claimant_offender_name ?? "(Abandoned)")}
-                                    </p>
+                                        {incidentClaimants.length === 0 ? (
+                                            asset.mode !== "turned_over" ? "Abandoned (no known claimant)" : "—"
+                                        ) : incidentClaimants.length === 1 ? (
+                                            incidentClaimants[0].name
+                                        ) : (
+                                            <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                                                {incidentClaimants.map((c) => (
+                                                    <li key={c.id}>{c.name} — {c.address}</li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
                                     <p>
                                         <span className="font-medium">Apprehending Party:</span>{" "}
                                         {asset.incident.apprehending_party}
@@ -2985,7 +3123,7 @@ export default function AssetsShow({
             <Modal
                 show={showEditModal}
                 onClose={() => {
-                    if (showCoordinatesPicker || showAddressPicker) return;
+                    if (showCoordinatesPicker || addressPickerIndex !== null) return;
                     setShowEditModal(false);
                 }}
                 maxWidth="2xl"
@@ -3225,15 +3363,12 @@ export default function AssetsShow({
                                                 key={String(val)}
                                                 type="button"
                                                 onClick={() => {
-                                                    if (!val) setIdTypeIsOthers(false);
                                                     editForm.setData((prev: any) => ({
                                                         ...prev,
                                                         has_claimant: val,
-                                                        claimant_offender_name: val ? prev.claimant_offender_name : "",
-                                                        claimant_address: val ? prev.claimant_address : "",
-                                                        claimant_contact_number: val ? prev.claimant_contact_number : "",
-                                                        claimant_id_type: val ? prev.claimant_id_type : "",
-                                                        claimant_id_number: val ? prev.claimant_id_number : "",
+                                                        claimants: val
+                                                            ? (prev.claimants.length ? prev.claimants : [emptyClaimant()])
+                                                            : [emptyClaimant()],
                                                     }));
                                                 }}
                                                 className={
@@ -3255,162 +3390,13 @@ export default function AssetsShow({
 
                                     {editForm.data.has_claimant && (
                                         <div className="space-y-3">
-                                            <div className="space-y-1">
-                                                <Label htmlFor="edit-claimant-name">Claimant / Offender Name</Label>
-                                                <Input
-                                                    id="edit-claimant-name"
-                                                    value={editForm.data.claimant_offender_name}
-                                                    onChange={(e) =>
-                                                        editForm.setData("claimant_offender_name", e.target.value)
-                                                    }
-                                                />
-                                                <InputError message={(editForm.errors as any).claimant_offender_name} />
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <Label htmlFor="edit-claimant-address">Claimant Address</Label>
-                                                <div className="flex gap-2">
-                                                    <Input
-                                                        id="edit-claimant-address"
-                                                        value={editForm.data.claimant_address}
-                                                        placeholder="Municipality, Barangay"
-                                                        readOnly
-                                                        className="bg-white cursor-default"
-                                                    />
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        onClick={() => {
-                                                            const parts = editForm.data.claimant_address.split(", ");
-                                                            setAddressMunicipality(parts[0] ?? "");
-                                                            setAddressBarangay(parts[1] ?? "");
-                                                            setShowAddressPicker(true);
-                                                        }}
-                                                    >
-                                                        Pick Address
-                                                    </Button>
-                                                </div>
-                                                <InputError message={(editForm.errors as any).claimant_address} />
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <Label htmlFor="edit-claimant-contact">Contact Number</Label>
-                                                <Input
-                                                    id="edit-claimant-contact"
-                                                    value={editForm.data.claimant_contact_number}
-                                                    onChange={(e) =>
-                                                        editForm.setData("claimant_contact_number", e.target.value)
-                                                    }
-                                                />
-                                                <InputError message={(editForm.errors as any).claimant_contact_number} />
-                                            </div>
-
-                                            <div className="grid gap-3 sm:grid-cols-2">
-                                                {/* Valid ID Type */}
-                                                <div className="space-y-1">
-                                                    <Label>Valid ID Type</Label>
-                                                    {idTypeIsOthers ? (
-                                                        <div className="flex gap-2">
-                                                            <Input
-                                                                placeholder="Specify ID type"
-                                                                value={editForm.data.claimant_id_type}
-                                                                onChange={(e) =>
-                                                                    editForm.setData("claimant_id_type", e.target.value)
-                                                                }
-                                                                autoFocus
-                                                            />
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    setIdTypeIsOthers(false);
-                                                                    editForm.setData((prev: any) => ({
-                                                                        ...prev,
-                                                                        claimant_id_type: "",
-                                                                        claimant_id_number: "",
-                                                                    }));
-                                                                }}
-                                                            >
-                                                                Back
-                                                            </Button>
-                                                        </div>
-                                                    ) : (
-                                                        <select
-                                                            value={editForm.data.claimant_id_type}
-                                                            onChange={(e) => {
-                                                                const selected = e.target.value;
-                                                                if (selected === "Others") {
-                                                                    setIdTypeIsOthers(true);
-                                                                    editForm.setData((prev: any) => ({
-                                                                        ...prev,
-                                                                        claimant_id_type: "",
-                                                                        claimant_id_number: "",
-                                                                    }));
-                                                                } else {
-                                                                    editForm.setData((prev: any) => ({
-                                                                        ...prev,
-                                                                        claimant_id_type: selected,
-                                                                        claimant_id_number: "",
-                                                                    }));
-                                                                }
-                                                            }}
-                                                            className={selectClass}
-                                                        >
-                                                            <option value="" disabled>Select ID type…</option>
-                                                            {VALID_IDS.map((id) => (
-                                                                <option key={id.label} value={id.label}>{id.label}</option>
-                                                            ))}
-                                                        </select>
-                                                    )}
-                                                    <InputError message={(editForm.errors as any).claimant_id_type} />
-                                                </div>
-
-                                                {/* ID Number */}
-                                                <div className="space-y-1">
-                                                    <Label>ID Number</Label>
-                                                    {(() => {
-                                                        const config = VALID_IDS.find(
-                                                            (id) => id.label === editForm.data.claimant_id_type,
-                                                        );
-                                                        const disabled =
-                                                            !editForm.data.claimant_id_type && !idTypeIsOthers;
-                                                        const isPhilSys =
-                                                            editForm.data.claimant_id_type === "PhilSys (National ID)";
-
-                                                        function handleIdNumberChange(raw: string) {
-                                                            if (isPhilSys) {
-                                                                const digits = raw.replace(/\D/g, "").slice(0, 16);
-                                                                editForm.setData(
-                                                                    "claimant_id_number",
-                                                                    digits.replace(/(\d{4})(?=\d)/g, "$1-"),
-                                                                );
-                                                            } else {
-                                                                editForm.setData("claimant_id_number", raw);
-                                                            }
-                                                        }
-
-                                                        return (
-                                                            <Input
-                                                                value={editForm.data.claimant_id_number}
-                                                                onChange={(e) => handleIdNumberChange(e.target.value)}
-                                                                placeholder={
-                                                                    disabled
-                                                                        ? "Select an ID type first"
-                                                                        : idTypeIsOthers
-                                                                          ? "Enter ID number"
-                                                                          : (config?.placeholder ?? "Enter ID number")
-                                                                }
-                                                                disabled={disabled}
-                                                                inputMode={isPhilSys ? "numeric" : undefined}
-                                                                maxLength={isPhilSys ? 19 : undefined}
-                                                                className={disabled ? "bg-gray-50 text-gray-400" : undefined}
-                                                            />
-                                                        );
-                                                    })()}
-                                                    <InputError message={(editForm.errors as any).claimant_id_number} />
-                                                </div>
-                                            </div>
+                                            {editForm.data.claimants.map((c: ClaimantForm, i: number) => renderEditClaimant(c, i))}
+                                            <Button type="button" variant="outline" size="sm"
+                                                disabled={editForm.data.claimants.length >= 20}
+                                                onClick={() => editForm.setData("claimants", [...editForm.data.claimants, emptyClaimant()])}>
+                                                + Add claimant
+                                            </Button>
+                                            <InputError message={(editForm.errors as any).claimants} />
                                         </div>
                                     )}
                                 </div>
@@ -3478,11 +3464,7 @@ export default function AssetsShow({
                     </div>
                 </form>
             </Modal>
-            <Modal
-                show={showAddressPicker}
-                onClose={() => setShowAddressPicker(false)}
-                maxWidth="sm"
-            >
+            <Modal show={addressPickerIndex !== null} onClose={() => setAddressPickerIndex(null)} maxWidth="sm">
                 <div className="p-6 space-y-5">
                     <div>
                         <h2 className="text-base font-semibold text-gray-900">Select Claimant Address</h2>
@@ -3526,18 +3508,17 @@ export default function AssetsShow({
                     </div>
 
                     <div className="flex justify-end gap-3 pt-1">
-                        <Button type="button" variant="outline" onClick={() => setShowAddressPicker(false)}>
+                        <Button type="button" variant="outline" onClick={() => setAddressPickerIndex(null)}>
                             Cancel
                         </Button>
                         <Button
                             type="button"
                             disabled={!addressMunicipality || !addressBarangay}
                             onClick={() => {
-                                editForm.setData(
-                                    "claimant_address",
-                                    `${addressMunicipality}, ${addressBarangay}`,
-                                );
-                                setShowAddressPicker(false);
+                                if (addressPickerIndex !== null) {
+                                    updateEditClaimant(addressPickerIndex, { address: `${addressMunicipality}, ${addressBarangay}` });
+                                }
+                                setAddressPickerIndex(null);
                             }}
                         >
                             Confirm Address

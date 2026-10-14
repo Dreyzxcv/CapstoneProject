@@ -14,12 +14,7 @@ class Incident extends Model
         'place_of_apprehension',
         'area',
         'coordinates',
-        'claimant_offender_name',
         'has_claimant',
-        'claimant_address',
-        'claimant_contact_number',
-        'claimant_id_type',
-        'claimant_id_number',
         'apprehending_party',
         'initial_custodian_name',
         'date_report_submitted',
@@ -44,5 +39,10 @@ class Incident extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function claimants(): HasMany
+    {
+        return $this->hasMany(IncidentClaimant::class)->orderBy('id');
     }
 }
