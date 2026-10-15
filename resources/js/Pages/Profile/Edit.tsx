@@ -93,6 +93,7 @@ export default function Edit({
     const user = auth.user!;
     const role = user.roles?.[0] ?? 'User';
     const emailVerified = Boolean(user.email_verified_at);
+    const canEditProfile = user.roles?.includes('System Admin') ?? false;
 
     return (
         <AuthenticatedLayout
@@ -163,7 +164,11 @@ export default function Edit({
                             id="profile"
                             icon={<UserIcon className="h-4 w-4" />}
                             title="Profile Information"
-                            description="Update your name and email address."
+                            description={
+                                canEditProfile
+                                    ? 'Update your name and email address.'
+                                    : 'Your account details. Contact a System Admin to change them.'
+                            }
                         >
                             <UpdateProfileInformationForm
                                 mustVerifyEmail={mustVerifyEmail}
