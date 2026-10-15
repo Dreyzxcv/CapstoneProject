@@ -4,11 +4,22 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class ProfileTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function systemAdmin(): User
+    {
+        $user = User::factory()->create();
+
+        Role::findOrCreate('System Admin', 'web');
+        $user->assignRole('System Admin');
+
+        return $user;
+    }
 
     public function test_profile_page_is_displayed(): void
     {
@@ -23,7 +34,7 @@ class ProfileTest extends TestCase
 
     public function test_profile_information_can_be_updated(): void
     {
-        $user = User::factory()->create();
+        $user = $this->systemAdmin();
 
         $response = $this
             ->actingAs($user)
@@ -45,7 +56,7 @@ class ProfileTest extends TestCase
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void
     {
-        $user = User::factory()->create();
+        $user = $this->systemAdmin();
 
         $response = $this
             ->actingAs($user)

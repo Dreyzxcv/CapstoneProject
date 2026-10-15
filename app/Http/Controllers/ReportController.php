@@ -188,7 +188,7 @@ class ReportController extends Controller
             ]);
 
             foreach ($assets as $asset) {
-                fputcsv($handle, [
+                fputcsv($handle, array_map(fn ($v) => $this->csvSafe($v), [
                     $asset->asset_code,
                     $asset->type->label(),
                     $asset->species,
@@ -196,7 +196,7 @@ class ReportController extends Controller
                     $asset->current_status->label(),
                     $asset->mode->label(),
                     $asset->created_at->toDateTimeString(),
-                ]);
+                ]));
             }
 
             fclose($handle);
@@ -324,14 +324,14 @@ class ReportController extends Controller
                         ? (class_basename($log->model_type))
                         : '';
  
-                    fputcsv($handle, [
+                    fputcsv($handle, array_map(fn ($v) => $this->csvSafe($v), [
                         $log->created_at->toDateTimeString(),
                         $log->user?->name ?? 'System',
                         $log->action,
                         $shortModel,
                         $log->model_id ?? '',
                         $log->ip_address ?? '',
-                    ]);
+                    ]));
                 }
             });
  
@@ -435,6 +435,7 @@ class ReportController extends Controller
     public function attributeTableExport(Request $request): StreamedResponse
     {
         $this->authorize('viewAny', Asset::class);
+        abort_unless($request->user()?->can('reports.export'), 403);
 
         $columns    = $this->attributeColumns();
         $clauses    = $this->parseClauses($request->input('clauses', []), $columns);
@@ -456,8 +457,8 @@ class ReportController extends Controller
                     $value = $row->{$key};
                     if (is_bool($value)) return $value ? 'Yes' : 'No';
                     if ($value instanceof \Illuminate\Support\Carbon) return $value->toDateTimeString();
-                    if (is_object($value) && method_exists($value, 'value')) return $value->value;
-                    return $value;
+                    if (is_object($value) && method_exists($value, 'value')) return $this->csvSafe($value->value);
+                    return $this->csvSafe($value);
                 }, array_keys($columns)));
             }
 
@@ -717,5 +718,14 @@ class ReportController extends Controller
         }
 
         return $value;
+    }
+
+    protected function csvSafe(mixed $value): mixed
+    {
+        if (! is_string($value) || is_numeric($value)) {
+            return $value;
+        }
+
+        return preg_match('/^\s*[=+\-@]/', $value) === 1 ? "'".$value : $value;
     }
 }
