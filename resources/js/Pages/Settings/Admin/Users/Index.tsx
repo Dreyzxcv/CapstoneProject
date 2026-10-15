@@ -7,14 +7,18 @@ import { Label } from '@/Components/ui/label';
 import InputError from '@/Components/InputError';
 import Modal from '@/Components/Modal';
 import { FormEvent, useMemo, useState } from 'react';
-import { Mail, Pencil, PowerOff, Search, UserPlus } from 'lucide-react';
+import { KeyRound, Mail, Pencil, PowerOff, Search, UserPlus } from 'lucide-react';
 
+interface AreaDef { key: string; label: string; group: string; description: string }
+interface AreaState { allowed: boolean; role_default: boolean; source: 'role' | 'custom' }
 interface UserRow {
     id: number;
     name: string;
     email: string;
     roles: string[];
     is_active: boolean;
+    is_admin: boolean;
+    areas: Record<string, AreaState>;
     last_login_at: string | null;
 }
 
@@ -22,6 +26,7 @@ interface UsersIndexProps {
     users: UserRow[];
     availableRoles: string[];
     can: { create: boolean; edit: boolean };
+    permissionAreas: AreaDef[];
     authId: number; // logged-in user's id, to guard self-deactivation
 }
 
@@ -53,7 +58,7 @@ function formatLastLogin(dateString: string | null): string {
     });
 }
 
-export default function UsersIndex({ users, availableRoles, can, authId }: UsersIndexProps) {
+export default function UsersIndex({ users, availableRoles, can, authId, permissionAreas }: UsersIndexProps) {
     const [search,       setSearch]       = useState('');
     const [activeFilter, setActiveFilter] = useState('All');
     const [editingUser,  setEditingUser]  = useState<UserRow | null>(null);
@@ -85,6 +90,17 @@ export default function UsersIndex({ users, availableRoles, can, authId }: Users
             return matchesSearch && matchesFilter;
         });
     }, [users, search, activeFilter]);
+
+    const [permUser, setPermUser] = useState<UserRow | null>(null);
+    const permForm = useForm<{ areas: Record<string, boolean> }>({ areas: {} });
+
+    const areaGroups = useMemo(
+        () => permissionAreas.reduce<Record<string, AreaDef[]>>((acc, a) => {
+            (acc[a.group] ??= []).push(a);
+            return acc;
+        }, {}),
+        [permissionAreas],
+    );
 
     function openEdit(user: UserRow) {
         setEditingUser(user);
@@ -130,6 +146,24 @@ export default function UsersIndex({ users, availableRoles, can, authId }: Users
         router.post(route('users.send-reset', user.id), {}, {
             preserveScroll: true,
             onFinish: () => setSendingReset(null),
+        });
+    }
+
+    function openPermissions(u: UserRow) {
+        permForm.clearErrors();
+        permForm.setData('areas', Object.fromEntries(permissionAreas.map((a) => [a.key, u.areas[a.key].allowed])));
+        setPermUser(u);
+    }
+    function closePermissions() { setPermUser(null); permForm.clearErrors(); }
+    function resetToRole(u: UserRow) {
+        permForm.setData('areas', Object.fromEntries(permissionAreas.map((a) => [a.key, u.areas[a.key].role_default])));
+    }
+    function submitPermissions(e: FormEvent) {
+        e.preventDefault();
+        if (!permUser) return;
+        permForm.put(route('users.permissions.update', permUser.id), {
+            preserveScroll: true,
+            onSuccess: closePermissions,
         });
     }
 
@@ -197,6 +231,7 @@ export default function UsersIndex({ users, availableRoles, can, authId }: Users
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Name</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Email</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Role</th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Access</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Status</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Last Login</th>
                                         {can.edit && (
@@ -256,6 +291,29 @@ export default function UsersIndex({ users, availableRoles, can, authId }: Users
                                                             </span>
                                                         ))}
                                                     </div>
+                                                                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {u.is_admin ? (
+                                                        <span className="text-xs font-medium text-gray-500">Full access</span>
+                                                    ) : (
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {permissionAreas.map((a) => {
+                                                                const s = u.areas[a.key];
+                                                                return (
+                                                                    <span
+                                                                        key={a.key}
+                                                                        title={s.source === 'custom' ? 'Customised for this user' : 'Role default'}
+                                                                        className={
+                                                                            'rounded px-2 py-0.5 text-xs font-medium ' +
+                                                                            (s.allowed ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400 line-through')
+                                                                        }
+                                                                    >
+                                                                        {a.label}{s.source === 'custom' ? ' •' : ''}
+                                                                    </span>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <span
@@ -275,6 +333,17 @@ export default function UsersIndex({ users, availableRoles, can, authId }: Users
                                                 {can.edit && (
                                                     <td className="px-4 py-3">
                                                         <div className="flex items-center justify-end gap-1.5">
+                                                            {!u.is_admin && (
+                                                                <button
+                                                                    onClick={() => openPermissions(u)}
+                                                                    title="Configure access"
+                                                                    className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 hover:text-emerald-700"
+                                                                >
+                                                                    <KeyRound className="h-3.5 w-3.5" />
+                                                                    Permissions
+                                                                </button>
+                                                            )}
+
                                                             {/* Edit */}
                                                             <button
                                                                 onClick={() => openEdit(u)}
@@ -321,7 +390,7 @@ export default function UsersIndex({ users, availableRoles, can, authId }: Users
 
                                     {filteredUsers.length === 0 && (
                                         <tr>
-                                            <td colSpan={can.edit ? 7 : 6} className="px-4 py-10 text-center text-sm text-gray-400">
+                                            <td colSpan={can.edit ? 8 : 7} className="px-4 py-10 text-center text-sm text-gray-400">
                                                 No users found.
                                             </td>
                                         </tr>
@@ -389,6 +458,56 @@ export default function UsersIndex({ users, availableRoles, can, authId }: Users
                         <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
                             <Button type="button" variant="outline" onClick={closeEdit}>Cancel</Button>
                             <Button type="submit" disabled={editForm.processing}>Save Changes</Button>
+                        </div>
+                    </form>
+                )}
+            </Modal>
+
+            <Modal show={permUser !== null} onClose={closePermissions} maxWidth="md">
+                {permUser && (
+                    <form onSubmit={submitPermissions} className="p-6">
+                        <h2 className="text-lg font-medium text-gray-900">Permissions</h2>
+                        <p className="mt-1 text-sm text-gray-600">
+                            Areas <span className="font-medium">{permUser.name}</span> can view. Role: <span className="capitalize">{permUser.roles.join(', ')}</span>.
+                        </p>
+
+                        <div className="mt-5 space-y-5">
+                            {Object.entries(areaGroups).map(([group, areas]) => (
+                                <fieldset key={group}>
+                                    <legend className="text-xs font-semibold uppercase tracking-wide text-gray-400">{group}</legend>
+                                    <div className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200">
+                                        {areas.map((a) => {
+                                            const checked = permForm.data.areas[a.key] ?? false;
+                                            const def = permUser.areas[a.key].role_default;
+                                            const note = checked === def ? 'Role default' : checked ? 'Added for this user' : 'Removed for this user';
+                                            return (
+                                                <label key={a.key} className="flex cursor-pointer items-start gap-3 p-3">
+                                                    <input type="checkbox" className="mt-1" checked={checked}
+                                                        onChange={(e) => permForm.setData('areas', { ...permForm.data.areas, [a.key]: e.target.checked })} />
+                                                    <span className="flex-1">
+                                                        <span className="block text-sm font-medium text-gray-800">{a.label}</span>
+                                                        <span className="block text-xs text-gray-500">{a.description}</span>
+                                                    </span>
+                                                    <span className={'text-xs font-medium ' + (checked === def ? 'text-gray-400' : 'text-amber-600')}>{note}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </fieldset>
+                            ))}
+                        </div>
+
+                        <p className="mt-4 text-xs text-gray-500">
+                            User Management, audit logs, market prices and backups are System Admin only and cannot be granted here.
+                        </p>
+                        <InputError message={permForm.errors.areas} className="mt-2" />
+
+                        <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-4">
+                            <Button type="button" variant="ghost" onClick={() => resetToRole(permUser)}>Reset to role</Button>
+                            <div className="flex gap-3">
+                                <Button type="button" variant="outline" onClick={closePermissions}>Cancel</Button>
+                                <Button type="submit" disabled={permForm.processing}>Save</Button>
+                            </div>
                         </div>
                     </form>
                 )}
