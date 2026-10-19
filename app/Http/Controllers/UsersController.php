@@ -21,7 +21,7 @@ class UsersController extends Controller
     public function index(Request $request): Response
     {
         abort_unless($request->user()?->can('users.manage'), 403);
- 
+
         $users = User::with(['roles.permissions', 'permissionOverrides'])
             ->get()
             ->map(fn ($u) => [
@@ -34,7 +34,7 @@ class UsersController extends Controller
                 'is_admin' => $u->isSystemAdmin(),
                 'areas' => $this->areaState($u),
             ]);
- 
+
         return Inertia::render('Settings/Admin/Users/Index', [
             'users'          => $users,
             'availableRoles' => Role::orderBy('name')->pluck('name'),
@@ -46,6 +46,11 @@ class UsersController extends Controller
             'permissionAreas' => collect(AreaPermissions::areas())
                 ->map(fn ($a, $key) => ['key' => $key, 'label' => $a['label'], 'group' => $a['group'], 'description' => $a['description']])
                 ->values(),
+            // Outcome of the last account action, shown by the page as an inline message.
+            'result' => [
+                'success' => $request->session()->get('success'),
+                'error'   => $request->session()->get('error'),
+            ],
         ]);
     }
 
@@ -90,26 +95,34 @@ class UsersController extends Controller
     public function toggleActive(Request $request, User $user): RedirectResponse
     {
         abort_unless($request->user()?->can('users.manage'), 403);
- 
+
         // Prevent self-deactivation
         if ($user->id === $request->user()->id) {
             return back()->with('error', 'You cannot deactivate your own account.');
         }
- 
+
         $user->update(['is_active' => ! $user->is_active]);
- 
+
         $status = $user->is_active ? 'reactivated' : 'deactivated';
- 
+
         return back()->with('success', "{$user->name}'s account has been {$status}.");
     }
- 
+
     public function sendPasswordReset(Request $request, User $user): RedirectResponse
     {
         abort_unless($request->user()?->can('users.manage'), 403);
- 
-        Password::sendResetLink(['email' => $user->email]);
- 
-        return back()->with('success', "Password reset email sent to {$user->email}.");
+
+        $status = Password::sendResetLink(['email' => $user->email]);
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return back()->with('success', "Password reset link sent to {$user->email}.");
+        }
+
+        $message = $status === Password::RESET_THROTTLED
+            ? "A reset link was sent to {$user->email} recently. Please wait a minute before sending another."
+            : "Could not send a password reset link to {$user->email}.";
+
+        return back()->with('error', $message);
     }
 
     private function areaState(User $u): array

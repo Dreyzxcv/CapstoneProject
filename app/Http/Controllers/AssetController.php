@@ -219,6 +219,40 @@ class AssetController extends Controller
             }
         }
 
+                $documentReviewStatus = (function () use ($asset) {
+            $required = $asset->requiredDocumentTypes();
+            $docs = $asset->documents()
+                ->whereIn('document_type', array_map(fn ($t) => $t->value, $required))
+                ->get()
+                ->groupBy(fn ($d) => $d->getRawOriginal('document_type'))
+                ->map(fn ($group) => $group->sortByDesc('id')->first());
+
+            $statuses = collect($required)->map(function ($type) use ($docs) {
+                $doc = $docs->get($type->value);
+                return $doc ? $doc->getRawOriginal('status') : 'missing';
+            });
+
+            $allVerified = $statuses->every(fn ($s) => $s === 'verified');
+            $anyRejected = $statuses->contains('rejected');
+            $anyPending  = $statuses->contains('pending');
+            $anyMissing  = $statuses->contains('missing');
+
+            return [
+                'all_verified' => $allVerified,
+                'any_rejected' => $anyRejected,
+                'can_approve'  => $allVerified,
+                'can_return'   => $anyRejected && !$anyPending && !$anyMissing,
+                'show_panel'   => $allVerified || ($anyRejected && !$anyPending && !$anyMissing),
+            ];
+        })();
+
+        // Receipt may live on a sibling row of the same asset_code
+        $receipt = $asset->acknowledgementReceipt
+            ?? $relatedAssets->pluck('acknowledgementReceipt')->filter()->first();
+
+        $pdfReady = fn ($r) => $r?->pdf_path
+            && Storage::disk('local')->exists($r->pdf_path);
+
         return Inertia::render('Assets/Show', [
             'asset' => $asset->load([
                 'pieces',
@@ -231,6 +265,7 @@ class AssetController extends Controller
                 'incident.claimants',
                 'qrScans.scannedBy',
                 'statusHistory.changedBy.roles',
+                
             ]),
             'qrPayload' => $qrPayload,
             'allStatusHistory' => $allStatusHistory,
@@ -281,33 +316,10 @@ class AssetController extends Controller
                 'edit'              => $request->user()?->can('assets.update') ?? false,
             ],
             'aapDocumentUploaded' => $asset->hasAapDocument(),
-            'documentReviewStatus' => (function () use ($asset) {
-                $required = $asset->requiredDocumentTypes();
-                $docs = $asset->documents()
-                    ->whereIn('document_type', array_map(fn ($t) => $t->value, $required))
-                    ->get()
-                    ->groupBy(fn ($d) => $d->getRawOriginal('document_type'))
-                    ->map(fn ($group) => $group->sortByDesc('id')->first());
-
-                $statuses = collect($required)->map(function ($type) use ($docs) {
-                    $doc = $docs->get($type->value);
-                    $status = $doc ? $doc->getRawOriginal('status') : 'missing';
-                    return $status;
-                });
-
-                $allVerified = $statuses->every(fn ($s) => $s === 'verified');
-                $anyRejected = $statuses->contains('rejected');
-                $anyPending  = $statuses->contains('pending');
-                $anyMissing  = $statuses->contains('missing');
-
-                return [
-                    'all_verified' => $allVerified,
-                    'any_rejected' => $anyRejected,
-                    'can_approve'  => $allVerified,
-                    'can_return'   => $anyRejected && !$anyPending && !$anyMissing,
-                    'show_panel'   => $allVerified || ($anyRejected && !$anyPending && !$anyMissing),
-                ];
-            })(),
+            'documentReviewStatus' => $documentReviewStatus,
+            'acknowledgementReceipt' => $pdfReady($receipt)
+                ? ['id' => $receipt->id, 'pdf_path' => $receipt->pdf_path]
+                : null,
         ]);
     }
     

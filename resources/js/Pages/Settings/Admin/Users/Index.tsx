@@ -7,7 +7,7 @@ import { Label } from '@/Components/ui/label';
 import InputError from '@/Components/InputError';
 import Modal from '@/Components/Modal';
 import { FormEvent, useMemo, useState } from 'react';
-import { KeyRound, Mail, Pencil, PowerOff, Search, UserPlus } from 'lucide-react';
+import { KeyRound, Mail, Pencil, PowerOff, Search, UserPlus, UsersRound, X } from 'lucide-react';
 
 interface AreaDef { key: string; label: string; group: string; description: string }
 interface AreaState { allowed: boolean; role_default: boolean; source: 'role' | 'custom' }
@@ -21,6 +21,7 @@ interface UserRow {
     areas: Record<string, AreaState>;
     last_login_at: string | null;
 }
+interface ActionResult { success: string | null; error: string | null }
 
 interface UsersIndexProps {
     users: UserRow[];
@@ -28,7 +29,17 @@ interface UsersIndexProps {
     can: { create: boolean; edit: boolean };
     permissionAreas: AreaDef[];
     authId: number; // logged-in user's id, to guard self-deactivation
+    result?: ActionResult;
 }
+
+type StatusKey = 'all' | 'active' | 'inactive' | 'never';
+
+const statusFilters: { key: StatusKey; label: string; test: (u: UserRow) => boolean }[] = [
+    { key: 'all',      label: 'All',             test: () => true },
+    { key: 'active',   label: 'Active',          test: (u) => u.is_active },
+    { key: 'inactive', label: 'Inactive',        test: (u) => !u.is_active },
+    { key: 'never',    label: 'Never logged in', test: (u) => u.last_login_at === null },
+];
 
 const roleBadgeClass: Record<string, string> = {
     'system admin':      'bg-red-50 text-red-500',
@@ -42,6 +53,14 @@ const avatarColors = [
     'bg-blue-600', 'bg-emerald-600', 'bg-violet-600',
     'bg-amber-600', 'bg-rose-600',   'bg-cyan-600',
 ];
+
+const focusRing =
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2';
+
+const actionBtn =
+    'inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium transition ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 ' +
+    'disabled:cursor-not-allowed disabled:opacity-50';
 
 function avatarColor(name: string) {
     return avatarColors[name.charCodeAt(0) % avatarColors.length];
@@ -58,38 +77,74 @@ function formatLastLogin(dateString: string | null): string {
     });
 }
 
+function FilterPill({
+    label, count, active, onClick,
+}: { label: string; count: number; active: boolean; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            aria-pressed={active}
+            onClick={onClick}
+            className={
+                'rounded-full px-4 py-1.5 text-sm font-semibold capitalize transition ' + focusRing + ' ' +
+                (active
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')
+            }
+        >
+            {label} ({count})
+        </button>
+    );
+}
+
 export default function UsersIndex({ users, availableRoles, can, authId, permissionAreas }: UsersIndexProps) {
     const [search,       setSearch]       = useState('');
-    const [activeFilter, setActiveFilter] = useState('All');
+    const [statusFilter, setStatusFilter] = useState<StatusKey>('all');
+    const [roleFilter,   setRoleFilter]   = useState<string | null>(null); // null = all roles
     const [editingUser,  setEditingUser]  = useState<UserRow | null>(null);
-    const [confirmDeactivate, setConfirmDeactivate] = useState<UserRow | null>(null);
-    const [sendingReset, setSendingReset] = useState<number | null>(null);
+    const [confirm, setConfirm] = useState<{ kind: 'deactivate' | 'reset'; user: UserRow } | null>(null);
+    const [busy, setBusy] = useState<{ id: number; action: 'toggle' | 'reset' } | null>(null);
+    const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     const editForm = useForm({ name: '', email: '', role: '' });
 
-    const allRoles = useMemo(() => {
-        const set = new Set<string>();
-        users.forEach((u) => u.roles.forEach((r) => set.add(r)));
-        return Array.from(set);
-    }, [users]);
+    const query = search.trim().toLowerCase();
+    const matchesSearch = (u: UserRow) =>
+        query === '' || u.name.toLowerCase().includes(query) || u.email.toLowerCase().includes(query);
+    const matchesRole   = (u: UserRow) => roleFilter === null || u.roles.includes(roleFilter);
+    const matchesStatus = (u: UserRow) =>
+        (statusFilters.find((s) => s.key === statusFilter) ?? statusFilters[0]).test(u);
 
-    const counts = useMemo(() => {
-        const map: Record<string, number> = { All: users.length };
-        allRoles.forEach((role) => {
-            map[role] = users.filter((u) => u.roles.includes(role)).length;
-        });
-        return map;
-    }, [users, allRoles]);
+    // Counts reflect the other active filters, so each pill shows what clicking it would list.
+    const statusCounts = useMemo(() => {
+        const base = users.filter((u) => matchesSearch(u) && matchesRole(u));
+        return Object.fromEntries(statusFilters.map((s) => [s.key, base.filter(s.test).length])) as Record<StatusKey, number>;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [users, query, roleFilter]);
 
-    const filteredUsers = useMemo(() => {
-        return users.filter((u) => {
-            const matchesSearch =
-                u.name.toLowerCase().includes(search.toLowerCase()) ||
-                u.email.toLowerCase().includes(search.toLowerCase());
-            const matchesFilter = activeFilter === 'All' || u.roles.includes(activeFilter);
-            return matchesSearch && matchesFilter;
+    const roleCounts = useMemo(() => {
+        const base = users.filter((u) => matchesSearch(u) && matchesStatus(u));
+        const map: Record<string, number> = {};
+        availableRoles.forEach((role) => {
+            map[role] = base.filter((u) => u.roles.includes(role)).length;
         });
-    }, [users, search, activeFilter]);
+        return { all: base.length, map };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [users, availableRoles, query, statusFilter]);
+
+    const filteredUsers = useMemo(
+        () => users.filter((u) => matchesSearch(u) && matchesRole(u) && matchesStatus(u)),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [users, query, roleFilter, statusFilter],
+    );
+
+    const hasActiveFilters = query !== '' || roleFilter !== null || statusFilter !== 'all';
+
+    function clearFilters() {
+        setSearch('');
+        setStatusFilter('all');
+        setRoleFilter(null);
+    }
 
     const [permUser, setPermUser] = useState<UserRow | null>(null);
     const permForm = useForm<{ areas: Record<string, boolean> }>({ areas: {} });
@@ -101,6 +156,17 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
         }, {}),
         [permissionAreas],
     );
+
+    // The server flashes success/error and the index returns it as `result`.
+    function showResult(page: { props: object }) {
+        const result = (page.props as { result?: ActionResult }).result;
+        if (result?.error) setBanner({ type: 'error', message: result.error });
+        else if (result?.success) setBanner({ type: 'success', message: result.success });
+    }
+
+    function showFailure(message: string) {
+        setBanner({ type: 'error', message });
+    }
 
     function openEdit(user: UserRow) {
         setEditingUser(user);
@@ -117,36 +183,53 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
     function submitEdit(e: FormEvent) {
         e.preventDefault();
         if (!editingUser) return;
+        setBanner(null);
         editForm.put(route('users.update', editingUser.id), {
             preserveScroll: true,
-            onSuccess: () => closeEdit(),
+            onSuccess: (page) => { closeEdit(); showResult(page); },
+        });
+    }
+
+    function runToggle(user: UserRow) {
+        setBanner(null);
+        setBusy({ id: user.id, action: 'toggle' });
+        router.patch(route('users.toggle-active', user.id), {}, {
+            preserveScroll: true,
+            onSuccess: showResult,
+            onError: () => showFailure(`Could not update ${user.name}'s account. Please try again.`),
+            onFinish: () => { setBusy(null); setConfirm(null); },
         });
     }
 
     function toggleActive(user: UserRow) {
-        // Deactivating — show confirmation first
+        // Deactivating asks for confirmation first; reactivating does not.
         if (user.is_active) {
-            setConfirmDeactivate(user);
+            setConfirm({ kind: 'deactivate', user });
             return;
         }
-        // Reactivating — no confirmation needed
-        router.patch(route('users.toggle-active', user.id), {}, { preserveScroll: true });
+        runToggle(user);
     }
 
-    function confirmAndDeactivate() {
-        if (!confirmDeactivate) return;
-        router.patch(route('users.toggle-active', confirmDeactivate.id), {}, {
-            preserveScroll: true,
-            onFinish: () => setConfirmDeactivate(null),
-        });
-    }
-
-    function sendPasswordReset(user: UserRow) {
-        setSendingReset(user.id);
+    function runPasswordReset(user: UserRow) {
+        setBanner(null);
+        setBusy({ id: user.id, action: 'reset' });
         router.post(route('users.send-reset', user.id), {}, {
             preserveScroll: true,
-            onFinish: () => setSendingReset(null),
+            onSuccess: showResult,
+            onError: () => showFailure(`Could not send a reset link to ${user.email}. Please try again.`),
+            onFinish: () => { setBusy(null); setConfirm(null); },
         });
+    }
+
+    function confirmAction() {
+        if (!confirm) return;
+        if (confirm.kind === 'deactivate') runToggle(confirm.user);
+        else runPasswordReset(confirm.user);
+    }
+
+    function closeConfirm() {
+        if (busy) return; // don't dismiss while the request is running
+        setConfirm(null);
     }
 
     function openPermissions(u: UserRow) {
@@ -161,17 +244,20 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
     function submitPermissions(e: FormEvent) {
         e.preventDefault();
         if (!permUser) return;
+        setBanner(null);
         permForm.put(route('users.permissions.update', permUser.id), {
             preserveScroll: true,
-            onSuccess: closePermissions,
+            onSuccess: (page) => { closePermissions(); showResult(page); },
         });
     }
+
+    const headerCell = 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400';
 
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">User Management</h2>}>
             <Head title="Users" />
 
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto w-full min-w-0 max-w-7xl px-4 sm:px-6 lg:px-8">
                 {/* Header */}
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                     <p className="mt-1 text-sm text-gray-500">
@@ -187,217 +273,314 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
                     )}
                 </div>
 
-                <Card>
+                {/* Action result */}
+                {banner && (
+                    <div
+                        role={banner.type === 'error' ? 'alert' : 'status'}
+                        className={
+                            'mb-4 flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ' +
+                            (banner.type === 'error'
+                                ? 'border-red-200 bg-red-50 text-red-700'
+                                : 'border-emerald-200 bg-emerald-50 text-emerald-800')
+                        }
+                    >
+                        <span>{banner.message}</span>
+                        <button
+                            type="button"
+                            onClick={() => setBanner(null)}
+                            aria-label="Dismiss message"
+                            className={'rounded p-0.5 hover:bg-white/60 ' + focusRing}
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                )}
+
+                <Card className="min-w-0">
                     <CardHeader>
                         <CardTitle className="text-base">System Users</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        {/* Search */}
-                        <div className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                            <Search className="h-4 w-4 text-gray-400" />
-                            <input
-                                type="text"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Search by name or email…"
-                                className="w-full border-0 p-0 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-0"
-                            />
-                        </div>
+                    <CardContent className="min-w-0">
+                        {users.length === 0 ? (
+                            /* System has no users at all */
+                            <div className="flex flex-col items-center rounded-xl border border-dashed border-gray-300 bg-white px-6 py-12 text-center">
+                                <UsersRound className="h-8 w-8 text-gray-300" aria-hidden="true" />
+                                <h3 className="mt-3 text-sm font-semibold text-gray-800">No user accounts yet</h3>
+                                <p className="mt-1 max-w-sm text-sm text-gray-500">
+                                    Accounts you create will show up here, where you can manage their roles and access.
+                                </p>
+                                {can.create && (
+                                    <Link href={route('users.create')} className="mt-4">
+                                        <Button>
+                                            <UserPlus className="mr-1.5 h-4 w-4" />
+                                            Create the first user
+                                        </Button>
+                                    </Link>
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                {/* Search */}
+                                <div className="mb-4">
+                                    <Label htmlFor="user-search" className="sr-only">Search users by name or email</Label>
+                                    <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm focus-within:ring-2 focus-within:ring-emerald-600">
+                                        <Search className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                                        <input
+                                            id="user-search"
+                                            type="search"
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                            placeholder="Search by name or email…"
+                                            className="w-full border-0 p-0 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-0"
+                                        />
+                                    </div>
+                                </div>
 
-                        {/* Filter pills */}
-                        <div className="mb-4 flex flex-wrap gap-2">
-                            {(['All', ...allRoles] as string[]).map((role) => (
-                                <button
-                                    key={role}
-                                    onClick={() => setActiveFilter(role)}
-                                    className={
-                                        'rounded-full px-4 py-1.5 text-sm font-semibold capitalize transition ' +
-                                        (activeFilter === role
-                                            ? 'bg-blue-600 text-white shadow-sm'
-                                            : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')
-                                    }
+                                {/* Filters */}
+                                <div className="mb-4 space-y-3">
+                                    <div role="group" aria-label="Filter by account status" className="flex flex-wrap gap-2">
+                                        {statusFilters.map((s) => (
+                                            <FilterPill
+                                                key={s.key}
+                                                label={s.label}
+                                                count={statusCounts[s.key]}
+                                                active={statusFilter === s.key}
+                                                onClick={() => setStatusFilter(s.key)}
+                                            />
+                                        ))}
+                                    </div>
+                                    <div role="group" aria-label="Filter by role" className="flex flex-wrap gap-2">
+                                        <FilterPill
+                                            label="All roles"
+                                            count={roleCounts.all}
+                                            active={roleFilter === null}
+                                            onClick={() => setRoleFilter(null)}
+                                        />
+                                        {availableRoles.map((role) => (
+                                            <FilterPill
+                                                key={role}
+                                                label={role}
+                                                count={roleCounts.map[role] ?? 0}
+                                                active={roleFilter === role}
+                                                onClick={() => setRoleFilter(role)}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <p className="mb-2 text-xs text-gray-500" aria-live="polite">
+                                    Showing {filteredUsers.length} of {users.length} account{users.length === 1 ? '' : 's'}
+                                </p>
+
+                                {/* Table: scrolls horizontally on small screens */}
+                                <div
+                                    role="region"
+                                    aria-label="Users table"
+                                    tabIndex={0}
+                                    className={'relative max-w-full overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm ' + focusRing}
                                 >
-                                    {role} ({counts[role] ?? 0})
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Table */}
-                        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                            <table className="min-w-full divide-y divide-gray-100">
-                                <thead className="bg-gray-50/60">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">#</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Name</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Email</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Role</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Access</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Status</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Last Login</th>
-                                        {can.edit && (
-                                            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                                Actions
-                                            </th>
-                                        )}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {filteredUsers.map((u, index) => {
-                                        const isSelf     = u.id === authId;
-                                        const isInactive = !u.is_active;
-                                        return (
-                                            <tr
-                                                key={u.id}
-                                                className={
-                                                    'hover:bg-gray-50/60 ' +
-                                                    (isInactive ? 'opacity-60' : '')
-                                                }
-                                            >
-                                                <td className="px-4 py-3 text-sm text-gray-400">
-                                                    {String(index + 1).padStart(2, '0')}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center gap-3">
-                                                        <span
-                                                            className={
-                                                                'flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-white ' +
-                                                                avatarColor(u.name)
-                                                            }
-                                                        >
-                                                            {u.name.charAt(0).toUpperCase()}
-                                                        </span>
-                                                        <div>
-                                                            <p className="text-sm font-medium text-gray-800">
-                                                                {u.name}
-                                                                {isSelf && (
-                                                                    <span className="ml-1.5 text-xs font-normal text-gray-400">(you)</span>
-                                                                )}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-sm text-gray-600">{u.email}</td>
-                                                <td className="px-4 py-3">
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {u.roles.map((role) => (
-                                                            <span
-                                                                key={role}
-                                                                className={
-                                                                    'inline-flex rounded-full px-3 py-1 text-xs font-bold capitalize ' +
-                                                                    (roleBadgeClass[role.toLowerCase()] ?? 'bg-gray-100 text-gray-500')
-                                                                }
-                                                            >
-                                                                {role}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                                                                </td>
-                                                <td className="px-4 py-3">
-                                                    {u.is_admin ? (
-                                                        <span className="text-xs font-medium text-gray-500">Full access</span>
-                                                    ) : (
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {permissionAreas.map((a) => {
-                                                                const s = u.areas[a.key];
-                                                                return (
-                                                                    <span
-                                                                        key={a.key}
-                                                                        title={s.source === 'custom' ? 'Customised for this user' : 'Role default'}
-                                                                        className={
-                                                                            'rounded px-2 py-0.5 text-xs font-medium ' +
-                                                                            (s.allowed ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400 line-through')
-                                                                        }
-                                                                    >
-                                                                        {a.label}{s.source === 'custom' ? ' •' : ''}
-                                                                    </span>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <span
-                                                        className={
-                                                            'inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ' +
-                                                            (u.is_active
-                                                                ? 'bg-emerald-50 text-emerald-700'
-                                                                : 'bg-gray-100 text-gray-500')
-                                                        }
-                                                    >
-                                                        {u.is_active ? 'Active' : 'Inactive'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3 text-xs text-gray-500">
-                                                    {formatLastLogin(u.last_login_at)}
-                                                </td>
+                                    <table className="min-w-[56rem] divide-y divide-gray-100 lg:min-w-full">
+                                        <caption className="sr-only">System user accounts</caption>
+                                        <thead className="bg-gray-50/60">
+                                            <tr>
+                                                <th scope="col" className={headerCell}>#</th>
+                                                <th scope="col" className={headerCell}>Name</th>
+                                                <th scope="col" className={headerCell}>Email</th>
+                                                <th scope="col" className={headerCell}>Role</th>
+                                                <th scope="col" className={headerCell}>Access</th>
+                                                <th scope="col" className={headerCell}>Status</th>
+                                                <th scope="col" className={headerCell}>Last Login</th>
                                                 {can.edit && (
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center justify-end gap-1.5">
-                                                            {!u.is_admin && (
-                                                                <button
-                                                                    onClick={() => openPermissions(u)}
-                                                                    title="Configure access"
-                                                                    className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 hover:text-emerald-700"
-                                                                >
-                                                                    <KeyRound className="h-3.5 w-3.5" />
-                                                                    Permissions
-                                                                </button>
-                                                            )}
-
-                                                            {/* Edit */}
-                                                            <button
-                                                                onClick={() => openEdit(u)}
-                                                                title="Edit user"
-                                                                className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 hover:text-emerald-700"
-                                                            >
-                                                                <Pencil className="h-3.5 w-3.5" />
-                                                                Edit
-                                                            </button>
-
-                                                            {/* Password reset */}
-                                                            <button
-                                                                onClick={() => sendPasswordReset(u)}
-                                                                disabled={sendingReset === u.id}
-                                                                title="Send password reset email"
-                                                                className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 hover:text-blue-700 disabled:opacity-50"
-                                                            >
-                                                                <Mail className="h-3.5 w-3.5" />
-                                                                {sendingReset === u.id ? 'Sending…' : 'Reset PW'}
-                                                            </button>
-
-                                                            {/* Deactivate / Reactivate — hidden for self */}
-                                                            {!isSelf && (
-                                                                <button
-                                                                    onClick={() => toggleActive(u)}
-                                                                    title={u.is_active ? 'Deactivate account' : 'Reactivate account'}
-                                                                    className={
-                                                                        'inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium transition ' +
-                                                                        (u.is_active
-                                                                            ? 'border-red-100 text-red-500 hover:bg-red-50'
-                                                                            : 'border-emerald-100 text-emerald-600 hover:bg-emerald-50')
-                                                                    }
-                                                                >
-                                                                    <PowerOff className="h-3.5 w-3.5" />
-                                                                    {u.is_active ? 'Deactivate' : 'Reactivate'}
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </td>
+                                                    <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                                        Actions
+                                                    </th>
                                                 )}
                                             </tr>
-                                        );
-                                    })}
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {filteredUsers.map((u, index) => {
+                                                const isSelf     = u.id === authId;
+                                                const isInactive = !u.is_active;
+                                                const rowBusy    = busy?.id === u.id;
+                                                return (
+                                                    <tr
+                                                        key={u.id}
+                                                        className={'hover:bg-gray-50/60 ' + (isInactive ? 'opacity-60' : '')}
+                                                    >
+                                                        <td className="px-4 py-3 text-sm text-gray-400">
+                                                            {String(index + 1).padStart(2, '0')}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <span
+                                                                    aria-hidden="true"
+                                                                    className={
+                                                                        'flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white ' +
+                                                                        avatarColor(u.name)
+                                                                    }
+                                                                >
+                                                                    {u.name.charAt(0).toUpperCase()}
+                                                                </span>
+                                                                <p className="text-sm font-medium text-gray-800">
+                                                                    {u.name}
+                                                                    {isSelf && (
+                                                                        <span className="ml-1.5 text-xs font-normal text-gray-400">(you)</span>
+                                                                    )}
+                                                                </p>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-gray-600">{u.email}</td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {u.roles.map((role) => (
+                                                                    <span
+                                                                        key={role}
+                                                                        className={
+                                                                            'inline-flex rounded-full px-3 py-1 text-xs font-bold capitalize ' +
+                                                                            (roleBadgeClass[role.toLowerCase()] ?? 'bg-gray-100 text-gray-500')
+                                                                        }
+                                                                    >
+                                                                        {role}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            {u.is_admin ? (
+                                                                <span className="text-xs font-medium text-gray-500">Full access</span>
+                                                            ) : (
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {permissionAreas.map((a) => {
+                                                                        const s = u.areas[a.key];
+                                                                        return (
+                                                                            <span
+                                                                                key={a.key}
+                                                                                title={s.source === 'custom' ? 'Customised for this user' : 'Role default'}
+                                                                                className={
+                                                                                    'rounded px-2 py-0.5 text-xs font-medium ' +
+                                                                                    (s.allowed ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400 line-through')
+                                                                                }
+                                                                            >
+                                                                                {a.label}{s.source === 'custom' ? ' •' : ''}
+                                                                                <span className="sr-only">
+                                                                                    {s.allowed ? ' (allowed)' : ' (not allowed)'}
+                                                                                    {s.source === 'custom' ? ', customised' : ''}
+                                                                                </span>
+                                                                            </span>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span
+                                                                className={
+                                                                    'inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ' +
+                                                                    (u.is_active
+                                                                        ? 'bg-emerald-50 text-emerald-700'
+                                                                        : 'bg-gray-100 text-gray-500')
+                                                                }
+                                                            >
+                                                                {u.is_active ? 'Active' : 'Inactive'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-xs text-gray-500">
+                                                            {formatLastLogin(u.last_login_at)}
+                                                        </td>
+                                                        {can.edit && (
+                                                            <td className="px-4 py-3">
+                                                                {/* Labels collapse to icons below xl; accessible names always include the user. */}
+                                                                <div className="flex items-center justify-end gap-1.5">
+                                                                    {!u.is_admin && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => openPermissions(u)}
+                                                                            disabled={rowBusy}
+                                                                            title="Configure access"
+                                                                            aria-label={`Configure access for ${u.name}`}
+                                                                            className={actionBtn + ' border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-emerald-700'}
+                                                                        >
+                                                                            <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
+                                                                            <span className="sr-only xl:not-sr-only">Permissions</span>
+                                                                        </button>
+                                                                    )}
 
-                                    {filteredUsers.length === 0 && (
-                                        <tr>
-                                            <td colSpan={can.edit ? 8 : 7} className="px-4 py-10 text-center text-sm text-gray-400">
-                                                No users found.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => openEdit(u)}
+                                                                        disabled={rowBusy}
+                                                                        title="Edit user"
+                                                                        aria-label={`Edit ${u.name}`}
+                                                                        className={actionBtn + ' border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-emerald-700'}
+                                                                    >
+                                                                        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                                                                        <span className="sr-only xl:not-sr-only">Edit</span>
+                                                                    </button>
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setConfirm({ kind: 'reset', user: u })}
+                                                                        disabled={rowBusy}
+                                                                        title="Send password reset link"
+                                                                        aria-label={`Send password reset link to ${u.name}`}
+                                                                        className={actionBtn + ' border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-blue-700'}
+                                                                    >
+                                                                        <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+                                                                        <span className="sr-only xl:not-sr-only">
+                                                                            {rowBusy && busy?.action === 'reset' ? 'Sending…' : 'Send reset link'}
+                                                                        </span>
+                                                                    </button>
+
+                                                                    {/* Deactivate / Reactivate — hidden for self */}
+                                                                    {!isSelf && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => toggleActive(u)}
+                                                                            disabled={rowBusy}
+                                                                            title={u.is_active ? 'Deactivate account' : 'Reactivate account'}
+                                                                            aria-label={`${u.is_active ? 'Deactivate' : 'Reactivate'} ${u.name}`}
+                                                                            className={
+                                                                                actionBtn + ' ' +
+                                                                                (u.is_active
+                                                                                    ? 'border-red-100 text-red-500 hover:bg-red-50'
+                                                                                    : 'border-emerald-100 text-emerald-600 hover:bg-emerald-50')
+                                                                            }
+                                                                        >
+                                                                            <PowerOff className="h-3.5 w-3.5" aria-hidden="true" />
+                                                                            <span className="sr-only xl:not-sr-only">
+                                                                                {rowBusy && busy?.action === 'toggle'
+                                                                                    ? (u.is_active ? 'Deactivating…' : 'Reactivating…')
+                                                                                    : (u.is_active ? 'Deactivate' : 'Reactivate')}
+                                                                            </span>
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                );
+                                            })}
+
+                                            {filteredUsers.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={can.edit ? 8 : 7} className="px-4 py-10 text-center">
+                                                        <p className="text-sm font-medium text-gray-700">No users match your search or filters.</p>
+                                                        <p className="mt-1 text-sm text-gray-500">
+                                                            Try a different search term, or clear the filters to see every account.
+                                                        </p>
+                                                        {hasActiveFilters && (
+                                                            <Button type="button" variant="outline" className="mt-4" onClick={clearFilters}>
+                                                                Clear filters
+                                                            </Button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -443,6 +626,7 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
                                     id="edit_role"
                                     value={editForm.data.role}
                                     onChange={(e) => editForm.setData('role', e.target.value)}
+                                    aria-describedby="edit_role_help"
                                     className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                     required
                                 >
@@ -451,13 +635,24 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
                                         <option key={role} value={role}>{role}</option>
                                     ))}
                                 </select>
+                                <p id="edit_role_help" className="mt-1 text-xs text-gray-500">
+                                    Each account has exactly one role. Saving replaces the current role with the one selected.
+                                </p>
+                                {editingUser.roles.length > 1 && (
+                                    <p role="alert" className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                        This account currently has {editingUser.roles.length} roles ({editingUser.roles.join(', ')}).
+                                        Accounts are limited to one role, so saving will remove all of them except the one selected above.
+                                    </p>
+                                )}
                                 <InputError message={editForm.errors.role} className="mt-1" />
                             </div>
                         </div>
 
                         <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
                             <Button type="button" variant="outline" onClick={closeEdit}>Cancel</Button>
-                            <Button type="submit" disabled={editForm.processing}>Save Changes</Button>
+                            <Button type="submit" disabled={editForm.processing}>
+                                {editForm.processing ? 'Saving…' : 'Save Changes'}
+                            </Button>
                         </div>
                     </form>
                 )}
@@ -506,31 +701,48 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
                             <Button type="button" variant="ghost" onClick={() => resetToRole(permUser)}>Reset to role</Button>
                             <div className="flex gap-3">
                                 <Button type="button" variant="outline" onClick={closePermissions}>Cancel</Button>
-                                <Button type="submit" disabled={permForm.processing}>Save</Button>
+                                <Button type="submit" disabled={permForm.processing}>
+                                    {permForm.processing ? 'Saving…' : 'Save'}
+                                </Button>
                             </div>
                         </div>
                     </form>
                 )}
             </Modal>
 
-            {/* Deactivate confirmation modal */}
-            <Modal show={confirmDeactivate !== null} onClose={() => setConfirmDeactivate(null)} maxWidth="sm">
-                {confirmDeactivate && (
+            {/* Confirmation modal: deactivate account / send password reset link */}
+            <Modal show={confirm !== null} onClose={closeConfirm} maxWidth="sm">
+                {confirm && (
                     <div className="p-6">
-                        <h2 className="text-lg font-medium text-gray-900">Deactivate Account</h2>
-                        <p className="mt-2 text-sm text-gray-600">
-                            <span className="font-medium">{confirmDeactivate.name}</span> will immediately lose access to the system. Their records and audit trail will be preserved.
-                        </p>
+                        {confirm.kind === 'deactivate' ? (
+                            <>
+                                <h2 className="text-lg font-medium text-gray-900">Deactivate Account</h2>
+                                <p className="mt-2 text-sm text-gray-600">
+                                    <span className="font-medium">{confirm.user.name}</span> will immediately lose access to the system. Their records and audit trail will be preserved.
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <h2 className="text-lg font-medium text-gray-900">Send Password Reset Link</h2>
+                                <p className="mt-2 text-sm text-gray-600">
+                                    A password reset link will be emailed to{' '}
+                                    <span className="font-medium">{confirm.user.email}</span>. Their current password keeps working until they use the link.
+                                </p>
+                            </>
+                        )}
                         <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
-                            <Button type="button" variant="outline" onClick={() => setConfirmDeactivate(null)}>
+                            <Button type="button" variant="outline" onClick={closeConfirm} disabled={busy !== null}>
                                 Cancel
                             </Button>
                             <Button
                                 type="button"
-                                className="bg-red-600 hover:bg-red-700"
-                                onClick={confirmAndDeactivate}
+                                className={confirm.kind === 'deactivate' ? 'bg-red-600 hover:bg-red-700' : undefined}
+                                onClick={confirmAction}
+                                disabled={busy !== null}
                             >
-                                Deactivate
+                                {confirm.kind === 'deactivate'
+                                    ? (busy ? 'Deactivating…' : 'Deactivate')
+                                    : (busy ? 'Sending…' : 'Send reset link')}
                             </Button>
                         </div>
                     </div>

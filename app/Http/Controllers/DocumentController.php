@@ -329,6 +329,23 @@ class DocumentController extends Controller
             }
         }
 
+        if ($decision === 'verified' && $document->attachable instanceof Asset) {
+            $primary = Asset::where('asset_code', $document->attachable->asset_code)
+                ->orderBy('id')
+                ->first();
+
+            $allVerified = collect($primary->requiredDocumentTypes())->every(
+                fn ($t) => $primary->documents()
+                    ->where('document_type', $t->value)
+                    ->latest('id')
+                    ->first()?->getRawOriginal('status') === 'verified'
+            );
+
+            if ($allVerified && ! $primary->acknowledgementReceipt()->exists()) {
+                app(\App\Actions\CreateAsset::class)->issueReceiptFor($primary, $request->user());
+            }
+        }
+
         return back()->with('success', $decision === 'verified'
             ? 'Document marked as verified.'
             : 'Document rejected and sent back to MES with remarks.');

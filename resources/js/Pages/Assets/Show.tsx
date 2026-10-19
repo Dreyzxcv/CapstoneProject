@@ -33,6 +33,7 @@ import { CaseDetailsModal } from "@/Components/shared/CaseDetailsCard";
 import { StatusHistoryEntry } from "@/types";
 
 interface ShowProps {
+    acknowledgementReceipt: { id: number; pdf_path: string } | null;
     asset: Asset & {
         stcp_number: string | null;
         custody_review_status: "pending" | "approved" | "returned" | null;
@@ -1398,6 +1399,7 @@ function GroupedPiecesTable({
 }
 
 export default function AssetsShow({
+    acknowledgementReceipt,
     asset,
     relatedAssets,
     qrPayload,
@@ -1415,7 +1417,15 @@ export default function AssetsShow({
     documentReviewStatus,
     allStatusHistory,
 }: ShowProps) {
-    usePoll(6000, { only: ["asset"] });
+    usePoll(6000, {
+        only: [
+            "asset",
+            "documentReviewStatus",
+            "acknowledgementReceipt",
+            "hasAllRequiredDocuments",
+            "aapDocumentUploaded",
+        ],
+    });
 
     const { auth } = usePage<PageProps>().props;
     const [confirmAction, setConfirmAction] = useState<string | null>(null);
@@ -1605,7 +1615,7 @@ export default function AssetsShow({
         );
     }
 
-    const receiptUrl = documentUrl(asset.acknowledgement_receipt?.pdf_path);
+    const receiptUrl = documentUrl(acknowledgementReceipt?.pdf_path);
     const disposals = asset.disposals ?? [];
     const totalDisposed = disposals.reduce((sum, d) => sum + d.quantity, 0);
     const remainingQuantity = Math.max(
@@ -2632,7 +2642,7 @@ export default function AssetsShow({
                                         this stage.
                                     </p>
                                 )}
-                            {receiptUrl && (
+                            {receiptUrl && documentReviewStatus.all_verified && (
                                 <a
                                     href={receiptUrl}
                                     className="block mt-3 text-center text-sm text-emerald-700 hover:underline"
