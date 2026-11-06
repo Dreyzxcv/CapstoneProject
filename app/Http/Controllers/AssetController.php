@@ -308,12 +308,14 @@ class AssetController extends Controller
                 'releaseDonation'   => $request->user()?->can('disposals.process') ?? false,
                 'viewDisposalHistory' => $request->user()?->can('viewAny', \App\Models\Disposal::class) ?? false,
                 'processDisposal'   => $request->user()?->can('create', \App\Models\Disposal::class) ?? false,
-                'updateCaseDetails' => $asset->has_ongoing_case && ($request->user()?->can('assets.update_case') ?? false),
                 'uploadEvidence'    => $request->user()?->can('documents.upload') ?? false,
                 'verifyDocuments'   => $request->user()?->can('documents.verify') ?? false,
                 'issueJevOut'       => $request->user()?->can('jev.create') ?? false,
                 'uploadJevOut'      => $request->user()?->can('jev.upload') ?? false,
-                'edit'              => $request->user()?->can('assets.update') ?? false,
+                'edit'              => $request->user()?->can('update', $asset) ?? false,
+                'updateCaseDetails' => $asset->has_ongoing_case
+                    && ($request->user()?->can('assets.update_case') ?? false)
+                    && ($request->user()?->can('editAssetInformation', $asset) ?? false),
             ],
             'aapDocumentUploaded' => $asset->hasAapDocument(),
             'documentReviewStatus' => $documentReviewStatus,
@@ -358,6 +360,8 @@ class AssetController extends Controller
 
     public function updateStcpNumber(UpdateStcpNumberRequest $request, Asset $asset, \App\Services\AuditLogService $auditLog, \App\Services\AssetInfoHistoryService $history): RedirectResponse
     {
+        $this->authorize('editAssetInformation', $asset);
+
         $before = $asset->only('stcp_number');
 
         Asset::where('asset_code', $asset->asset_code)

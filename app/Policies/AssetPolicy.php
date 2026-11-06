@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Asset;
 use App\Models\User;
+use App\Enums\AssetStatus;
 
 class AssetPolicy
 {
@@ -24,7 +25,8 @@ class AssetPolicy
 
     public function update(User $user, Asset $asset): bool
     {
-        return $user->can('assets.update');
+        return $user->can('assets.update')
+            && ! $this->informationLocked($user, $asset);
     }
 
     public function markStored(User $user, Asset $asset): bool
@@ -74,7 +76,8 @@ class AssetPolicy
     public function updateAap(User $user, Asset $asset): bool
     {
         return $user->can('assets.update_aap')
-            && $asset->hasAapDocument();
+            && $asset->hasAapDocument()
+            && ! $this->informationLocked($user, $asset);
     }
 
     public function updateCaseStatus(User $user, Asset $asset): bool
@@ -89,5 +92,17 @@ class AssetPolicy
             && $asset->hasAapDocument()
             && ! blank($asset->aap_number)
             && ! $asset->aap_review_requested;
+    }
+
+    private function informationLocked(User $user, Asset $asset): bool
+    {
+        return $asset->current_status === AssetStatus::ReceiptSigned
+            && ! $user->hasRole('System Admin');
+    }
+
+    /** Lock-only ability, for endpoints that have no other policy gate. */
+    public function editAssetInformation(User $user, Asset $asset): bool
+    {
+        return ! $this->informationLocked($user, $asset);
     }
 }

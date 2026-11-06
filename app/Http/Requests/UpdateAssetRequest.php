@@ -10,7 +10,7 @@ class UpdateAssetRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('assets.update');
+        return $this->user()->can('update', $this->route('asset'));
     }
 
     public function rules(): array
