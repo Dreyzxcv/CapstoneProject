@@ -7,9 +7,7 @@ import { Label } from '@/Components/ui/label';
 import { Asset } from '@/types';
 import { Head, useForm } from '@inertiajs/react';
 import { FormEventHandler, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
-import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
-import { AlertCircle, Check, ChevronRight, MapPin, Plus, ScanLine, Trash2 } from 'lucide-react';
+import { AlertCircle, Check, ChevronRight, Plus, ScanLine, Trash2 } from 'lucide-react';
 import AssetScanModal, { ScannedAsset } from '@/Components/shared/AssetScanModal';
 import PiecePickerModal, { AssetPieceData } from '@/Components/shared/PiecePickerModal';
 import MultiStepWizard from '@/Components/shared/MultiStepWizard';
@@ -56,7 +54,6 @@ const ORG_TYPES = [
     { value: 'academe', label: 'Academe' },
     { value: 'national_agency', label: 'National Agency' },
     { value: 'lgu', label: 'LGU' },
-    { value: 'individual', label: 'Individual' },
     { value: 'other', label: 'Other' },
 ];
 
@@ -97,7 +94,6 @@ const FIELD_STEP: Record<string, StepId> = {
     municipality: 'delivery',
     barangay: 'delivery',
     street: 'delivery',
-    delivery_coordinates: 'delivery',
     donor_representative_name: 'signatories',
     donor_representative_title: 'signatories',
     witness_1_name: 'signatories',
@@ -186,7 +182,7 @@ function stepMeta(id: StepId, group: Group): { label: string; title: string; des
         case 'recipient':
             return { label: 'Recipient', title: 'Recipient', description: 'Who is receiving the donation and why.' };
         case 'delivery':
-            return { label: 'Delivery', title: 'Delivery Details', description: 'Where the donee is located and where the logs will go.' };
+            return { label: 'Delivery', title: 'Delivery Details', description: 'Where the donee is located' };
         case 'signatories':
             return {
                 label: 'Signatories',
@@ -302,7 +298,6 @@ export default function DisposalsCreate({
     const [scanning, setScanning] = useState(false);
     const [piecePickerLine, setPiecePickerLine] = useState<number | null>(null);
     const [extraAssets, setExtraAssets] = useState<DonatableAsset[]>([]);
-    const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
     const [stepIndex, setStepIndex] = useState(0);
     const [showErrors, setShowErrors] = useState(false);
     const [attempt, setAttempt] = useState(0);
@@ -345,13 +340,12 @@ export default function DisposalsCreate({
         donee_position: '',
         purpose_statement: '',
         confiscation_order_reference: '',
-        organization_type: 'individual',
+        organization_type: '',
         organization_type_other: '',
         agency_name: '',
         municipality: municipalities[0]?.value ?? '',
         barangay: '',
         street: '',
-        delivery_coordinates: '',
         appeal_filed: false as boolean,
         notes: '',
         donor_representative_name: '',
@@ -468,7 +462,6 @@ export default function DisposalsCreate({
                     e.barangay = 'The selected barangay is not valid for the chosen municipality.';
                 }
                 max('street', data.street, 255);
-                max('delivery_coordinates', data.delivery_coordinates, 255);
                 break;
 
             case 'signatories':
@@ -1045,6 +1038,7 @@ export default function DisposalsCreate({
                         onChange={(e) => setField('organization_type', e.target.value)}
                         className={selectCls(fieldError('organization_type'))}
                     >
+                        <option value="" disabled>Select organization type…</option>
                         {ORG_TYPES.map((o) => (
                             <option key={o.value} value={o.value}>
                                 {o.label}
@@ -1189,38 +1183,6 @@ export default function DisposalsCreate({
                         />
                         <InputError message={fieldError('street')} className="mt-1" />
                     </div>
-                </div>
-
-                <div>
-                    <Label htmlFor="delivery_coordinates">
-                        Delivery Location <span className="font-normal text-gray-400">(optional)</span>
-                    </Label>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                        <Input
-                            id="delivery_coordinates"
-                            placeholder="e.g. 13.5833, 124.2333"
-                            value={data.delivery_coordinates}
-                            onChange={(e) => setField('delivery_coordinates', e.target.value)}
-                            className={inputCls(fieldError('delivery_coordinates'))}
-                        />
-                        <Button type="button" variant="outline" onClick={() => setShowCoordinatesPicker(true)}>
-                            <MapPin className="mr-1.5 h-4 w-4" />
-                            Pick on Map
-                        </Button>
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">
-                        Where the donated logs will be brought, for visualization on the asset record.
-                    </p>
-                    <InputError message={fieldError('delivery_coordinates')} className="mt-1" />
-
-                    {data.delivery_coordinates && (
-                        <div className="mt-3">
-                            <IncidentLocationMap
-                                coordinates={data.delivery_coordinates}
-                                placeName={data.requester_name || 'Donation delivery point'}
-                            />
-                        </div>
-                    )}
                 </div>
             </>
         );
@@ -1567,7 +1529,6 @@ export default function DisposalsCreate({
                                 label="Address"
                                 value={[data.street, data.barangay, data.municipality].filter(Boolean).join(', ')}
                             />
-                            <ReviewRow label="Coordinates" value={data.delivery_coordinates} />
                         </ReviewSection>
 
                         <ReviewSection title="Signatories" onEdit={() => goToStep('signatories')}>
@@ -1730,12 +1691,6 @@ export default function DisposalsCreate({
                 </MultiStepWizard>
             </div>
 
-            <CoordinatesPickerModal
-                show={showCoordinatesPicker}
-                onClose={() => setShowCoordinatesPicker(false)}
-                onSelect={(coords) => setField('delivery_coordinates', coords)}
-                initialCoordinates={data.delivery_coordinates}
-            />
             <AssetScanModal show={scanning} onClose={() => setScanning(false)} onFound={handleAssetScanned} />
             {piecePickerLine !== null && pickerAsset && pickerLine && (
                 <PiecePickerModal

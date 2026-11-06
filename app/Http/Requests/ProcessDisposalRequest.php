@@ -34,8 +34,7 @@ class ProcessDisposalRequest extends FormRequest
             'piece_ids' => ['nullable', 'array'],
             'piece_ids.*' => ['integer', 'distinct'],
             'requester_name' => ['required_if:disposal_type,donation', 'nullable', 'string', 'max:255'],
-            'delivery_coordinates' => ['nullable', 'string', 'max:255'],
-            'organization_type' => ['required_if:disposal_type,donation', Rule::enum(DonationOrganizationType::class)],
+            'organization_type' => ['required_if:disposal_type,donation', 'nullable', Rule::enum(DonationOrganizationType::class)],
             'organization_type_other' => ['required_if:organization_type,other', 'nullable', 'string', 'max:255'],
 
             'agency_name' => ['required_if:disposal_type,donation', 'nullable', 'string', 'max:255'],

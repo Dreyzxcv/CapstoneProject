@@ -150,7 +150,6 @@ class DisposalController extends Controller
             'notes' => $request->validated('notes'),
             'appeal_filed' => $request->boolean('appeal_filed'),
             'appeal_deadline' => $asset->appeal_deadline?->toIso8601String(),
-            'delivery_coordinates' => $request->validated('delivery_coordinates'),
 
             'donee_position' => $request->validated('donee_position'),
             'purpose_statement' => $request->validated('purpose_statement'),
@@ -275,7 +274,6 @@ class DisposalController extends Controller
             'municipality' => $request->validated('municipality'),
             'barangay' => $request->validated('barangay'),
             'street' => $request->validated('street'),
-            'delivery_coordinates' => $request->validated('delivery_coordinates'),
             'notes' => $request->validated('notes'),
 
             'donee_position' => $request->validated('donee_position'),

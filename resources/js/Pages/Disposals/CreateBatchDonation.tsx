@@ -6,9 +6,7 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Head, useForm } from '@inertiajs/react';
 import { FormEventHandler, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
-import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
-import { AlertCircle, ChevronRight, MapPin, Plus, ScanLine, Trash2 } from 'lucide-react';
+import { AlertCircle, ChevronRight, Plus, ScanLine, Trash2 } from 'lucide-react';
 import AssetScanModal, { ScannedAsset } from '@/Components/shared/AssetScanModal';
 import PiecePickerModal, { AssetPieceData } from '@/Components/shared/PiecePickerModal';
 import MultiStepWizard from '@/Components/shared/MultiStepWizard';
@@ -56,7 +54,6 @@ const ORG_TYPES = [
     { value: 'academe', label: 'Academe' },
     { value: 'national_agency', label: 'National Agency' },
     { value: 'lgu', label: 'LGU' },
-    { value: 'individual', label: 'Individual' },
     { value: 'other', label: 'Other' },
 ];
 
@@ -98,7 +95,6 @@ const FIELD_STEP: Record<string, StepId> = {
     municipality: 'recipient',
     barangay: 'recipient',
     street: 'recipient',
-    delivery_coordinates: 'recipient',
     donee_position: 'details',
     purpose_statement: 'details',
     confiscation_order_reference: 'details',
@@ -210,7 +206,6 @@ export default function CreateBatchDonation({
     const [scanning, setScanning] = useState(false);
     const [piecePickerLine, setPiecePickerLine] = useState<number | null>(null);
     const [extraAssets, setExtraAssets] = useState<DonatableAsset[]>([]);
-    const [showCoordinatesPicker, setShowCoordinatesPicker] = useState(false);
     const [stepIndex, setStepIndex] = useState(0);
     const [showErrors, setShowErrors] = useState(false);
     const [attempt, setAttempt] = useState(0);
@@ -232,13 +227,12 @@ export default function CreateBatchDonation({
         donee_position: '',
         purpose_statement: '',
         confiscation_order_reference: '',
-        organization_type: 'individual',
+        organization_type: '',
         organization_type_other: '',
         agency_name: '',
         municipality: municipalities[0]?.value ?? '',
         barangay: '',
         street: '',
-        delivery_coordinates: '',
         donor_representative_name: '',
         donor_representative_title: '',
         witness_1_name: '',
@@ -306,7 +300,6 @@ export default function CreateBatchDonation({
                 max('agency_name', data.agency_name, 255);
                 max('requester_name', data.requester_name, 255);
                 max('street', data.street, 255);
-                max('delivery_coordinates', data.delivery_coordinates, 255);
                 break;
 
             case 'details':
@@ -650,6 +643,7 @@ export default function CreateBatchDonation({
                         onChange={(e) => setField('organization_type', e.target.value)}
                         className={selectCls(fieldError('organization_type'))}
                     >
+                        <option value="" disabled>Select organization type…</option>
                         {ORG_TYPES.map((o) => (
                             <option key={o.value} value={o.value}>
                                 {o.label}
@@ -745,35 +739,6 @@ export default function CreateBatchDonation({
                         />
                         <InputError message={fieldError('street')} className="mt-1" />
                     </div>
-                </div>
-
-                <div>
-                    <Label htmlFor="delivery_coordinates">
-                        Delivery Location <span className="font-normal text-gray-400">(optional)</span>
-                    </Label>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                        <Input
-                            id="delivery_coordinates"
-                            placeholder="e.g. 13.5833, 124.2333"
-                            value={data.delivery_coordinates}
-                            onChange={(e) => setField('delivery_coordinates', e.target.value)}
-                            className={inputCls(fieldError('delivery_coordinates'))}
-                        />
-                        <Button type="button" variant="outline" onClick={() => setShowCoordinatesPicker(true)}>
-                            <MapPin className="mr-1.5 h-4 w-4" />
-                            Pick on Map
-                        </Button>
-                    </div>
-                    <InputError message={fieldError('delivery_coordinates')} className="mt-1" />
-
-                    {data.delivery_coordinates && (
-                        <div className="mt-3">
-                            <IncidentLocationMap
-                                coordinates={data.delivery_coordinates}
-                                placeName={data.requester_name || 'Donation delivery point'}
-                            />
-                        </div>
-                    )}
                 </div>
             </>
         );
@@ -935,7 +900,6 @@ export default function CreateBatchDonation({
                         label="Address"
                         value={[data.street, data.barangay, data.municipality].filter(Boolean).join(', ')}
                     />
-                    <ReviewRow label="Delivery coordinates" value={data.delivery_coordinates} />
                 </ReviewSection>
 
                 <ReviewSection title="Donation details" onEdit={() => goToStep('details')}>
@@ -1055,12 +1019,6 @@ export default function CreateBatchDonation({
                 )}
             </div>
 
-            <CoordinatesPickerModal
-                show={showCoordinatesPicker}
-                onClose={() => setShowCoordinatesPicker(false)}
-                onSelect={(coords) => setField('delivery_coordinates', coords)}
-                initialCoordinates={data.delivery_coordinates}
-            />
             <AssetScanModal show={scanning} onClose={() => setScanning(false)} onFound={handleAssetScanned} />
             {piecePickerLine !== null && pickerAsset && pickerLine && (
                 <PiecePickerModal
