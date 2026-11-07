@@ -70,12 +70,17 @@ export default function UsersCreate({ roles }: CreateProps) {
                                     id="role"
                                     value={data.role}
                                     onChange={(e) => setData('role', e.target.value)}
+                                    aria-describedby="role_help"
+                                    required
                                     className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
                                 >
                                     {roles.map((role) => (
                                         <option key={role} value={role}>{role}</option>
                                     ))}
                                 </select>
+                                <p id="role_help" className="text-xs text-gray-500">
+                                    Each account has exactly one role. You can change it later from the user list.
+                                </p>
                                 <InputError message={errors.role} />
                             </div>
 
@@ -107,7 +112,9 @@ export default function UsersCreate({ roles }: CreateProps) {
                             </p>
 
                             <div className="flex flex-wrap gap-3 border-t border-gray-100 pt-4">
-                                <Button type="submit" disabled={processing}>Create Account</Button>
+                                <Button type="submit" disabled={processing}>
+                                    {processing ? 'Creating…' : 'Create Account'}
+                                </Button>
                                 <Link href={route('users.index')}>
                                     <Button type="button" variant="outline">Cancel</Button>
                                 </Link>

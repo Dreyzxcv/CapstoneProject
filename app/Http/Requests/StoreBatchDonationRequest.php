@@ -44,7 +44,6 @@ class StoreBatchDonationRequest extends FormRequest
                 },
             ],
             'street' => ['nullable', 'string', 'max:255'],
-            'delivery_coordinates' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:1000'],
 
             // Deed of Donation fields

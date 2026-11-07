@@ -30,9 +30,15 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
 
     // Assets
-    Route::resource('assets', AssetController::class)->only(['index', 'create', 'store', 'show']);
+    // Resource must stay before the {asset} routes so /assets/create matches first.
+    Route::resource('assets', AssetController::class)->only(['create', 'store']);
+    Route::middleware('can:assets.view')->group(function () {
+        Route::get('/assets', [AssetController::class, 'index'])->name('assets.index');
+        // by-code must stay before /assets/{asset}
+        Route::get('/assets/by-code/{assetCode}', [AssetController::class, 'byCode'])->name('assets.by-code');
+        Route::get('/assets/{asset}', [AssetController::class, 'show'])->name('assets.show');
+    });
     Route::put('/assets/{asset}', [AssetController::class, 'update'])->name('assets.update');
-    Route::get('/assets/by-code/{assetCode}', [AssetController::class, 'byCode'])->name('assets.by-code');
     Route::get('/assets/{asset}/stickers.pdf', [AssetController::class, 'printStickers'])
         ->middleware('throttle:report-export')
         ->name('assets.stickers.pdf');
@@ -51,6 +57,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     // Documents
     Route::get('/documents/{path}', [DocumentController::class, 'download'])
         ->where('path', '[A-Za-z0-9+/=]+')
+        ->middleware('can:assets.view')
         ->name('documents.download');
     Route::post('/assets/{asset}/documents', [DocumentController::class, 'store'])
         ->middleware('throttle:file-upload')
@@ -65,18 +72,22 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/incidents', [IncidentController::class, 'store'])->name('incidents.store');
 
     // JEV
-    Route::get('/jev', [JevController::class, 'index'])->name('jev.index');
-    Route::get('/jev/{asset}', [JevController::class, 'show'])->name('assets.jev.show');
+    Route::middleware('can:jev.view')->group(function () {
+        Route::get('/jev', [JevController::class, 'index'])->name('jev.index');
+        Route::get('/jev/{asset}', [JevController::class, 'show'])->name('assets.jev.show');
+    });
     Route::post('/jev/{asset}', [JevController::class, 'store'])->name('assets.jev.store');
 
     // Disposals
-    Route::get('/disposals', [DisposalController::class, 'index'])->name('disposals.index');
+    Route::middleware('can:disposals.view')->group(function () {
+        Route::get('/disposals', [DisposalController::class, 'index'])->name('disposals.index');
+        Route::get('/assets/{asset}/disposals/history', [DisposalController::class, 'history'])->name('disposals.history');
+    });
     Route::get('/disposals/donate', [DisposalController::class, 'createBatchDonation'])->name('disposals.donate.create');
     Route::post('/disposals/donate', [DisposalController::class, 'storeBatchDonation'])->name('disposals.donate.store');
     Route::post('/disposals/scan-lookup', [DisposalController::class, 'scanLookup'])
         ->middleware('throttle:qr-scan')
         ->name('disposals.scan-lookup');
-    Route::get('/assets/{asset}/disposals/history', [DisposalController::class, 'history'])->name('disposals.history');
     Route::get('/assets/{asset}/disposals/create', [DisposalController::class, 'create'])->name('disposals.create');
     Route::post('/assets/{asset}/disposals', [DisposalController::class, 'store'])->name('disposals.store');
     Route::post('/disposals/{disposal}/release-donation', [DisposalController::class, 'releaseDonation'])->name('disposals.release-donation');
@@ -84,7 +95,9 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/disposals/{disposal}/jev-out/upload', [DisposalController::class, 'uploadJevOut'])
         ->middleware('throttle:file-upload')
         ->name('disposals.jev-out.upload');
-    Route::get('/disposals/{disposal}/jev-out/show', [JevController::class, 'showDisposalJev'])->name('disposals.jev-out.show');
+    Route::get('/disposals/{disposal}/jev-out/show', [JevController::class, 'showDisposalJev'])
+        ->middleware('can:jev.view')
+        ->name('disposals.jev-out.show');
 
     // QR Scan
     Route::get('/scan', [QrScanController::class, 'index'])->name('scan.index');
@@ -96,47 +109,60 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
         ->name('scan.resolve');
 
     // Reports
-    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
-    Route::get('/reports/inventory.csv', [ReportController::class, 'inventory'])
-        ->middleware('throttle:report-export')
-        ->name('reports.inventory');
-    Route::get('/reports/compliance.pdf', [ReportController::class, 'compliance'])
-        ->middleware('throttle:report-export')
-        ->name('reports.compliance');
-    Route::get('/reports/attribute-table', [ReportController::class, 'attributeTable'])->name('reports.attribute-table');
-    Route::get('/reports/attribute-table/data', [ReportController::class, 'attributeTableData'])->name('reports.attribute-table.data');
-    Route::get('/reports/attribute-table/export.csv', [ReportController::class, 'attributeTableExport'])
-        ->middleware('throttle:report-export')
-        ->name('reports.attribute-table.export');
-    Route::get('/reports/donations', [ReportController::class, 'donations'])->name('reports.donations');
+    Route::middleware('can:reports.view')->group(function () {
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('/reports/inventory.csv', [ReportController::class, 'inventory'])
+            ->middleware('throttle:report-export')
+            ->name('reports.inventory');
+        Route::get('/reports/compliance.pdf', [ReportController::class, 'compliance'])
+            ->middleware('throttle:report-export')
+            ->name('reports.compliance');
+        Route::get('/reports/attribute-table', [ReportController::class, 'attributeTable'])->name('reports.attribute-table');
+        Route::get('/reports/attribute-table/data', [ReportController::class, 'attributeTableData'])->name('reports.attribute-table.data');
+        Route::get('/reports/attribute-table/export.csv', [ReportController::class, 'attributeTableExport'])
+            ->middleware('throttle:report-export')
+            ->name('reports.attribute-table.export');
+        Route::get('/reports/donations', [ReportController::class, 'donations'])->name('reports.donations');
+    });
 
-    // Audit Logs
-    Route::get('/audit-logs', [ReportController::class, 'auditLogs'])->name('audit-logs.index');
-    Route::get('/audit-logs/export.csv', [ReportController::class, 'auditLogsExport'])
-        ->middleware('throttle:report-export')
-        ->name('audit-logs.export');
+    // Audit Logs (System Admin only)
+    Route::middleware('can:audit.view')->group(function () {
+        Route::get('/audit-logs', [ReportController::class, 'auditLogs'])->name('audit-logs.index');
+        Route::get('/audit-logs/export.csv', [ReportController::class, 'auditLogsExport'])
+            ->middleware('throttle:report-export')
+            ->name('audit-logs.export');
+    });
 
     // Settings
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
-    Route::get('/settings/backup', [SettingsController::class, 'backup'])->name('settings.backup');
-    Route::get('/settings/market-prices', [MarketPriceController::class, 'index'])->name('market-prices.index');
-    Route::post('/settings/market-prices', [MarketPriceController::class, 'store'])->name('market-prices.store');
-    Route::delete('/settings/market-prices/{marketPrice}', [MarketPriceController::class, 'destroy'])->name('market-prices.destroy');
 
-    // Backup (System Admin only -- gate enforced in BackupController::run)
-    Route::post('/settings/backup/run', [BackupController::class, 'run'])
-        ->middleware('throttle:report-export')
-        ->name('backup.run');
-    Route::post('/settings/backup/settings', [BackupController::class, 'updateSettings'])
-        ->name('backup.settings.update');
+    // Market prices (System Admin only)
+    Route::middleware('can:market_prices.manage')->group(function () {
+        Route::get('/settings/market-prices', [MarketPriceController::class, 'index'])->name('market-prices.index');
+        Route::post('/settings/market-prices', [MarketPriceController::class, 'store'])->name('market-prices.store');
+        Route::delete('/settings/market-prices/{marketPrice}', [MarketPriceController::class, 'destroy'])->name('market-prices.destroy');
+    });
 
-    // Users
-    Route::get('/users', [UsersController::class, 'index'])->name('users.index');
-    Route::get('/users/create', [UsersController::class, 'create'])->name('users.create');
-    Route::post('/users', [UsersController::class, 'store'])->name('users.store');
-    Route::put('/users/{user}', [UsersController::class, 'update'])->name('users.update');
-    Route::patch('/users/{user}/toggle-active', [UsersController::class, 'toggleActive'])->name('users.toggle-active');
-    Route::post('/users/{user}/send-reset', [UsersController::class, 'sendPasswordReset'])->name('users.send-reset');
+    // Backup (System Admin only)
+    Route::middleware('can:backup.run')->group(function () {
+        Route::get('/settings/backup', [SettingsController::class, 'backup'])->name('settings.backup');
+        Route::post('/settings/backup/run', [BackupController::class, 'run'])
+            ->middleware('throttle:report-export')
+            ->name('backup.run');
+        Route::post('/settings/backup/settings', [BackupController::class, 'updateSettings'])
+            ->name('backup.settings.update');
+    });
+
+    // Users (System Admin only)
+    Route::middleware('can:users.manage')->group(function () {
+        Route::get('/users', [UsersController::class, 'index'])->name('users.index');
+        Route::get('/users/create', [UsersController::class, 'create'])->name('users.create');
+        Route::post('/users', [UsersController::class, 'store'])->name('users.store');
+        Route::put('/users/{user}', [UsersController::class, 'update'])->name('users.update');
+        Route::patch('/users/{user}/toggle-active', [UsersController::class, 'toggleActive'])->name('users.toggle-active');
+        Route::post('/users/{user}/send-reset', [UsersController::class, 'sendPasswordReset'])->name('users.send-reset');
+        Route::put('/users/{user}/permissions', [UsersController::class, 'updatePermissions'])->name('users.permissions.update');
+    });
 
     // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -151,7 +177,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     // Misc
     Route::get('/about', fn () => Inertia::render('About'))->name('about');
 
-    // DEBUG
+    // DEBUG (unchanged, but see note below)
     Route::get('/debug/receipt/{asset}', function (\App\Models\Asset $asset) {
         $receipt = $asset->acknowledgementReceipt ?? new \App\Models\AcknowledgementReceipt([
             'asset_id'       => $asset->id,

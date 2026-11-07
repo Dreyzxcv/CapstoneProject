@@ -9,7 +9,10 @@ class UpdateCaseDetailsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('assets.update_case') ?? false;
+        $asset = $this->route('asset');
+
+        return ($this->user()?->can('assets.update_case') ?? false)
+            && $this->user()->can('editAssetInformation', $asset);
     }
 
     public function rules(): array
