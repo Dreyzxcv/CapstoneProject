@@ -1,11 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Map as LeafletMap, TileLayer, Marker as LeafletMarker } from 'leaflet';
-import { MapPin, Maximize2, Minimize2, Loader2, Satellite, Map as MapIcon, Flame, Info, ChevronDown } from 'lucide-react';
-import { router } from '@inertiajs/react';
+import { useCallback, useEffect, useRef, useState } from "react";
+import type {
+    Map as LeafletMap,
+    TileLayer,
+    Marker as LeafletMarker,
+} from "leaflet";
+import {
+    MapPin,
+    Maximize2,
+    Minimize2,
+    Loader2,
+    Satellite,
+    Map as MapIcon,
+    Flame,
+    Info,
+    ChevronDown,
+} from "lucide-react";
+import { router } from "@inertiajs/react";
 
 const CATANDUANES_BOUNDS: [[number, number], [number, number]] = [
-    [13.35, 124.00],
-    [14.15, 124.50],
+    [13.35, 124.0],
+    [14.15, 124.5],
 ];
 const CATANDUANES_CENTER: [number, number] = [13.75, 124.24];
 
@@ -22,14 +36,14 @@ export interface IncidentLocation {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-    log: '#34d399',
-    equipment: '#fbbf24',
-    vehicle: '#60a5fa',
+    log: "#34d399",
+    equipment: "#fbbf24",
+    vehicle: "#60a5fa",
 };
-const MIXED_COLOR = '#c084fc';
-const FALLBACK_COLOR: string = '#f87171';
+const MIXED_COLOR = "#c084fc";
+const FALLBACK_COLOR: string = "#f87171";
 
-type MapView = 'normal' | 'satellite' | 'heat';
+type MapView = "normal" | "satellite" | "heat";
 
 function markerColor(types: string[]): string {
     if (types.length === 0) return FALLBACK_COLOR;
@@ -47,32 +61,49 @@ function parseCoordinates(value: string): { lat: number; lng: number } | null {
 }
 
 const ASSET_LEGEND = [
-    { label: 'Log / Lumber', color: TYPE_COLORS.log },
-    { label: 'Equipment / Tools', color: TYPE_COLORS.equipment },
-    { label: 'Conveyance / Vehicle', color: TYPE_COLORS.vehicle },
-    { label: 'Mixed', color: MIXED_COLOR },
+    { label: "Log / Lumber", color: TYPE_COLORS.log },
+    { label: "Equipment / Tools", color: TYPE_COLORS.equipment },
+    { label: "Conveyance / Vehicle", color: TYPE_COLORS.vehicle },
+    { label: "Mixed", color: MIXED_COLOR },
 ];
 
-const HEAT_GRADIENT = 'linear-gradient(to right, #34d399, #fbbf24, #f97316, #dc2626)';
+const HEAT_GRADIENT =
+    "linear-gradient(to right, #34d399, #fbbf24, #f97316, #dc2626)";
 
-function MapLegend({ mapView, variant }: { mapView: MapView; variant: 'inline' | 'overlay' }) {
-    const overlay = variant === 'overlay';
+function MapLegend({
+    mapView,
+    variant,
+}: {
+    mapView: MapView;
+    variant: "inline" | "overlay";
+}) {
+    const overlay = variant === "overlay";
 
-    if (mapView === 'heat') {
+    if (mapView === "heat") {
         return overlay ? (
             <div className="flex flex-col gap-1.5">
-                <span className="font-semibold text-gray-500">Concentration</span>
+                <span className="font-semibold text-gray-500">
+                    Concentration
+                </span>
                 <div className="flex items-center gap-2">
                     <span>Low</span>
-                    <span className="h-2.5 w-24 rounded-full sm:w-36" style={{ background: HEAT_GRADIENT }} />
+                    <span
+                        className="h-2.5 w-24 rounded-full sm:w-36"
+                        style={{ background: HEAT_GRADIENT }}
+                    />
                     <span>High</span>
                 </div>
             </div>
         ) : (
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 text-xs text-gray-600">
-                <span className="font-semibold text-gray-500">Concentration:</span>
+                <span className="font-semibold text-gray-500">
+                    Concentration:
+                </span>
                 <span>Low</span>
-                <span className="h-2.5 w-28 rounded-full sm:w-40" style={{ background: HEAT_GRADIENT }} />
+                <span
+                    className="h-2.5 w-28 rounded-full sm:w-40"
+                    style={{ background: HEAT_GRADIENT }}
+                />
                 <span>High</span>
             </div>
         );
@@ -80,7 +111,10 @@ function MapLegend({ mapView, variant }: { mapView: MapView; variant: 'inline' |
 
     const assetItems = ASSET_LEGEND.map(({ label, color }) => (
         <span key={label} className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white" style={{ background: color }} />
+            <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white"
+                style={{ background: color }}
+            />
             {label}
         </span>
     ));
@@ -102,7 +136,9 @@ function MapLegend({ mapView, variant }: { mapView: MapView; variant: 'inline' |
         return (
             <div className="flex flex-col gap-2">
                 <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-500">Asset type</span>
+                    <span className="font-semibold text-gray-500">
+                        Asset type
+                    </span>
                     {assetItems}
                 </div>
                 <div className="flex flex-col gap-1">
@@ -127,40 +163,58 @@ function MapLegend({ mapView, variant }: { mapView: MapView; variant: 'inline' |
     );
 }
 
-export function IncidentsMap({ incidents, height = '384px' }: { incidents: IncidentLocation[]; height?: string }) {
+export function IncidentsMap({
+    incidents,
+    height = "384px",
+}: {
+    incidents: IncidentLocation[];
+    height?: string;
+}) {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<LeafletMap | null>(null);
     const normalLayerRef = useRef<TileLayer | null>(null);
     const satelliteLayerRef = useRef<TileLayer | null>(null);
     const satelliteLabelsRef = useRef<TileLayer | null>(null);
-    const leafletModuleRef = useRef<typeof import('leaflet') | null>(null);
+    const leafletModuleRef = useRef<typeof import("leaflet") | null>(null);
     const markersRef = useRef<LeafletMarker[]>([]);
     const heatLayerRef = useRef<any>(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [mapView, setMapView] = useState<MapView>('satellite');
+    const [mapView, setMapView] = useState<MapView>("satellite");
     const [mapReady, setMapReady] = useState(false);
     const [legendOpen, setLegendOpen] = useState(true);
 
     const plottable = incidents
-        .map((incident) => ({ incident, point: parseCoordinates(incident.coordinates) }))
-        .filter((row): row is { incident: IncidentLocation; point: { lat: number; lng: number } } => row.point !== null);
+        .map((incident) => ({
+            incident,
+            point: parseCoordinates(incident.coordinates),
+        }))
+        .filter(
+            (
+                row,
+            ): row is {
+                incident: IncidentLocation;
+                point: { lat: number; lng: number };
+            } => row.point !== null,
+        );
 
     useEffect(() => {
         if (!containerRef.current || mapRef.current) return;
 
         let cancelled = false;
 
-        import('leaflet').then(async (L) => {
+        import("leaflet").then(async (L) => {
             if (cancelled || !containerRef.current || mapRef.current) return;
 
             (window as any).L = { ...L };
-            await import('leaflet.heat');
+            await import("leaflet.heat");
             if (cancelled || !containerRef.current || mapRef.current) return;
 
             leafletModuleRef.current = L;
 
-            delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
+            delete (
+                L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown }
+            )._getIconUrl;
 
             const map = L.map(containerRef.current, {
                 center: CATANDUANES_CENTER,
@@ -177,16 +231,16 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
             });
 
             const normalLayer = L.tileLayer(
-                'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                 {
-                    subdomains: 'abc',
+                    subdomains: "abc",
                     maxZoom: 19,
                 },
             );
 
             // Satellite basemap
             const satelliteLayer = L.tileLayer(
-                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
                 {
                     maxZoom: 19,
                 },
@@ -195,7 +249,7 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
             // Labels overlay shown only on top of satellite imagery so place
             // names/roads stay legible — matches Google Maps' hybrid view.
             const satelliteLabels = L.tileLayer(
-                'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+                "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
                 {
                     maxZoom: 19,
                     opacity: 0.9,
@@ -211,8 +265,10 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
             satelliteLayer.addTo(map);
             satelliteLabels.addTo(map);
 
-            L.control.zoom({ position: 'bottomright' }).addTo(map);
-            L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
+            L.control.zoom({ position: "bottomright" }).addTo(map);
+            L.control
+                .attribution({ position: "bottomright", prefix: false })
+                .addTo(map);
 
             map.fitBounds(CATANDUANES_BOUNDS);
 
@@ -252,22 +308,24 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
             const dotColor = markerColor(incident.asset_types);
 
             const icon = L.divIcon({
-                className: '',
-                html: `<span class="incident-pulse-dot${incident.is_abandoned ? ' is-abandoned' : ''}" style="--dot-color:${dotColor}"></span>`,
+                className: "",
+                html: `<span class="incident-pulse-dot${incident.is_abandoned ? " is-abandoned" : ""}" style="--dot-color:${dotColor}"></span>`,
                 iconSize: [16, 16],
                 iconAnchor: [8, 8],
             });
 
             const dateLabel = incident.date_of_apprehension
-                ? new Date(incident.date_of_apprehension).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                : 'Date not on file';
+                ? new Date(incident.date_of_apprehension).toLocaleDateString(
+                      "en-US",
+                      { month: "short", day: "numeric", year: "numeric" },
+                  )
+                : "Date not on file";
 
             const primaryAssetId = incident.asset_ids[0];
             const viewButtonId = `incident-view-${incident.id}`;
 
-            const marker = L.marker([point.lat, point.lng], { icon })
-                .bindPopup(
-                    `<div class="incident-popup">
+            const marker = L.marker([point.lat, point.lng], { icon }).bindPopup(
+                `<div class="incident-popup">
                         <div class="incident-popup-hero" style="background:${dotColor}18; border-bottom: 1px solid ${dotColor}30;">
                             <div class="incident-popup-accent" style="background:${dotColor}"></div>
                             <div class="incident-popup-hero-content">
@@ -276,7 +334,7 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                                 </div>
                                 <div>
                                     <p class="incident-popup-code">${incident.incident_code}</p>
-                                    ${incident.is_abandoned ? `<span class="incident-popup-badge-abandoned">Abandoned</span>` : ''}
+                                    ${incident.is_abandoned ? `<span class="incident-popup-badge-abandoned">Abandoned</span>` : ""}
                                 </div>
                             </div>
                         </div>
@@ -288,43 +346,47 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                             <div class="incident-popup-stats">
                                 <div class="incident-popup-stat">
                                     <span class="incident-popup-stat-value">${incident.asset_count}</span>
-                                    <span class="incident-popup-stat-label">Asset${incident.asset_count === 1 ? '' : 's'}</span>
+                                    <span class="incident-popup-stat-label">Asset${incident.asset_count === 1 ? "" : "s"}</span>
                                 </div>
                                 <div class="incident-popup-stat-divider"></div>
                                 <div class="incident-popup-stat">
-                                    <span class="incident-popup-stat-value">${dateLabel.split(' ')[2] ?? '—'}</span>
-                                    <span class="incident-popup-stat-label">${dateLabel !== 'Date not on file' ? dateLabel.split(' ').slice(0,2).join(' ') : 'No date'}</span>
+                                    <span class="incident-popup-stat-value">${dateLabel.split(" ")[2] ?? "—"}</span>
+                                    <span class="incident-popup-stat-label">${dateLabel !== "Date not on file" ? dateLabel.split(" ").slice(0, 2).join(" ") : "No date"}</span>
                                 </div>
                             </div>
                             ${
                                 primaryAssetId
                                     ? `<button id="${viewButtonId}" class="incident-popup-button" style="--btn-color:${dotColor}">
-                                        <span>View Asset${incident.asset_count > 1 ? 's' : ''}</span>
+                                        <span>View Asset${incident.asset_count > 1 ? "s" : ""}</span>
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                                     </button>`
-                                    : ''
+                                    : ""
                             }
                         </div>
                     </div>`,
-                    {
-                        className: 'incident-popup-wrapper',
-                        closeButton: true,
-                        maxWidth: 260,
-                        // Keep the popup clear of the toolbar on the top edge
-                        // and the zoom buttons at the bottom.
-                        autoPanPaddingTopLeft: [16, 72],
-                        autoPanPaddingBottomRight: [16, 140],
-                    },
-                );
+                {
+                    className: "incident-popup-wrapper",
+                    closeButton: true,
+                    maxWidth: 260,
+                    // Keep the popup clear of the toolbar on the top edge
+                    // and the zoom buttons at the bottom.
+                    autoPanPaddingTopLeft: [16, 72],
+                    autoPanPaddingBottomRight: [16, 140],
+                },
+            );
 
-                if (mapView !== 'heat') marker.addTo(map);
+            if (mapView !== "heat") marker.addTo(map);
 
             if (primaryAssetId) {
-                marker.on('popupopen', () => {
+                marker.on("popupopen", () => {
                     document
                         .getElementById(viewButtonId)
-                        ?.addEventListener('click', () => {
-                            router.visit(route('assets.index', { incident_id: incident.id }));
+                        ?.addEventListener("click", () => {
+                            router.visit(
+                                route("assets.index", {
+                                    incident_id: incident.id,
+                                }),
+                            );
                         });
                 });
             }
@@ -351,7 +413,7 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
         const satelliteLabels = satelliteLabelsRef.current;
         if (!map || !normalLayer || !satelliteLayer || !satelliteLabels) return;
 
-        if (mapView === 'normal') {
+        if (mapView === "normal") {
             map.removeLayer(satelliteLayer);
             map.removeLayer(satelliteLabels);
             if (!map.hasLayer(normalLayer)) normalLayer.addTo(map);
@@ -366,7 +428,7 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
         const map = mapRef.current;
         if (!map || !mapReady) return;
         markersRef.current.forEach((marker) => {
-            if (mapView === 'heat') marker.remove();
+            if (mapView === "heat") marker.remove();
             else if (!map.hasLayer(marker)) marker.addTo(map);
         });
     }, [mapView, mapReady, incidents]);
@@ -380,9 +442,12 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
             map.removeLayer(heatLayerRef.current);
             heatLayerRef.current = null;
         }
-        if (mapView !== 'heat' || plottable.length === 0) return;
+        if (mapView !== "heat" || plottable.length === 0) return;
 
-        const maxCount = Math.max(...plottable.map(({ incident }) => incident.asset_count), 1);
+        const maxCount = Math.max(
+            ...plottable.map(({ incident }) => incident.asset_count),
+            1,
+        );
         const points = plottable.map(({ incident, point }) => [
             point.lat,
             point.lng,
@@ -394,7 +459,12 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
             blur: 25,
             maxZoom: 14,
             minOpacity: 0.35,
-            gradient: { 0.2: '#34d399', 0.45: '#fbbf24', 0.7: '#f97316', 1.0: '#dc2626' },
+            gradient: {
+                0.2: "#34d399",
+                0.45: "#fbbf24",
+                0.7: "#f97316",
+                1.0: "#dc2626",
+            },
         }).addTo(map);
 
         return () => {
@@ -409,7 +479,8 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
     // rotation, browser resize, sidebar collapse) — not only on fullscreen.
     useEffect(() => {
         const container = containerRef.current;
-        if (!container || !mapReady || typeof ResizeObserver === 'undefined') return;
+        if (!container || !mapReady || typeof ResizeObserver === "undefined")
+            return;
 
         const observer = new ResizeObserver(() => {
             mapRef.current?.invalidateSize();
@@ -441,19 +512,19 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
 
         // Prevent the page behind the fullscreen map from scrolling.
         const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
+        document.body.style.overflow = "hidden";
 
         function handleKeyDown(e: KeyboardEvent) {
-            if (e.key === 'Escape') {
+            if (e.key === "Escape") {
                 setIsFullscreen(false);
             }
         }
 
-        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener("keydown", handleKeyDown);
 
         return () => {
             document.body.style.overflow = previousOverflow;
-            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener("keydown", handleKeyDown);
         };
     }, [isFullscreen, refreshMapSize]);
 
@@ -669,15 +740,18 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
 
             {/* Backdrop behind the fullscreen map */}
             {isFullscreen && (
-                <div className="fixed inset-0 z-[9998] bg-gray-900/60 backdrop-blur-sm" onClick={toggleFullscreen} />
+                <div
+                    className="fixed inset-0 z-[9998] bg-gray-900/60 backdrop-blur-sm"
+                    onClick={toggleFullscreen}
+                />
             )}
 
             <div
                 className={
-                    'incident-map-shell isolate ' +
+                    "incident-map-shell isolate " +
                     (isFullscreen
-                        ? 'fixed inset-4 z-[9999] overflow-hidden rounded-xl border border-gray-200 shadow-2xl sm:inset-8'
-                        : 'relative w-full overflow-hidden rounded-xl border border-gray-200 shadow-sm')
+                        ? "fixed inset-4 z-[9999] overflow-hidden rounded-xl border border-gray-200 shadow-2xl sm:inset-8"
+                        : "relative w-full overflow-hidden rounded-xl border border-gray-200 shadow-sm")
                 }
                 style={isFullscreen ? undefined : { height }}
             >
@@ -697,7 +771,8 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                             No incidents with coordinates for this filter.
                         </p>
                         <p className="max-w-xs text-xs text-gray-400">
-                            Try a different month or year, or clear the filter to see everything.
+                            Try a different month or year, or clear the filter
+                            to see everything.
                         </p>
                     </div>
                 )}
@@ -707,48 +782,68 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                 <div className="absolute left-3 top-3 z-[1000] flex max-w-[calc(100%-4.5rem)] items-center rounded-lg bg-white/95 p-1 shadow-md ring-1 ring-black/5 backdrop-blur-sm sm:max-w-none">
                     <button
                         type="button"
-                        onClick={() => setMapView('normal')}
+                        onClick={() => setMapView("normal")}
                         aria-label="Normal map"
-                        aria-pressed={mapView === 'normal'}
+                        aria-pressed={mapView === "normal"}
                         className={
-                            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ' +
-                            (mapView === 'normal'
-                                ? 'bg-emerald-700 text-white'
-                                : 'text-gray-600 hover:bg-gray-100')
+                            "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition " +
+                            (mapView === "normal"
+                                ? "bg-emerald-700 text-white"
+                                : "text-gray-600 hover:bg-gray-100")
                         }
                     >
                         <MapIcon className="h-3.5 w-3.5 shrink-0" />
-                        <span className={mapView === 'normal' ? '' : 'hidden sm:inline'}>Normal</span>
+                        <span
+                            className={
+                                mapView === "normal" ? "" : "hidden sm:inline"
+                            }
+                        >
+                            Normal
+                        </span>
                     </button>
                     <button
                         type="button"
-                        onClick={() => setMapView('satellite')}
+                        onClick={() => setMapView("satellite")}
                         aria-label="Satellite map"
-                        aria-pressed={mapView === 'satellite'}
+                        aria-pressed={mapView === "satellite"}
                         className={
-                            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ' +
-                            (mapView === 'satellite'
-                                ? 'bg-emerald-700 text-white'
-                                : 'text-gray-600 hover:bg-gray-100')
+                            "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition " +
+                            (mapView === "satellite"
+                                ? "bg-emerald-700 text-white"
+                                : "text-gray-600 hover:bg-gray-100")
                         }
                     >
                         <Satellite className="h-3.5 w-3.5 shrink-0" />
-                        <span className={mapView === 'satellite' ? '' : 'hidden sm:inline'}>Satellite</span>
+                        <span
+                            className={
+                                mapView === "satellite"
+                                    ? ""
+                                    : "hidden sm:inline"
+                            }
+                        >
+                            Satellite
+                        </span>
                     </button>
                     <button
                         type="button"
-                        onClick={() => setMapView('heat')}
+                        onClick={() => setMapView("heat")}
                         aria-label="Heat map"
-                        aria-pressed={mapView === 'heat'}
+                        aria-pressed={mapView === "heat"}
                         className={
-                            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ' +
-                            (mapView === 'heat'
-                                ? 'bg-emerald-700 text-white'
-                                : 'text-gray-600 hover:bg-gray-100')
+                            "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition " +
+                            (mapView === "heat"
+                                ? "bg-emerald-700 text-white"
+                                : "text-gray-600 hover:bg-gray-100")
                         }
                     >
                         <Flame className="h-3.5 w-3.5 shrink-0" />
-                        <span className={mapView === 'heat' ? '' : 'hidden sm:inline'}>Heat Map</span>
+                        <span
+                            className={
+                                mapView === "heat" ? "" : "hidden sm:inline"
+                            }
+                        >
+                            Heat Map
+                        </span>
                     </button>
                 </div>
 
@@ -756,12 +851,16 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                     type="button"
                     onClick={toggleFullscreen}
                     className="absolute right-3 top-3 z-[1000] flex items-center gap-1.5 rounded-lg bg-white/95 px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-md ring-1 ring-black/5 backdrop-blur-sm transition hover:bg-white"
-                    aria-label={isFullscreen ? 'Exit fullscreen' : 'View fullscreen'}
+                    aria-label={
+                        isFullscreen ? "Exit fullscreen" : "View fullscreen"
+                    }
                 >
                     {isFullscreen ? (
                         <>
                             <Minimize2 className="h-3.5 w-3.5 shrink-0" />
-                            <span className="hidden sm:inline">Exit Fullscreen</span>
+                            <span className="hidden sm:inline">
+                                Exit Fullscreen
+                            </span>
                         </>
                     ) : (
                         <>
@@ -772,27 +871,37 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                 </button>
                 {isFullscreen && (
                     <div className="absolute bottom-8 left-3 z-[1000] max-w-[calc(100%-5.5rem)]">
-                            <div className="max-h-[45svh] overflow-y-auto rounded-lg bg-white/95 text-xs text-gray-600 shadow-md ring-1 ring-black/5 backdrop-blur-sm">
-                                <button
-                                    type="button"
-                                    onClick={() => setLegendOpen((prev) => !prev)}
-                                    aria-expanded={legendOpen}
-                                    aria-label={legendOpen ? 'Hide legend' : 'Show legend'}
-                                    className="flex w-full items-center gap-1.5 px-2.5 py-1.5 font-medium text-gray-700 hover:bg-gray-50"
-                                >
-                                    <Info className="h-3.5 w-3.5 shrink-0" />
-                                    <span>Legend</span>
-                                    <ChevronDown className={'ml-auto h-3.5 w-3.5 shrink-0 transition-transform ' + (legendOpen ? '' : '-rotate-90')} />
-                                </button>
-                                {legendOpen && (
-                                    <div className="border-t border-gray-100 px-2.5 py-2">
-                                        <MapLegend mapView={mapView} variant="overlay" />
-                                    </div>
-                                )}
-                            </div>
+                        <div className="max-h-[45svh] overflow-y-auto rounded-lg bg-white/95 text-xs text-gray-600 shadow-md ring-1 ring-black/5 backdrop-blur-sm">
+                            <button
+                                type="button"
+                                onClick={() => setLegendOpen((prev) => !prev)}
+                                aria-expanded={legendOpen}
+                                aria-label={
+                                    legendOpen ? "Hide legend" : "Show legend"
+                                }
+                                className="flex w-full items-center gap-1.5 px-2.5 py-1.5 font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                                <Info className="h-3.5 w-3.5 shrink-0" />
+                                <span>Legend</span>
+                                <ChevronDown
+                                    className={
+                                        "ml-auto h-3.5 w-3.5 shrink-0 transition-transform " +
+                                        (legendOpen ? "" : "-rotate-90")
+                                    }
+                                />
+                            </button>
+                            {legendOpen && (
+                                <div className="border-t border-gray-100 px-2.5 py-2">
+                                    <MapLegend
+                                        mapView={mapView}
+                                        variant="overlay"
+                                    />
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
+            </div>
             {!isFullscreen && <MapLegend mapView={mapView} variant="inline" />}
         </>
     );
