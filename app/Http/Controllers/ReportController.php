@@ -122,9 +122,10 @@ class ReportController extends Controller
             'recentActivity'      => $recentActivity,
             'incidentLocations'   => $incidentLocations,
             'can' => [
-                'export'        => $request->user()?->can('reports.export') ?? false,
-                'viewAudit'     => $request->user()?->can('viewAny', AuditLog::class) ?? false,
-                'viewDonations' => $request->user()?->can('viewAny', \App\Models\Disposal::class) ?? false,
+                'export'             => $request->user()?->can('reports.export') ?? false,
+                'viewAudit'          => $request->user()?->can('viewAny', AuditLog::class) ?? false,
+                'viewDonations'      => $request->user()?->can('viewAny', \App\Models\Disposal::class) ?? false,
+                'viewAttributeTable' => $this->canViewAttributeTable($request),
             ],
         ]);
     }
@@ -388,8 +389,21 @@ class ReportController extends Controller
         ]);
     }
 
+    private const ATTRIBUTE_TABLE_ROLE = 'System Admin';
+
+    protected function canViewAttributeTable(Request $request): bool
+    {
+        return $request->user()?->hasRole(self::ATTRIBUTE_TABLE_ROLE) ?? false;
+    }
+
+    protected function authorizeAttributeTable(Request $request): void
+    {
+        abort_unless($this->canViewAttributeTable($request), 403);
+    }
+
     public function attributeTable(Request $request): Response
     {
+        $this->authorizeAttributeTable($request);
         $this->authorize('viewAny', Asset::class);
 
         return Inertia::render('Reports/AttributeTable', $this->resolveAttributeTableData($request));
@@ -397,6 +411,7 @@ class ReportController extends Controller
 
     public function attributeTableData(Request $request): \Illuminate\Http\JsonResponse
     {
+        $this->authorizeAttributeTable($request);
         $this->authorize('viewAny', Asset::class);
 
         return response()->json($this->resolveAttributeTableData($request));
@@ -434,6 +449,7 @@ class ReportController extends Controller
 
     public function attributeTableExport(Request $request): StreamedResponse
     {
+        $this->authorizeAttributeTable($request);
         $this->authorize('viewAny', Asset::class);
         abort_unless($request->user()?->can('reports.export'), 403);
 
