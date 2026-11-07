@@ -81,6 +81,7 @@ interface ReportsIndexProps {
         export: boolean;
         viewAudit: boolean;
         viewDonations: boolean;
+        viewAttributeTable: boolean;
     };
 }
 
@@ -474,7 +475,7 @@ export default function ReportsIndex({
                 );
 
                 return `    <Placemark>
-      <n>${escapeXml(incident.incident_code)}</n>
+      <name>${escapeXml(incident.incident_code)}</name>
       <description>${description}</description>
       <Point>
         <coordinates>${point.lng},${point.lat},0</coordinates>
@@ -487,7 +488,7 @@ export default function ReportsIndex({
         const kml = `<?xml version="1.0" encoding="UTF-8"?>
             <kml xmlns="http://www.opengis.net/kml/2.2">
             <Document>
-                <n>ForesTrack — Confiscation Locations</n>
+            <name>ForesTrack - Confiscation Locations</name>
             ${placemarks}
             </Document>
             </kml>`;
@@ -569,9 +570,11 @@ export default function ReportsIndex({
                                 <Button variant="outline">Donations</Button>
                             </Link>
                         )}
-                        <Button variant="outline" onClick={() => setShowAttributeTable(true)}>
-                            Full Asset Table
-                        </Button>
+                        {can.viewAttributeTable && (
+                            <Button variant="outline" onClick={() => setShowAttributeTable(true)}>
+                                Full Asset Table
+                            </Button>
+                        )}
                     </div>
                 </div>
             }
@@ -1174,7 +1177,9 @@ export default function ReportsIndex({
                 </div>
 
             </div>
-            <AttributeTableModal show={showAttributeTable} onClose={() => setShowAttributeTable(false)} />
+            {can.viewAttributeTable && (
+                <AttributeTableModal show={showAttributeTable} onClose={() => setShowAttributeTable(false)} />
+            )}
         </AuthenticatedLayout>
     );
 }
