@@ -10,6 +10,7 @@ import { AlertCircle, ChevronRight, Plus, ScanLine, Trash2 } from 'lucide-react'
 import AssetScanModal, { ScannedAsset } from '@/Components/shared/AssetScanModal';
 import PiecePickerModal, { AssetPieceData } from '@/Components/shared/PiecePickerModal';
 import MultiStepWizard from '@/Components/shared/MultiStepWizard';
+import { DraftRestoreModal, NF_HIGHLIGHT_CSS, cx, useWizardDraft } from '@/Components/shared/WizardDraft';
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -221,7 +222,7 @@ export default function CreateBatchDonation({
 
     const assetsById = useMemo(() => new Map(allAssets.map((a) => [String(a.id), a])), [allAssets]);
 
-    const { data, setData, post, processing, errors, clearErrors } = useForm({
+    const { data, setData, post, processing, errors, clearErrors, reset, isDirty } = useForm({
         lines: [{ asset_id: '', quantity: '', piece_ids: undefined as number[] | undefined }] as DonationLine[],
         requester_name: '',
         donee_position: '',
@@ -250,6 +251,14 @@ export default function CreateBatchDonation({
     const isLast = currentStepId === 'review';
     const stepList = STEPS.map((id) => ({ id, label: STEP_META[id].label }));
     const meta = STEP_META[currentStepId];
+
+    const draft = useWizardDraft({
+        storageKey: 'forestrack_donation_batch_draft',
+        data,
+        step: stepIndex,
+        isDirty,
+        onRestore: applyDraft,
+    });
 
     /* ------------------------------ validation ----------------------------- */
 
@@ -338,6 +347,13 @@ export default function CreateBatchDonation({
         return (showErrors ? stepErrors[key] : undefined) ?? serverErrors[key];
     }
 
+    // Next thing to fill = first validation error on the active step, or the
+    // Next/Confirm button once the step is complete.
+    const nextTarget = Object.keys(stepErrors)[0] ?? 'next_btn';
+    const hl = (key: string) => (nextTarget === key && !fieldError(key) ? 'nf-highlight' : undefined);
+    const ic = (key: string) => cx(inputCls(fieldError(key)), hl(key));
+    const sc = (key: string) => cx(selectCls(fieldError(key)), hl(key));
+
     /* ------------------------------ effects -------------------------------- */
 
     useEffect(() => {
@@ -353,6 +369,41 @@ export default function CreateBatchDonation({
     }, [attempt]);
 
     /* ------------------------------ form helpers --------------------------- */
+
+    function applyDraft(saved: Partial<typeof data>, step: number) {
+        // Drop lines pointing at assets/pieces that are no longer available
+        // (e.g. assets added via QR scan in the previous session).
+        const lines: DonationLine[] = (Array.isArray(saved.lines) ? saved.lines : [])
+            .filter((l) => l && (l.asset_id === '' || assetsById.has(String(l.asset_id))))
+            .map((l) => {
+                const a = assetsById.get(String(l.asset_id));
+                const hadIds = !!l.piece_ids?.length;
+                const ids = (l.piece_ids ?? []).filter((id) => a?.pieces?.some((p) => p.id === id));
+                return {
+                    asset_id: String(l.asset_id),
+                    quantity: hadIds ? String(ids.length || '') : String(l.quantity ?? ''),
+                    piece_ids: ids.length ? ids : undefined,
+                };
+            });
+        const municipality = municipalities.some((m) => m.value === saved.municipality)
+            ? String(saved.municipality)
+            : (municipalities[0]?.value ?? '');
+
+        setData((prev) => ({ ...prev, ...saved, lines: lines.length ? lines : prev.lines, municipality }) as typeof data);
+        setStepIndex(Math.min(step, STEPS.length - 1));
+        setShowErrors(false);
+        clearErrors();
+    }
+
+    function discardDraft() {
+        if (!confirm('Discard this draft and start over?')) return;
+        draft.discard();
+        reset();
+        clearErrors();
+        setExtraAssets([]);
+        setShowErrors(false);
+        setStepIndex(0);
+    }
 
     function setField(key: keyof typeof data, value: any) {
         (setData as any)(key, value);
@@ -509,7 +560,7 @@ export default function CreateBatchDonation({
             .join(', ');
 
         if (confirm(`Confirm donation of ${lineSummaries} to ${data.requester_name || 'this recipient'}? This cannot be undone.`)) {
-            post(route('disposals.donate.store'), { onError: handleServerErrors });
+            post(route('disposals.donate.store'), { onError: handleServerErrors, onSuccess: () => draft.clear() });
         }
     };
 
@@ -537,7 +588,7 @@ export default function CreateBatchDonation({
                                         id={`asset-${index}`}
                                         value={line.asset_id}
                                         onChange={(e) => updateLine(index, 'asset_id', e.target.value)}
-                                        className={selectCls(fieldError(assetErrKey))}
+                                        className={sc(assetErrKey)}
                                     >
                                         <option value="" disabled>
                                             Select an asset…
@@ -561,7 +612,7 @@ export default function CreateBatchDonation({
                                             disabled={!selectedAsset}
                                             className={`mt-1 flex w-full items-center justify-between rounded-md border bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 ${
                                                 fieldError(qtyErrKey) ? 'border-red-400' : 'border-gray-300'
-                                            }`}
+                                            } ${hl(qtyErrKey) ?? ''}`}
                                         >
                                             <span className={line.piece_ids?.length ? 'text-gray-900' : 'text-gray-400'}>
                                                 {line.piece_ids?.length
@@ -582,7 +633,7 @@ export default function CreateBatchDonation({
                                             onChange={(e) => updateLine(index, 'quantity', e.target.value)}
                                             disabled={!selectedAsset}
                                             placeholder={!selectedAsset ? 'Select an asset first' : ''}
-                                            className={inputCls(fieldError(qtyErrKey))}
+                                            className={ic(qtyErrKey)}
                                         />
                                     )}
                                     <InputError message={fieldError(qtyErrKey)} className="mt-1" />
@@ -641,7 +692,7 @@ export default function CreateBatchDonation({
                         id="organization_type"
                         value={data.organization_type}
                         onChange={(e) => setField('organization_type', e.target.value)}
-                        className={selectCls(fieldError('organization_type'))}
+                        className={sc('organization_type')}
                     >
                         <option value="" disabled>Select organization type…</option>
                         {ORG_TYPES.map((o) => (
@@ -658,7 +709,7 @@ export default function CreateBatchDonation({
                             id="organization_type_other"
                             value={data.organization_type_other}
                             onChange={(e) => setField('organization_type_other', e.target.value)}
-                            className={inputCls(fieldError('organization_type_other'))}
+                            className={ic('organization_type_other')}
                         />
                     </Field>
                 )}
@@ -674,7 +725,7 @@ export default function CreateBatchDonation({
                         placeholder="Agency / Institution Name"
                         value={data.agency_name}
                         onChange={(e) => setField('agency_name', e.target.value)}
-                        className={inputCls(fieldError('agency_name'))}
+                        className={ic('agency_name')}
                     />
                 </Field>
 
@@ -683,7 +734,7 @@ export default function CreateBatchDonation({
                         id="requester_name"
                         value={data.requester_name}
                         onChange={(e) => setField('requester_name', e.target.value)}
-                        className={inputCls(fieldError('requester_name'))}
+                        className={ic('requester_name')}
                     />
                 </Field>
 
@@ -696,7 +747,7 @@ export default function CreateBatchDonation({
                                 id="municipality"
                                 value={data.municipality}
                                 onChange={(e) => handleMunicipalityChange(e.target.value)}
-                                className={selectCls(fieldError('municipality'))}
+                                className={sc('municipality')}
                             >
                                 {municipalities.map((m) => (
                                     <option key={m.value} value={m.value}>
@@ -712,7 +763,7 @@ export default function CreateBatchDonation({
                                 id="barangay"
                                 value={data.barangay}
                                 onChange={(e) => setField('barangay', e.target.value)}
-                                className={selectCls(fieldError('barangay'))}
+                                className={sc('barangay')}
                             >
                                 <option value="" disabled>
                                     Select barangay…
@@ -735,7 +786,7 @@ export default function CreateBatchDonation({
                             placeholder="e.g. Purok 3, Zone 2"
                             value={data.street}
                             onChange={(e) => setField('street', e.target.value)}
-                            className={inputCls(fieldError('street'))}
+                            className={ic('street')}
                         />
                         <InputError message={fieldError('street')} className="mt-1" />
                     </div>
@@ -758,7 +809,7 @@ export default function CreateBatchDonation({
                         placeholder="Donee Position"
                         value={data.donee_position}
                         onChange={(e) => setField('donee_position', e.target.value)}
-                        className={inputCls(fieldError('donee_position'))}
+                        className={ic('donee_position')}
                     />
                 </Field>
 
@@ -773,7 +824,7 @@ export default function CreateBatchDonation({
                         placeholder="e.g. for the improvement and renovation of the office space"
                         value={data.purpose_statement}
                         onChange={(e) => setField('purpose_statement', e.target.value)}
-                        className={inputCls(fieldError('purpose_statement'))}
+                        className={ic('purpose_statement')}
                     />
                 </Field>
 
@@ -787,7 +838,7 @@ export default function CreateBatchDonation({
                         id="confiscation_order_reference"
                         value={data.confiscation_order_reference}
                         onChange={(e) => setField('confiscation_order_reference', e.target.value)}
-                        className={inputCls(fieldError('confiscation_order_reference'))}
+                        className={ic('confiscation_order_reference')}
                     />
                 </Field>
             </>
@@ -810,7 +861,7 @@ export default function CreateBatchDonation({
                         placeholder={namePh}
                         value={data[nameKey]}
                         onChange={(e) => setField(nameKey, e.target.value)}
-                        className={inputCls(fieldError(nameKey))}
+                        className={ic(nameKey)}
                     />
                 </Field>
                 <Field id={titleKey} label={titleLabel} error={fieldError(titleKey)}>
@@ -819,7 +870,7 @@ export default function CreateBatchDonation({
                         placeholder={titlePh}
                         value={data[titleKey]}
                         onChange={(e) => setField(titleKey, e.target.value)}
-                        className={inputCls(fieldError(titleKey))}
+                        className={ic(titleKey)}
                     />
                 </Field>
             </div>
@@ -929,7 +980,7 @@ export default function CreateBatchDonation({
                         id="notes"
                         value={data.notes}
                         onChange={(e) => setField('notes', e.target.value)}
-                        className={inputCls(fieldError('notes'))}
+                        className={ic('notes')}
                     />
                 </Field>
 
@@ -963,8 +1014,24 @@ export default function CreateBatchDonation({
     /* --------------------------------- render ------------------------------ */
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">Donate Assets</h2>}>
+        <AuthenticatedLayout
+            header={
+                <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold text-gray-800">Donate Assets</h2>
+                    {(isDirty || stepIndex > 0) && (
+                        <button
+                            type="button"
+                            onClick={discardDraft}
+                            className="text-xs font-medium text-gray-400 transition hover:text-red-600"
+                        >
+                            Discard Draft
+                        </button>
+                    )}
+                </div>
+            }
+        >
             <Head title="Donate Assets" />
+            <style>{NF_HIGHLIGHT_CSS}</style>
 
             <div ref={topRef} className="mx-auto max-w-3xl scroll-mt-4 px-4 sm:px-6 lg:px-8">
                 {assets.length === 0 ? (
@@ -989,6 +1056,7 @@ export default function CreateBatchDonation({
                         submitOnLast
                         finishLabel="Confirm Donation"
                         processing={processing}
+                        nextClassName={nextTarget === 'next_btn' ? 'nf-highlight' : undefined}
                         cancelHref={route('disposals.index')}
                     >
                         <Card>
@@ -1018,6 +1086,8 @@ export default function CreateBatchDonation({
                     </MultiStepWizard>
                 )}
             </div>
+
+            <DraftRestoreModal show={draft.promptOpen} onRestore={draft.restore} onStartFresh={draft.startFresh} />
 
             <AssetScanModal show={scanning} onClose={() => setScanning(false)} onFound={handleAssetScanned} />
             {piecePickerLine !== null && pickerAsset && pickerLine && (

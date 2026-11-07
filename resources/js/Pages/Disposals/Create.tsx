@@ -11,7 +11,7 @@ import { AlertCircle, Check, ChevronRight, Plus, ScanLine, Trash2 } from 'lucide
 import AssetScanModal, { ScannedAsset } from '@/Components/shared/AssetScanModal';
 import PiecePickerModal, { AssetPieceData } from '@/Components/shared/PiecePickerModal';
 import MultiStepWizard from '@/Components/shared/MultiStepWizard';
-
+import { DraftRestoreModal, NF_HIGHLIGHT_CSS, cx, useWizardDraft } from '@/Components/shared/WizardDraft';
 
 interface Option {
     value: string;
@@ -332,7 +332,7 @@ export default function DisposalsCreate({
         piece_ids: undefined,
     });
 
-    const { data, setData, post, transform, processing, errors, clearErrors } = useForm({
+    const { data, setData, post, transform, processing, errors, clearErrors, reset, isDirty } = useForm({
         disposal_type: '',
         quantity: String(assetQuantity),
         lines: [defaultLine()] as DonationLine[],
@@ -382,6 +382,15 @@ export default function DisposalsCreate({
     const isDecayed = group === 'decayed';
     const isFabrication = group === 'fabrication';
     const isVehicleDecision = group === 'vehicle';
+    const draft = useWizardDraft({
+        storageKey: `forestrack_disposal_draft_${asset.id}`, // one draft per asset
+        data,
+        step: stepIndex,
+        isDirty,
+        // Files can't be serialized; the user re-selects them after restoring.
+        serialize: (d) => ({ ...d, decay_photo: null, fabrication_attachments: [] }),
+        onRestore: applyDraft,
+    });
     const steps: StepId[] = data.disposal_type ? STEP_FLOWS[group] : ['type'];
     const safeIndex = Math.min(stepIndex, steps.length - 1);
     const currentStepId = steps[safeIndex];
@@ -554,6 +563,13 @@ export default function DisposalsCreate({
         return (showErrors ? stepErrors[key] : undefined) ?? serverErrors[key];
     }
 
+    // Next thing to fill = first validation error on the active step (the
+    // validators already follow the selected disposal type's step flow).
+    const nextTarget = Object.keys(stepErrors)[0] ?? 'next_btn';
+    const hl = (key: string) => (nextTarget === key && !fieldError(key) ? 'nf-highlight' : undefined);
+    const ic = (key: string) => cx(inputCls(fieldError(key)), hl(key));
+    const sc = (key: string) => cx(selectCls(fieldError(key)), hl(key));
+
     /* ------------------------------ effects -------------------------------- */
 
     useEffect(() => {
@@ -569,6 +585,69 @@ export default function DisposalsCreate({
     }, [attempt]);
 
     /* ------------------------------ form helpers --------------------------- */
+
+    function applyDraft(saved: Partial<typeof data>, step: number) {
+        const type = disposalTypes.some((t) => t.value === saved.disposal_type) ? String(saved.disposal_type) : '';
+        const savedGroup = groupFor(type);
+
+        // Drop lines pointing at assets/pieces that are no longer available
+        // (e.g. assets added via QR scan in the previous session).
+        let lines: DonationLine[] = (Array.isArray(saved.lines) ? saved.lines : [])
+            .filter((l) => l && (l.asset_id === '' || assetsById.has(String(l.asset_id))))
+            .map((l) => {
+                const a = assetsById.get(String(l.asset_id));
+                const hadIds = !!l.piece_ids?.length;
+                const ids = (l.piece_ids ?? []).filter((id) => a?.pieces.some((p) => p.id === id));
+                return {
+                    asset_id: String(l.asset_id),
+                    quantity: hadIds ? String(ids.length || '') : String(l.quantity ?? ''),
+                    piece_ids: ids.length ? ids : undefined,
+                };
+            });
+
+        if (savedGroup !== 'donation') {
+            lines = lines[0]?.asset_id === String(asset.id) ? [lines[0]] : [defaultLine()];
+        } else if (!lines.length) {
+            lines = [defaultLine()];
+        }
+
+        // For single-asset types the first line is the source of truth, so the
+        // top-level quantity can never disagree with the restored piece selection.
+        const quantity =
+            savedGroup !== 'donation'
+                ? lines[0].quantity || String(saved.quantity ?? assetQuantity)
+                : String(saved.quantity ?? assetQuantity);
+        const municipality = municipalities.some((m) => m.value === saved.municipality)
+            ? String(saved.municipality)
+            : (municipalities[0]?.value ?? '');
+
+        setData(
+            (prev) =>
+                ({
+                    ...prev,
+                    ...saved,
+                    disposal_type: type,
+                    lines,
+                    quantity,
+                    municipality,
+                    decay_photo: null,
+                    fabrication_attachments: [],
+                }) as typeof data,
+        );
+        setStepIndex(step);
+        setShowErrors(false);
+        clearErrors();
+    }
+
+    function discardDraft() {
+        if (!confirm('Discard this draft and start over?')) return;
+        draft.discard();
+        reset();
+        clearErrors();
+        setExtraAssets([]);
+        setShowErrors(false);
+        setStepIndex(0);
+    }
 
     function setField(key: keyof typeof data, value: any) {
         (setData as any)(key, value);
@@ -737,7 +816,7 @@ export default function DisposalsCreate({
                     `Confirm donation of ${lineSummaries} to ${data.requester_name || 'this recipient'}? This cannot be undone.`,
                 )
             ) {
-                post(route('disposals.donate.store'), { onError: handleServerErrors });
+                post(route('disposals.donate.store'), { onError: handleServerErrors, onSuccess: () => draft.clear() });
             }
             return;
         }
@@ -749,7 +828,7 @@ export default function DisposalsCreate({
         if (confirm(confirmMsg)) {
             // Send the picked pieces so the server marks exactly those as disposed.
             transform((d) => ({ ...d, piece_ids: d.lines[0]?.piece_ids ?? [] }));
-            post(route('disposals.store', asset.id), { onError: handleServerErrors });
+            post(route('disposals.store', asset.id), { onError: handleServerErrors, onSuccess: () => draft.clear() });
         }
     };
 
@@ -774,7 +853,7 @@ export default function DisposalsCreate({
                                 onClick={() => handleTypeChange(t.value)}
                                 className={`flex items-start gap-3 rounded-lg border p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                                     selected ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 bg-white hover:bg-gray-50'
-                                }`}
+                                } ${hl('disposal_type') ?? ''}`}
                             >
                                 <span
                                     className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
@@ -822,7 +901,7 @@ export default function DisposalsCreate({
                         disabled={!selectedAsset}
                         className={`mt-1 flex w-full items-center justify-between rounded-md border bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 ${
                             fieldError(errKey) ? 'border-red-400' : 'border-gray-300'
-                        }`}
+                        } ${hl(errKey) ?? ''}`}
                     >
                         <span className={hasValue ? 'text-gray-900' : 'text-gray-400'}>{label}</span>
                         <ChevronRight className="h-4 w-4 text-gray-400" />
@@ -837,7 +916,7 @@ export default function DisposalsCreate({
                         onChange={(e) => onQty(e.target.value)}
                         disabled={!selectedAsset}
                         placeholder={!selectedAsset ? 'Select an AAP No. first' : ''}
-                        className={inputCls(fieldError(errKey))}
+                        className={ic(errKey)}
                     />
                 )}
                 <InputError message={fieldError(errKey)} className="mt-1" />
@@ -911,7 +990,7 @@ export default function DisposalsCreate({
                                             id={`line-asset-${index}`}
                                             value={line.asset_id}
                                             onChange={(e) => updateLine(index, 'asset_id', e.target.value)}
-                                            className={selectCls(fieldError(`lines.${index}.asset_id`))}
+                                            className={sc(`lines.${index}.asset_id`)}
                                         >
                                             <option value="" disabled>
                                                 Select an AAP No.…
@@ -1012,7 +1091,7 @@ export default function DisposalsCreate({
                         max={assetQuantity}
                         value={data.quantity}
                         onChange={(e) => setField('quantity', e.target.value)}
-                        className={inputCls(fieldError('quantity'))}
+                        className={ic('quantity')}
                     />
                     <p className="mt-1 text-xs text-gray-500">
                         Out of {assetQuantity} unit(s) currently on hand.
@@ -1036,7 +1115,7 @@ export default function DisposalsCreate({
                         id="organization_type"
                         value={data.organization_type}
                         onChange={(e) => setField('organization_type', e.target.value)}
-                        className={selectCls(fieldError('organization_type'))}
+                        className={sc('organization_type')}
                     >
                         <option value="" disabled>Select organization type…</option>
                         {ORG_TYPES.map((o) => (
@@ -1053,7 +1132,7 @@ export default function DisposalsCreate({
                             id="organization_type_other"
                             value={data.organization_type_other}
                             onChange={(e) => setField('organization_type_other', e.target.value)}
-                            className={inputCls(fieldError('organization_type_other'))}
+                            className={ic('organization_type_other')}
                         />
                     </Field>
                 )}
@@ -1069,7 +1148,7 @@ export default function DisposalsCreate({
                         placeholder="e.g. Virac Fire Station"
                         value={data.agency_name}
                         onChange={(e) => setField('agency_name', e.target.value)}
-                        className={inputCls(fieldError('agency_name'))}
+                        className={ic('agency_name')}
                     />
                 </Field>
 
@@ -1078,7 +1157,7 @@ export default function DisposalsCreate({
                         id="requester_name"
                         value={data.requester_name}
                         onChange={(e) => setField('requester_name', e.target.value)}
-                        className={inputCls(fieldError('requester_name'))}
+                        className={ic('requester_name')}
                     />
                 </Field>
 
@@ -1093,7 +1172,7 @@ export default function DisposalsCreate({
                         placeholder="e.g. Acting Municipal Fire Marshal"
                         value={data.donee_position}
                         onChange={(e) => setField('donee_position', e.target.value)}
-                        className={inputCls(fieldError('donee_position'))}
+                        className={ic('donee_position')}
                     />
                 </Field>
 
@@ -1108,7 +1187,7 @@ export default function DisposalsCreate({
                         placeholder="e.g. for the improvement and renovation of the office space"
                         value={data.purpose_statement}
                         onChange={(e) => setField('purpose_statement', e.target.value)}
-                        className={inputCls(fieldError('purpose_statement'))}
+                        className={ic('purpose_statement')}
                     />
                 </Field>
 
@@ -1123,7 +1202,7 @@ export default function DisposalsCreate({
                         placeholder="e.g. CO-2026-0042"
                         value={data.confiscation_order_reference}
                         onChange={(e) => setField('confiscation_order_reference', e.target.value)}
-                        className={inputCls(fieldError('confiscation_order_reference'))}
+                        className={ic('confiscation_order_reference')}
                     />
                 </Field>
             </>
@@ -1142,7 +1221,7 @@ export default function DisposalsCreate({
                                 id="municipality"
                                 value={data.municipality}
                                 onChange={(e) => handleMunicipalityChange(e.target.value)}
-                                className={selectCls(fieldError('municipality'))}
+                                className={sc('municipality')}
                             >
                                 {municipalities.map((m) => (
                                     <option key={m.value} value={m.value}>
@@ -1158,7 +1237,7 @@ export default function DisposalsCreate({
                                 id="barangay"
                                 value={data.barangay}
                                 onChange={(e) => setField('barangay', e.target.value)}
-                                className={selectCls(fieldError('barangay'))}
+                                className={sc('barangay')}
                             >
                                 <option value="" disabled>
                                     Select barangay…
@@ -1179,7 +1258,7 @@ export default function DisposalsCreate({
                             placeholder="e.g. Purok 3, Zone 2"
                             value={data.street}
                             onChange={(e) => setField('street', e.target.value)}
-                            className={inputCls(fieldError('street'))}
+                            className={ic('street')}
                         />
                         <InputError message={fieldError('street')} className="mt-1" />
                     </div>
@@ -1204,7 +1283,7 @@ export default function DisposalsCreate({
                         placeholder={namePh}
                         value={data[nameKey]}
                         onChange={(e) => setField(nameKey, e.target.value)}
-                        className={inputCls(fieldError(nameKey))}
+                        className={ic(nameKey)}
                     />
                 </Field>
                 <Field id={titleKey} label={titleLabel} error={fieldError(titleKey)}>
@@ -1213,7 +1292,7 @@ export default function DisposalsCreate({
                         placeholder={titlePh}
                         value={data[titleKey]}
                         onChange={(e) => setField(titleKey, e.target.value)}
-                        className={inputCls(fieldError(titleKey))}
+                        className={ic(titleKey)}
                     />
                 </Field>
             </div>
@@ -1243,7 +1322,7 @@ export default function DisposalsCreate({
                         id="cause_of_decay"
                         value={data.cause_of_decay}
                         onChange={(e) => setField('cause_of_decay', e.target.value)}
-                        className={selectCls(fieldError('cause_of_decay'))}
+                        className={sc('cause_of_decay')}
                     >
                         <option value="" disabled>
                             Select cause…
@@ -1263,7 +1342,7 @@ export default function DisposalsCreate({
                             placeholder="Describe the cause of decay"
                             value={data.cause_of_decay_other}
                             onChange={(e) => setField('cause_of_decay_other', e.target.value)}
-                            className={inputCls(fieldError('cause_of_decay_other'))}
+                            className={ic('cause_of_decay_other')}
                         />
                     </Field>
                 )}
@@ -1275,7 +1354,7 @@ export default function DisposalsCreate({
                             type="date"
                             value={data.inspection_date}
                             onChange={(e) => setField('inspection_date', e.target.value)}
-                            className={inputCls(fieldError('inspection_date'))}
+                            className={ic('inspection_date')}
                         />
                     </Field>
                     <Field id="inspecting_officer" label="Inspecting Officer" error={fieldError('inspecting_officer')}>
@@ -1284,7 +1363,7 @@ export default function DisposalsCreate({
                             placeholder="Full name of the inspecting officer"
                             value={data.inspecting_officer}
                             onChange={(e) => setField('inspecting_officer', e.target.value)}
-                            className={inputCls(fieldError('inspecting_officer'))}
+                            className={ic('inspecting_officer')}
                         />
                     </Field>
                 </div>
@@ -1300,7 +1379,7 @@ export default function DisposalsCreate({
                         id="decay_photo"
                         type="file"
                         accept="image/*"
-                        className="mt-1 block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-emerald-700 hover:file:bg-emerald-100"
+                        className={`mt-1 block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-emerald-700 hover:file:bg-emerald-100 ${hl('decay_photo') ?? ''}`}
                         onChange={(e) => setField('decay_photo', e.target.files?.[0] ?? null)}
                     />
                 </Field>
@@ -1319,7 +1398,7 @@ export default function DisposalsCreate({
                     step="0.01"
                     value={data[key]}
                     onChange={(e) => setField(key, e.target.value)}
-                    className={inputCls(fieldError(key))}
+                    className={ic(key)}
                 />
             </Field>
         );
@@ -1333,7 +1412,7 @@ export default function DisposalsCreate({
                             placeholder="e.g. Office table, chair, cabinet"
                             value={data.fabricated_item}
                             onChange={(e) => setField('fabricated_item', e.target.value)}
-                            className={inputCls(fieldError('fabricated_item'))}
+                            className={ic('fabricated_item')}
                         />
                     </Field>
                     <Field id="fabricated_item_count" label="No. of Finished Items" error={fieldError('fabricated_item_count')}>
@@ -1344,7 +1423,7 @@ export default function DisposalsCreate({
                             min={1}
                             value={data.fabricated_item_count}
                             onChange={(e) => setField('fabricated_item_count', e.target.value)}
-                            className={inputCls(fieldError('fabricated_item_count'))}
+                            className={ic('fabricated_item_count')}
                         />
                     </Field>
                 </div>
@@ -1356,7 +1435,7 @@ export default function DisposalsCreate({
                         max={new Date().toISOString().slice(0, 10)}
                         value={data.fabrication_date}
                         onChange={(e) => setField('fabrication_date', e.target.value)}
-                        className={inputCls(fieldError('fabrication_date'))}
+                        className={ic('fabrication_date')}
                     />
                 </Field>
 
@@ -1367,7 +1446,7 @@ export default function DisposalsCreate({
                             placeholder="e.g. PENRO carpentry shop"
                             value={data.fabrication_location}
                             onChange={(e) => setField('fabrication_location', e.target.value)}
-                            className={inputCls(fieldError('fabrication_location'))}
+                            className={ic('fabrication_location')}
                         />
                     </Field>
                     <Field id="fabricator_name" label="Responsible Officer / Fabricator" error={fieldError('fabricator_name')}>
@@ -1376,7 +1455,7 @@ export default function DisposalsCreate({
                             placeholder="Full name"
                             value={data.fabricator_name}
                             onChange={(e) => setField('fabricator_name', e.target.value)}
-                            className={inputCls(fieldError('fabricator_name'))}
+                            className={ic('fabricator_name')}
                         />
                     </Field>
                 </div>
@@ -1402,7 +1481,7 @@ export default function DisposalsCreate({
                         type="file"
                         multiple
                         accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx"
-                        className="mt-1 block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-emerald-700 hover:file:bg-emerald-100"
+                        className={`mt-1 block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-emerald-700 hover:file:bg-emerald-100 ${hl('fabrication_attachments') ?? ''}`}
                         onChange={(e) => setField('fabrication_attachments', Array.from(e.target.files ?? []))}
                     />
                     {/* Server errors come back keyed per file, e.g. fabrication_attachments.0 */}
@@ -1600,7 +1679,7 @@ export default function DisposalsCreate({
                         id="notes"
                         value={data.notes}
                         onChange={(e) => setField('notes', e.target.value)}
-                        className={inputCls(fieldError('notes'))}
+                        className={ic('notes')}
                     />
                 </Field>
 
@@ -1642,8 +1721,21 @@ export default function DisposalsCreate({
     /* --------------------------------- render ------------------------------ */
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">Process Disposal</h2>}>
+        <AuthenticatedLayout
+            header={
+                <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold text-gray-800">Process Disposal</h2>
+                    {(isDirty || stepIndex > 0) && (
+                        <button type="button" onClick={discardDraft}
+                            className="text-xs font-medium text-gray-400 transition hover:text-red-600">
+                            Discard Draft
+                        </button>
+                    )}
+                </div>
+            }
+        >
             <Head title="Process Disposal" />
+            <style>{NF_HIGHLIGHT_CSS}</style>
 
             <div ref={topRef} className="mx-auto max-w-3xl scroll-mt-4 px-4 sm:px-6 lg:px-8">
                 <p className="mb-4 text-sm text-gray-600">
@@ -1662,6 +1754,7 @@ export default function DisposalsCreate({
                     submitOnLast
                     finishLabel="Confirm Disposal"
                     processing={processing}
+                    nextClassName={nextTarget === 'next_btn' ? 'nf-highlight' : undefined}
                     cancelHref={route('assets.show', asset.id)}
                 >
                     <Card>
@@ -1690,6 +1783,13 @@ export default function DisposalsCreate({
                     </Card>
                 </MultiStepWizard>
             </div>
+
+            <DraftRestoreModal
+                show={draft.promptOpen}
+                onRestore={draft.restore}
+                onStartFresh={draft.startFresh}
+                note="Attached photos and files must be selected again."
+            />
 
             <AssetScanModal show={scanning} onClose={() => setScanning(false)} onFound={handleAssetScanned} />
             {piecePickerLine !== null && pickerAsset && pickerLine && (
