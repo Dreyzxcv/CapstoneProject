@@ -20,6 +20,8 @@ class DashboardController extends Controller
 
         $user = $request->user();
         $baseQuery = Asset::query();
+        $showAll     = $request->boolean('all_alerts');
+        $alertResult = $alertService->forUser($user, $showAll ? null : AssetAlertService::DEFAULT_LIMIT);
 
         $stats = [
             'total' => (clone $baseQuery)->count(),
@@ -47,7 +49,13 @@ class DashboardController extends Controller
             'typeLabels' => $typeLabels,
             'roleContext' => $this->buildRoleContext($user, $baseQuery),
             'canViewAudit' => $user->can('viewAny', AuditLog::class),
-            'alerts' => $alertService->generate(),
+            'alerts'       => $alertResult['alerts'],
+            'alertSummary' => [
+                'total'      => $alertResult['total'],
+                'shown'      => $alertResult['alerts']->count(),
+                'showingAll' => $showAll,
+                'limit'      => AssetAlertService::DEFAULT_LIMIT,
+            ],
         ]);
     }
 
