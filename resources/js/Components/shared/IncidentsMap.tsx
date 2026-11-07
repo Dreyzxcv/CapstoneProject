@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Map as LeafletMap, TileLayer, Marker as LeafletMarker } from 'leaflet';
-import { MapPin, Maximize2, Minimize2, Loader2, Satellite, Map as MapIcon, Flame } from 'lucide-react';
+import { MapPin, Maximize2, Minimize2, Loader2, Satellite, Map as MapIcon, Flame, Info, ChevronDown } from 'lucide-react';
 import { router } from '@inertiajs/react';
 
 const CATANDUANES_BOUNDS: [[number, number], [number, number]] = [
@@ -46,6 +46,87 @@ function parseCoordinates(value: string): { lat: number; lng: number } | null {
     return { lat, lng };
 }
 
+const ASSET_LEGEND = [
+    { label: 'Log / Lumber', color: TYPE_COLORS.log },
+    { label: 'Equipment / Tools', color: TYPE_COLORS.equipment },
+    { label: 'Conveyance / Vehicle', color: TYPE_COLORS.vehicle },
+    { label: 'Mixed', color: MIXED_COLOR },
+];
+
+const HEAT_GRADIENT = 'linear-gradient(to right, #34d399, #fbbf24, #f97316, #dc2626)';
+
+function MapLegend({ mapView, variant }: { mapView: MapView; variant: 'inline' | 'overlay' }) {
+    const overlay = variant === 'overlay';
+
+    if (mapView === 'heat') {
+        return overlay ? (
+            <div className="flex flex-col gap-1.5">
+                <span className="font-semibold text-gray-500">Concentration</span>
+                <div className="flex items-center gap-2">
+                    <span>Low</span>
+                    <span className="h-2.5 w-24 rounded-full sm:w-36" style={{ background: HEAT_GRADIENT }} />
+                    <span>High</span>
+                </div>
+            </div>
+        ) : (
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 text-xs text-gray-600">
+                <span className="font-semibold text-gray-500">Concentration:</span>
+                <span>Low</span>
+                <span className="h-2.5 w-28 rounded-full sm:w-40" style={{ background: HEAT_GRADIENT }} />
+                <span>High</span>
+            </div>
+        );
+    }
+
+    const assetItems = ASSET_LEGEND.map(({ label, color }) => (
+        <span key={label} className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white" style={{ background: color }} />
+            {label}
+        </span>
+    ));
+
+    const statusItems = (
+        <>
+            <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-white bg-gray-400 shadow-sm" />
+                Apprehended
+            </span>
+            <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-dashed border-gray-900 bg-gray-400" />
+                Abandoned
+            </span>
+        </>
+    );
+
+    if (overlay) {
+        return (
+            <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-500">Asset type</span>
+                    {assetItems}
+                </div>
+                <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-500">Status</span>
+                    {statusItems}
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="mt-3 flex flex-col gap-2.5 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 text-xs text-gray-600 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                <span className="font-semibold text-gray-500">Asset type:</span>
+                {assetItems}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                <span className="font-semibold text-gray-500">Status:</span>
+                {statusItems}
+            </div>
+        </div>
+    );
+}
+
 export function IncidentsMap({ incidents, height = '384px' }: { incidents: IncidentLocation[]; height?: string }) {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<LeafletMap | null>(null);
@@ -59,6 +140,7 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
     const [isLoading, setIsLoading] = useState(true);
     const [mapView, setMapView] = useState<MapView>('satellite');
     const [mapReady, setMapReady] = useState(false);
+    const [legendOpen, setLegendOpen] = useState(true);
 
     const plottable = incidents
         .map((incident) => ({ incident, point: parseCoordinates(incident.coordinates) }))
@@ -231,7 +313,7 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                         // Keep the popup clear of the toolbar on the top edge
                         // and the zoom buttons at the bottom.
                         autoPanPaddingTopLeft: [16, 72],
-                        autoPanPaddingBottomRight: [16, 16],
+                        autoPanPaddingBottomRight: [16, 140],
                     },
                 );
 
@@ -688,54 +770,30 @@ export function IncidentsMap({ incidents, height = '384px' }: { incidents: Incid
                         </>
                     )}
                 </button>
-            </div>
-            
-            {mapView === 'heat' ? (
-                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 text-xs text-gray-600">
-                    <span className="font-semibold text-gray-500">Concentration:</span>
-                    <span>Low</span>
-                    <span
-                        className="h-2.5 w-28 rounded-full sm:w-40"
-                        style={{ background: 'linear-gradient(to right, #34d399, #fbbf24, #f97316, #dc2626)' }}
-                    />
-                    <span>High</span>
+                {isFullscreen && (
+                    <div className="absolute bottom-8 left-3 z-[1000] max-w-[calc(100%-5.5rem)]">
+                            <div className="max-h-[45svh] overflow-y-auto rounded-lg bg-white/95 text-xs text-gray-600 shadow-md ring-1 ring-black/5 backdrop-blur-sm">
+                                <button
+                                    type="button"
+                                    onClick={() => setLegendOpen((prev) => !prev)}
+                                    aria-expanded={legendOpen}
+                                    aria-label={legendOpen ? 'Hide legend' : 'Show legend'}
+                                    className="flex w-full items-center gap-1.5 px-2.5 py-1.5 font-medium text-gray-700 hover:bg-gray-50"
+                                >
+                                    <Info className="h-3.5 w-3.5 shrink-0" />
+                                    <span>Legend</span>
+                                    <ChevronDown className={'ml-auto h-3.5 w-3.5 shrink-0 transition-transform ' + (legendOpen ? '' : '-rotate-90')} />
+                                </button>
+                                {legendOpen && (
+                                    <div className="border-t border-gray-100 px-2.5 py-2">
+                                        <MapLegend mapView={mapView} variant="overlay" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
-            ) : (
-                    <div className="mt-3 flex flex-col gap-2.5 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2.5 text-xs text-gray-600 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                        <span className="font-semibold text-gray-500">Asset type:</span>
-                        <span className="flex items-center gap-1.5">
-                            <span className="h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: '#34d399' }} />
-                            Log / Lumber
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                            <span className="h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: '#fbbf24' }} />
-                            Equipment / Tools
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                            <span className="h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: '#60a5fa' }} />
-                            Conveyance / Vehicle
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                            <span className="h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: '#c084fc' }} />
-                            Mixed
-                        </span>
-
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                        <span className="font-semibold text-gray-500">Status:</span>
-                        <span className="flex items-center gap-1.5">
-                            <span className="h-2.5 w-2.5 rounded-full border-2 border-white bg-gray-400 shadow-sm" />
-                            Apprehended
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                            <span className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-gray-900 bg-gray-400" />
-                            Abandoned
-                        </span>
-                        </div>
-                    </div>
-                )}
-            </>
+            {!isFullscreen && <MapLegend mapView={mapView} variant="inline" />}
+        </>
     );
 }
