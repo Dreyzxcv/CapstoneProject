@@ -43,7 +43,7 @@ class AssetPolicy
         return $user->can('assets.mark_stored')
             && in_array($asset->current_status, [
                 \App\Enums\AssetStatus::PendingCustodyReview,
-                \App\Enums\AssetStatus::ReceiptSigned,
+                \App\Enums\AssetStatus::DocumentsVerified,
             ])
             && $asset->hasAllRequiredDocumentsVerified();
     }
@@ -96,7 +96,7 @@ class AssetPolicy
 
     private function informationLocked(User $user, Asset $asset): bool
     {
-        return $asset->current_status === AssetStatus::ReceiptSigned
+        return $asset->current_status === AssetStatus::DocumentsVerified
             && ! $user->hasRole('System Admin');
     }
 

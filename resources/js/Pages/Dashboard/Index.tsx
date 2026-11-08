@@ -106,8 +106,8 @@ const PIPELINE_STAGES: Array<{ key: string; label: string; icon: typeof PackageP
         description: 'Uploaded documents are waiting to be reviewed and checked by the Custodian.',
     },
     {
-        key: 'receipt_signed',
-        label: 'Document Verified',
+        key: 'documents_verified',
+        label: 'Documents Verified',
         icon: FileCheck,
         description: 'Documents are verified by Custodian. The asset is ready for tagging.',
     },

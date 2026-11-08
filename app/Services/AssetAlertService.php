@@ -144,7 +144,7 @@ class AssetAlertService
                 ->whereIn('status', [
                     AssetStatus::DocumentsUploaded->value,
                     AssetStatus::PendingCustodyReview->value,
-                    AssetStatus::ReceiptSigned->value,
+                    AssetStatus::DocumentsVerified->value,
                 ])),
         )->map(fn (array $row) => $this->stalledAlert(
             prefix: 'upload',
@@ -184,7 +184,7 @@ class AssetAlertService
      */
     protected function staleTaggingAlerts(): Collection
     {
-        return $this->stalledInStatus(AssetStatus::ReceiptSigned, self::STALE_DAYS)
+        return $this->stalledInStatus(AssetStatus::DocumentsVerified, self::STALE_DAYS)
             ->map(fn (array $row) => $this->stalledAlert(
                 prefix: 'tagging',
                 row: $row,

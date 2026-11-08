@@ -22,7 +22,7 @@ class AssetLifecycleService
             AssetStatus::UnderTrial,
             AssetStatus::ClearedForAccounting,
         ],
-        AssetStatus::ReceiptSigned->value => [
+        AssetStatus::DocumentsVerified->value => [
             AssetStatus::Stored,
             AssetStatus::UnderTrial,
             AssetStatus::ClearedForAccounting,
@@ -31,7 +31,7 @@ class AssetLifecycleService
             AssetStatus::PendingCustodyReview,
         ],
         AssetStatus::PendingCustodyReview->value => [
-            AssetStatus::ReceiptSigned,
+            AssetStatus::DocumentsVerified,
             AssetStatus::UnderTrial,
             AssetStatus::ClearedForAccounting,
         ],
@@ -171,9 +171,9 @@ class AssetLifecycleService
                 'summary' => 'MES has submitted the required documents. Property Custodian must verify and tag the asset.',
                 'nextAction' => 'Verify all documents, then click "Mark as Tagged" to generate the acknowledgement receipt and QR tag.',
             ],
-            AssetStatus::ReceiptSigned => [
-                'title' => 'Storage Preparation',
-                'summary' => 'The acknowledgement receipt has been signed, and the item is ready for tagging and storage.',
+            AssetStatus::DocumentsVerified => [
+                'title' => 'Documents Verified',
+                'summary' => 'The Property Custodian has approved the required documents. The asset is ready for tagging and storage.',
                 'nextAction' => 'Mark the asset as stored once the QR tag and physical placement are complete.',
             ],
             AssetStatus::UnderTrial => [

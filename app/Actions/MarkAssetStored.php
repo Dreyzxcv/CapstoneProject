@@ -19,7 +19,7 @@ class MarkAssetStored
     {
         if (! in_array($asset->current_status, [
             AssetStatus::PendingCustodyReview,
-            AssetStatus::ReceiptSigned,
+            AssetStatus::DocumentsVerified,
         ])) {
             throw new DomainException('Asset must be pending custody review before it can be tagged.');
         }

@@ -70,9 +70,9 @@ class AssetInformationLockTest extends TestCase
         ];
     }
 
-    public function test_non_admin_cannot_edit_asset_information_at_receipt_signed(): void
+    public function test_non_admin_cannot_edit_asset_information_at_documents_verified(): void
     {
-        $asset = $this->makeAsset(AssetStatus::ReceiptSigned);
+        $asset = $this->makeAsset(AssetStatus::DocumentsVerified);
         $piece = $this->makePiece($asset);
         $mes   = $this->user('MES Officer');
 
@@ -85,9 +85,9 @@ class AssetInformationLockTest extends TestCase
         $this->assertNull($asset->fresh()->stcp_number);
     }
 
-    public function test_system_admin_can_still_edit_at_receipt_signed(): void
+    public function test_system_admin_can_still_edit_at_documents_verified(): void
     {
-        $asset = $this->makeAsset(AssetStatus::ReceiptSigned);
+        $asset = $this->makeAsset(AssetStatus::DocumentsVerified);
         $piece = $this->makePiece($asset);
         $admin = $this->user('System Admin');
 
@@ -117,7 +117,7 @@ class AssetInformationLockTest extends TestCase
 
     public function test_show_page_flags_reflect_lock(): void
     {
-        $asset = $this->makeAsset(AssetStatus::ReceiptSigned);
+        $asset = $this->makeAsset(AssetStatus::DocumentsVerified);
 
         $this->actingAs($this->user('MES Officer'))->get(route('assets.show', $asset))
             ->assertInertia(fn ($p) => $p->where('can.edit', false)->where('can.updateCaseDetails', false));

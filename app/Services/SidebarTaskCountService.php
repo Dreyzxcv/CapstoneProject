@@ -32,7 +32,7 @@ class SidebarTaskCountService
             // Property Custodian -- needs to review custody submissions
             'assets.mark_stored'   => [
                 AssetStatus::PendingCustodyReview->value,
-                AssetStatus::ReceiptSigned->value,
+                AssetStatus::DocumentsVerified->value,
             ],
             'documents.verify'     => [
                 AssetStatus::PendingCustodyReview->value,

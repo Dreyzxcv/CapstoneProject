@@ -192,7 +192,7 @@ class DashboardAlertsTest extends TestCase
         $this->enterStatus($waiting, AssetStatus::Stored, 10, $mes);
 
         $tagged = $this->asset($mes, AssetStatus::Stored, ['asset_code' => 'ALREADY-TAGGED']);
-        $this->enterStatus($tagged, AssetStatus::ReceiptSigned, 20, $mes);
+        $this->enterStatus($tagged, AssetStatus::DocumentsVerified, 20, $mes);
         $this->enterStatus($tagged, AssetStatus::Stored, 10, $mes);
 
         $alerts = $this->alertsFor($mes);
@@ -207,8 +207,8 @@ class DashboardAlertsTest extends TestCase
         $custodian = $this->user('Property Custodian');
         $mes       = $this->user('MES Officer');
 
-        $asset = $this->asset($custodian, AssetStatus::ReceiptSigned);
-        $this->enterStatus($asset, AssetStatus::ReceiptSigned, 8, $custodian);
+        $asset = $this->asset($custodian, AssetStatus::DocumentsVerified);
+        $this->enterStatus($asset, AssetStatus::DocumentsVerified, 8, $custodian);
 
         $alerts = $this->alertsFor($custodian);
         $this->assertCount(1, $alerts);
