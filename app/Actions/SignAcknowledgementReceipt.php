@@ -37,7 +37,7 @@ class SignAcknowledgementReceipt
 
         return $this->lifecycleService->transition(
             $asset->fresh(),
-            AssetStatus::ReceiptSigned,
+            AssetStatus::DocumentsVerified,
             $user,
             'Acknowledgement receipt signed by Property Custodian.',
             'receipt.signed',

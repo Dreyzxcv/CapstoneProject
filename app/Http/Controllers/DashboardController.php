@@ -20,6 +20,8 @@ class DashboardController extends Controller
 
         $user = $request->user();
         $baseQuery = Asset::query();
+        $showAll     = $request->boolean('all_alerts');
+        $alertResult = $alertService->forUser($user, $showAll ? null : AssetAlertService::DEFAULT_LIMIT);
 
         $stats = [
             'total' => (clone $baseQuery)->count(),
@@ -47,7 +49,13 @@ class DashboardController extends Controller
             'typeLabels' => $typeLabels,
             'roleContext' => $this->buildRoleContext($user, $baseQuery),
             'canViewAudit' => $user->can('viewAny', AuditLog::class),
-            'alerts' => $alertService->generate(),
+            'alerts'       => $alertResult['alerts'],
+            'alertSummary' => [
+                'total'      => $alertResult['total'],
+                'shown'      => $alertResult['alerts']->count(),
+                'showingAll' => $showAll,
+                'limit'      => AssetAlertService::DEFAULT_LIMIT,
+            ],
         ]);
     }
 
@@ -71,7 +79,7 @@ class DashboardController extends Controller
         $activeStatuses = [
             AssetStatus::IntakeRecorded->value,
             AssetStatus::PendingCustodyReview->value,
-            AssetStatus::ReceiptSigned->value,
+            AssetStatus::DocumentsVerified->value,
             AssetStatus::Stored->value,
             AssetStatus::UnderTrial->value,
             AssetStatus::ClearedForAccounting->value,
@@ -97,7 +105,7 @@ class DashboardController extends Controller
                         'value' => $countByStatuses([
                             AssetStatus::IntakeRecorded->value,
                             AssetStatus::PendingCustodyReview->value,
-                            AssetStatus::ReceiptSigned->value,
+                            AssetStatus::DocumentsVerified->value,
                             AssetStatus::Stored->value,
                             AssetStatus::UnderTrial->value,
                             AssetStatus::ClearedForAccounting->value,
@@ -140,7 +148,7 @@ class DashboardController extends Controller
                     ],
                     [
                         'label' => 'Document verified',
-                        'value' => $countByStatuses([AssetStatus::ReceiptSigned->value]),
+                        'value' => $countByStatuses([AssetStatus::DocumentsVerified->value]),
                         'description' => 'Documents verified and ready for tagging',
                     ],
                 ],
@@ -161,7 +169,7 @@ class DashboardController extends Controller
                     ],
                     [
                         'label' => 'Tagged',
-                        'value' => $countByStatuses([AssetStatus::ReceiptSigned->value]),
+                        'value' => $countByStatuses([AssetStatus::DocumentsVerified->value]),
                         'description' => 'Assets that have been tagged and ready for accounting',
                     ],
                 ],
@@ -227,7 +235,7 @@ class DashboardController extends Controller
                 // Pipeline stage breakdown — used by the frontend for bottleneck detection
                 'pipeline' => [
                     ['key' => 'stored',                   'label' => 'Stored',            'value' => $countByStatuses([AssetStatus::Stored->value])],
-                    ['key' => 'receipt_signed',            'label' => 'Doc Verified',      'value' => $countByStatuses([AssetStatus::ReceiptSigned->value])],
+                    ['key' => 'documents_verified',        'label' => 'Doc Verified',      'value' => $countByStatuses([AssetStatus::DocumentsVerified->value])],
                     ['key' => 'pending_custody_review',    'label' => 'Custody Review',    'value' => $countByStatuses([AssetStatus::PendingCustodyReview->value])],
                     ['key' => 'cleared_for_accounting',    'label' => 'Tagged',            'value' => $countByStatuses([AssetStatus::ClearedForAccounting->value])],
                     ['key' => 'for_disposal',              'label' => 'For Disposal',      'value' => $countByStatuses([AssetStatus::ForDisposal->value])],

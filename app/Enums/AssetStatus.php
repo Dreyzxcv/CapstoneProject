@@ -7,7 +7,7 @@ enum AssetStatus: string
     case IntakeRecorded = 'intake_recorded';
     case DocumentsUploaded = 'documents_uploaded';
     case PendingCustodyReview = 'pending_custody_review';
-    case ReceiptSigned = 'receipt_signed';
+    case DocumentsVerified = 'documents_verified';
     case Stored = 'stored';
     case UnderTrial = 'under_trial';
     case ClearedForAccounting = 'cleared_for_accounting';
@@ -27,7 +27,7 @@ enum AssetStatus: string
             self::IntakeRecorded => 'Intake Recorded',
             self::DocumentsUploaded => 'Documents Uploaded',
             self::PendingCustodyReview => 'Pending Custody Review',
-            self::ReceiptSigned => 'Document Verified',
+            self::DocumentsVerified => 'Documents Verified',
             self::Stored => 'In Storage — Pre-Document Upload',
             self::UnderTrial => 'Under Trial',
             self::ClearedForAccounting => 'Tagged — Cleared for Custodian',
@@ -49,7 +49,7 @@ enum AssetStatus: string
             self::IntakeRecorded            => 'default',
             self::DocumentsUploaded         => 'blue',
             self::PendingCustodyReview      => 'amber',
-            self::ReceiptSigned             => 'cyan',
+            self::DocumentsVerified         => 'cyan',
             self::Stored                    => 'teal',
             self::UnderTrial                => 'purple',
             self::ClearedForAccounting      => 'indigo',

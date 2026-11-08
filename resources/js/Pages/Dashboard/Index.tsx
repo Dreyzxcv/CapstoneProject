@@ -38,6 +38,18 @@ interface DashboardAlert {
     title: string;
     message: string;
     asset_id: number;
+    asset_code?: string;
+    actionable: boolean;
+    action: { label: string; href: string } | null;
+    waiting_days: number | null;
+    deadline: string | null;
+}
+
+interface AlertSummary {
+    total: number;
+    shown: number;
+    showingAll: boolean;
+    limit: number;
 }
 
 interface PipelineStage {
@@ -71,6 +83,7 @@ interface DashboardProps {
     roleContext: RoleContext;
     canViewAudit: boolean;
     alerts: DashboardAlert[];
+    alertSummary: AlertSummary;
 }
 
 const TYPE_ICONS: Record<string, typeof TreePine> = {
@@ -93,8 +106,8 @@ const PIPELINE_STAGES: Array<{ key: string; label: string; icon: typeof PackageP
         description: 'Uploaded documents are waiting to be reviewed and checked by the Custodian.',
     },
     {
-        key: 'receipt_signed',
-        label: 'Document Verified',
+        key: 'documents_verified',
+        label: 'Documents Verified',
         icon: FileCheck,
         description: 'Documents are verified by Custodian. The asset is ready for tagging.',
     },
@@ -339,10 +352,48 @@ function AssetTypeBreakdownCard({
 
 // --- Main component ---
 
+function AlertRow({ alert }: { alert: DashboardAlert }) {
+    const style = SEVERITY_STYLES[alert.severity];
+    const Icon = style.icon;
+    const classes = `flex items-start gap-3 rounded-lg border ${style.border} ${style.bg} p-3`;
+
+    const body = (
+        <>
+            <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${style.iconColor}`} />
+            <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900">{alert.title}</p>
+                <p className="text-sm text-gray-600">{alert.message}</p>
+            </div>
+            {alert.action && (
+                <span
+                    className={
+                        'inline-flex shrink-0 items-center gap-1 self-center rounded-md border px-2 py-1 text-xs font-semibold ' +
+                        (alert.actionable
+                            ? 'border-gray-300 bg-white text-gray-900'
+                            : 'border-transparent text-gray-500')
+                    }
+                >
+                    {alert.action.label}
+                    <ArrowRight className="h-3 w-3" />
+                </span>
+            )}
+        </>
+    );
+
+    return alert.action ? (
+        <Link href={alert.action.href} className={`${classes} transition hover:opacity-80`}>
+            {body}
+        </Link>
+    ) : (
+        <div className={classes}>{body}</div>
+    );
+}
+
 export default function DashboardIndex({
     stats,
     roleContext,
     alerts,
+    alertSummary,
     typeLabels,
 }: DashboardProps) {
     const { auth } = usePage<PageProps>().props;
@@ -351,9 +402,7 @@ export default function DashboardIndex({
 
     const isManagement = ['PENRO Management', 'PENRO Supervisor', 'Regional Supervisor'].includes(roleName);
 
-    usePoll(8000, {
-        only: ['stats', 'alerts', 'roleContext'],
-    });
+    usePoll(8000, { only: ['stats', 'alerts', 'alertSummary', 'roleContext'] })
 
     const primaryAction = permissions.includes('incident.create')
         ? { label: 'New Intake', href: route('incident.create') }
@@ -569,23 +618,34 @@ export default function DashboardIndex({
                             </div>
                         ) : (
                             <div className="space-y-2">
-                                {alerts.map((alert) => {
-                                    const style = SEVERITY_STYLES[alert.severity];
-                                    const Icon = style.icon;
-                                    return (
-                                        <Link
-                                            key={alert.id}
-                                            href={route('assets.show', alert.asset_id)}
-                                            className={`flex items-start gap-3 rounded-lg border ${style.border} ${style.bg} p-3 transition hover:opacity-80`}
-                                        >
-                                            <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${style.iconColor}`} />
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-900">{alert.title}</p>
-                                                <p className="text-sm text-gray-600">{alert.message}</p>
-                                            </div>
-                                        </Link>
-                                    );
-                                })}
+                                {alerts.map((alert) => (
+                                    <AlertRow key={alert.id} alert={alert} />
+                                ))}
+
+                                {(alertSummary.total > alertSummary.shown || alertSummary.showingAll) && (
+                                    <div className="flex items-center justify-between pt-1 text-xs text-gray-500">
+                                        <span>
+                                            Showing {alertSummary.shown} of {alertSummary.total} alerts, most urgent first.
+                                        </span>
+                                        {alertSummary.showingAll ? (
+                                            <Link
+                                                href={route('dashboard')}
+                                                preserveScroll
+                                                className="font-medium text-emerald-700 hover:underline"
+                                            >
+                                                Show fewer
+                                            </Link>
+                                        ) : (
+                                            <Link
+                                                href={route('dashboard', { all_alerts: 1 })}
+                                                preserveScroll
+                                                className="font-medium text-emerald-700 hover:underline"
+                                            >
+                                                View all {alertSummary.total}
+                                            </Link>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </CardContent>

@@ -28,10 +28,10 @@ class ResolveCustodyReview
         ]);
 
         if ($decision === 'approved') {
-            // Transition to "Document Verified" (receipt_signed)
+            // Custody approval verifies the required documents.
             $this->lifecycle->transition(
                 $asset,
-                AssetStatus::ReceiptSigned,
+                AssetStatus::DocumentsVerified,
                 $actor,
                 'Custody review approved by Property Custodian. Documents verified.',
                 'asset.custody_review_approved',
@@ -83,7 +83,7 @@ class ResolveCustodyReview
                 type: 'custody_review',
                 assetId: $asset->id,
                 status: $decision === 'approved'
-                    ? AssetStatus::ReceiptSigned->value
+                    ? AssetStatus::DocumentsVerified->value
                     : AssetStatus::DocumentsUploaded->value,
             );
         }
