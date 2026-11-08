@@ -31,6 +31,7 @@ import RequiredDocumentsModal from "@/Components/shared/RequiredDocumentsModal";
 import CoordinatesPickerModal from "@/Components/shared/CoordinatesPickerModal";
 import { CaseDetailsModal } from "@/Components/shared/CaseDetailsCard";
 import { StatusHistoryEntry } from "@/types";
+import { buildStatusTimeline } from "@/lib/statusHistoryTimeline";
 
 interface ShowProps {
     acknowledgementReceipt: { id: number; pdf_path: string } | null;
@@ -598,10 +599,12 @@ function DocumentTimelineEntry({
     doc,
     label,
     compact = false,
+    showVerifiedAt = false,
 }: {
     doc: import("@/types").DocumentItem;
     label: string;
     compact?: boolean;
+    showVerifiedAt?: boolean;
 }) {
     const [expanded, setExpanded] = useState(false);
     const url = documentUrl(doc.file_path);
@@ -646,6 +649,11 @@ function DocumentTimelineEntry({
                             <p className="text-xs text-gray-400">
                                 {new Date(doc.uploaded_at).toLocaleString()}
                             </p>
+                            {showVerifiedAt && doc.status === "verified" && doc.verified_at && (
+                                <p className="text-[11px] text-emerald-600">
+                                    Verified {new Date(doc.verified_at).toLocaleString()}
+                                </p>
+                            )}
                         </div>
                     )}
                     <button
@@ -742,13 +750,16 @@ function DocumentTimelineEntry({
 
 function DocumentGroup({
     docs,
+    aapDocs = [],
     defaultOpen = false,
 }: {
     docs: Array<{ id: string; doc: import("@/types").DocumentItem; label: string }>;
+    aapDocs?: Array<{ id: string; doc: import("@/types").DocumentItem; label: string }>;
     defaultOpen?: boolean;
 }) {
     const [open, setOpen] = useState(defaultOpen);
 
+    // Counts cover required custody documents only. AAP is never included.
     const count = (s: string) => docs.filter((d) => d.doc.status === s).length;
     const summary = [
         count("verified") > 0 && `${count("verified")} verified`,
@@ -757,6 +768,8 @@ function DocumentGroup({
     ]
         .filter(Boolean)
         .join(" · ");
+
+    const aapStatus = aapDocs[aapDocs.length - 1]?.doc.status;
 
     return (
         <div className="mt-2">
@@ -771,23 +784,49 @@ function DocumentGroup({
                     <ChevronDown className="h-3.5 w-3.5" />
                 )}
                 <span>
-                    {docs.length} document{docs.length === 1 ? "" : "s"}
-                    {summary && (
-                        <span className="ml-1 font-normal text-gray-400">· {summary}</span>
+                    {docs.length > 0 && (
+                        <>
+                            {docs.length} document{docs.length === 1 ? "" : "s"}
+                            {summary && (
+                                <span className="ml-1 font-normal text-gray-400">· {summary}</span>
+                            )}
+                        </>
+                    )}
+                    {aapDocs.length > 0 && (
+                        <span className="ml-1 font-normal text-indigo-500">
+                            {docs.length > 0 ? "+ " : ""}AAP ({aapStatus})
+                        </span>
                     )}
                 </span>
             </button>
 
             {open && (
-                <div className="mt-2 ml-1.5 space-y-0.5 border-l-2 border-gray-100 pl-3">
-                    {docs.map((d) => (
-                        <DocumentTimelineEntry
-                            key={d.id}
-                            doc={d.doc}
-                            label={d.label}
-                            compact
-                        />
-                    ))}
+                <div className="mt-2 ml-1.5 space-y-2 border-l-2 border-gray-100 pl-3">
+                    {docs.length > 0 && (
+                        <div className="space-y-0.5">
+                            {docs.map((d) => (
+                                <DocumentTimelineEntry
+                                    key={d.id}
+                                    doc={d.doc}
+                                    label={d.label}
+                                    compact
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {aapDocs.length > 0 && (
+                        <div className="space-y-0.5">
+                            {aapDocs.map((d) => (
+                                <DocumentTimelineEntry
+                                    key={d.id}
+                                    doc={d.doc}
+                                    label={d.label}
+                                    showVerifiedAt
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -2868,103 +2907,55 @@ export default function AssetsShow({
                     </CardHeader>
                     <CardContent>
                         {(() => {
-                            const ADDITIONAL_TYPE_LABELS: Record<
-                                string,
-                                string
-                            > = {
+                            const ADDITIONAL_TYPE_LABELS: Record<string, string> = {
                                 confiscation_order: "Confiscation Order",
                                 forfeiture_order: "Forfeiture Order",
-                                regional_confiscation_order:
-                                    "Regional Confiscation Order",
+                                regional_confiscation_order: "Regional Confiscation Order",
                                 court_order: "Court Order",
-                                certificate_of_finality:
-                                    "Certificate of Finality",
+                                certificate_of_finality: "Certificate of Finality",
                                 other: "Other Supporting Document",
                             };
 
-                            const REQUIRED_TYPE_LABELS: Record<string, string> =
-                                {
-                                    dao_form: "DAO Form",
-                                    tally_sheet: "Tally Sheet",
-                                    seizure_order: "Seizure Order",
-                                    aap_document: "AAP Document",
-                                    stcp_document: "STCP Document",
-                                };
-
-                            const docEvents = (asset.documents ?? []).map(
-                                (doc) => ({
-                                    id: `doc-${doc.id}`,
-                                    kind: "document" as const,
-                                    doc,
-                                    timestamp: new Date(doc.uploaded_at),
-                                    label:
-                                        REQUIRED_TYPE_LABELS[
-                                            doc.document_type ?? ""
-                                        ] ??
-                                        ADDITIONAL_TYPE_LABELS[
-                                            doc.document_type ?? ""
-                                        ] ??
-                                        doc.document_type ??
-                                        "Document",
-                                }),
-                            );
-
-                            const statusEvents = allStatusHistory.map(
-                                (entry) => ({
-                                    id: `status-${entry.id}`,
-                                    kind: "status" as const,
-                                    entry,
-                                    timestamp: new Date(entry.changed_at),
-                                }),
-                            );
-
-                            const timeline = [...statusEvents, ...docEvents].sort((a, b) => {
-                                const diff = a.timestamp.getTime() - b.timestamp.getTime();
-                                if (diff !== 0) return diff;
-                                if (a.kind === "document" && b.kind === "status") return -1;
-                                if (a.kind === "status" && b.kind === "document") return 1;
-                                return 0;
-                            });
-
-                            type DocEvent = (typeof docEvents)[number];
-                            type TimelineItem =
-                                | { kind: "status"; id: string; entry: StatusHistoryEntry; docs: DocEvent[] }
-                                | { kind: "info"; id: string; entry: StatusHistoryEntry }
-                                | { kind: "documents"; id: string; docs: DocEvent[] };
-
-                            const items: TimelineItem[] = [];
-                            let buffer: DocEvent[] = [];
-
-                            const flush = () => {
-                                if (buffer.length > 0) {
-                                    items.push({ kind: "documents", id: `docs-${buffer[0].id}`, docs: buffer });
-                                    buffer = [];
-                                }
+                            // Required custody documents only. AAP is intentionally NOT here.
+                            const REQUIRED_TYPE_LABELS: Record<string, string> = {
+                                dao_form: "DAO Form",
+                                tally_sheet: "Tally Sheet",
+                                seizure_order: "Seizure Order",
+                                stcp_document: "STCP Document",
                             };
 
-                            for (const event of timeline) {
-                                if (event.kind === "document") {
-                                    buffer.push(event);
-                                    continue;
-                                }
-                                if (event.entry.event_type === "info_updated") {
-                                    flush();
-                                    items.push({ kind: "info", id: event.id, entry: event.entry });
-                                    continue;
-                                }
-                                if (event.entry.status === "documents_uploaded") {
-                                    items.push({ kind: "status", id: event.id, entry: event.entry, docs: buffer });
-                                    buffer = [];
-                                } else {
-                                    flush();
-                                    items.push({ kind: "status", id: event.id, entry: event.entry, docs: [] });
-                                }
-                            }
-                            flush();
+                            const labelFor = (t: string | null | undefined) =>
+                                t === "aap_document"
+                                    ? "AAP (Scanned Document)"
+                                    : (REQUIRED_TYPE_LABELS[t ?? ""] ??
+                                    ADDITIONAL_TYPE_LABELS[t ?? ""] ??
+                                    t ??
+                                    "Document");
+
+                            const items = buildStatusTimeline(
+                                asset.documents ?? [],
+                                allStatusHistory,
+                                labelFor,
+                            );
 
                             return (
                                 <div className="space-y-2">
                                     {items.map((item) => {
+                                        if (item.kind === "aap") {
+                                            return (
+                                                <div key={item.id} className="border-b border-gray-100 pb-2">
+                                                    <span className="mb-1 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                                                        AAP · verified separately
+                                                    </span>
+                                                    <DocumentTimelineEntry
+                                                        doc={item.event.doc}
+                                                        label={item.event.label}
+                                                        showVerifiedAt
+                                                    />
+                                                </div>
+                                            );
+                                        }
+
                                         if (item.kind === "documents") {
                                             if (item.docs.length === 1) {
                                                 const d = item.docs[0];
@@ -2976,10 +2967,11 @@ export default function AssetsShow({
                                                 </div>
                                             );
                                         }
-                                        
+
                                         if (item.kind === "info") {
                                             return <InfoUpdateEntry key={item.id} entry={item.entry} />;
                                         }
+
                                         const entry = item.entry;
                                         return (
                                             <div
@@ -3008,7 +3000,9 @@ export default function AssetsShow({
                                                         <p className="mt-1 text-gray-600">{entry.notes}</p>
                                                     )}
 
-                                                    {item.docs.length > 0 && <DocumentGroup docs={item.docs} />}
+                                                    {(item.docs.length > 0 || item.aapDocs.length > 0) && (
+                                                        <DocumentGroup docs={item.docs} aapDocs={item.aapDocs} />
+                                                    )}
                                                 </div>
 
                                                 <div className="min-w-0 shrink-0 break-words text-right text-gray-500">
