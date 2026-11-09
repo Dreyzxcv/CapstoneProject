@@ -9,10 +9,8 @@ import {
     BarChart,
     CartesianGrid,
     Cell,
-    ComposedChart,
     LabelList,
     Legend,
-    Line,
     Pie,
     PieChart,
     ReferenceLine,
@@ -165,12 +163,32 @@ const SUMMARY_CONFIG = {
     },
 } as const;
 
-function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
+function formatPct(value: number, total: number): string {
+    if (!total) return '0%';
+    const pct = (value / total) * 100;
+    return pct > 0 && pct < 1 ? '<1%' : `${Math.round(pct)}%`;
+}
+
+function ChartTooltip({
+    active,
+    payload,
+    label,
+    total,
+}: {
+    active?: boolean;
+    payload?: Array<{ value: number }>;
+    label?: string;
+    total?: number;
+}) {
     if (!active || !payload?.length) return null;
+    const value = payload[0].value;
     return (
         <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-md">
             <p className="font-medium text-gray-700">{label}</p>
-            <p className="mt-0.5 text-emerald-700">{payload[0].value} asset{payload[0].value === 1 ? '' : 's'}</p>
+            <p className="mt-0.5 text-emerald-700">
+                {value} asset{value === 1 ? '' : 's'}
+                {total ? ` (${formatPct(value, total)} of shown)` : ''}
+            </p>
         </div>
     );
 }
@@ -262,27 +280,85 @@ function groupActivity(entries: ReportsIndexProps['recentActivity']) {
     return groups.filter((g) => g.entries.length > 0);
 }
 
-function exportChartAsPng(containerRef: React.RefObject<HTMLDivElement | null>, filename: string) {
-    const svg = containerRef.current?.querySelector('svg');
+type ExportLegendItem = { label: string; color: string };
+
+function exportChartAsPng(
+    containerRef: React.RefObject<HTMLDivElement | null>,
+    filename: string,
+    options?: { title?: string; subtitle?: string; legend?: ExportLegendItem[] },
+) {
+    const svgs = Array.from(containerRef.current?.querySelectorAll('svg') ?? []);
+    const svg = svgs.sort(
+        (a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight,
+    )[0];
     if (!svg) return;
 
-    const serialiser = new XMLSerializer();
-    const svgStr = serialiser.serializeToString(svg);
+    const width = svg.clientWidth;
+    const height = svg.clientHeight;
+
+    const clone = svg.cloneNode(true) as SVGSVGElement;
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('width', String(width));
+    clone.setAttribute('height', String(height));
+    clone.style.fontFamily = 'Arial, Helvetica, sans-serif';
+
+    const svgStr = new XMLSerializer().serializeToString(clone);
     const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(svgBlob);
+
+    const legend = options?.legend ?? [];
+    const headerH = options?.title ? (options.subtitle ? 52 : 36) : 0;
+    const legendH = legend.length ? 40 : 0;
+    const scale = 2;
 
     const img = new window.Image();
     img.onload = () => {
         const canvas = document.createElement('canvas');
-        const scale = 2;
-        canvas.width = svg.clientWidth * scale;
-        canvas.height = svg.clientHeight * scale;
+        canvas.width = width * scale;
+        canvas.height = (headerH + height + legendH) * scale;
         const ctx = canvas.getContext('2d')!;
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.scale(scale, scale);
-        ctx.drawImage(img, 0, 0);
+
+        // Header
+        if (options?.title) {
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#111827';
+            ctx.font = '600 16px Arial, Helvetica, sans-serif';
+            ctx.fillText(options.title, 16, 14);
+            if (options.subtitle) {
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '12px Arial, Helvetica, sans-serif';
+                ctx.fillText(options.subtitle, 16, 34);
+            }
+        }
+
+        // Chart
+        ctx.drawImage(img, 0, headerH, width, height);
         URL.revokeObjectURL(url);
+
+        // Legend (centered, bottom)
+        if (legend.length) {
+            ctx.font = '12px Arial, Helvetica, sans-serif';
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'left';
+            const swatch = 10;
+            const gapIn = 6;
+            const gapOut = 22;
+            const widths = legend.map((l) => swatch + gapIn + ctx.measureText(l.label).width);
+            const total = widths.reduce((s, w) => s + w, 0) + gapOut * (legend.length - 1);
+            let x = Math.max(16, (width - total) / 2);
+            const y = headerH + height + legendH / 2;
+            legend.forEach((l, i) => {
+                ctx.fillStyle = l.color;
+                ctx.fillRect(x, y - swatch / 2, swatch, swatch);
+                ctx.fillStyle = '#374151';
+                ctx.fillText(l.label, x + swatch + gapIn, y);
+                x += widths[i] + gapOut;
+            });
+        }
 
         const link = document.createElement('a');
         link.download = filename;
@@ -294,15 +370,16 @@ function exportChartAsPng(containerRef: React.RefObject<HTMLDivElement | null>, 
     img.src = url;
 }
 
-function ExportPngButton({ onClick }: { onClick: () => void }) {
+function ExportPngButton({ onClick, label }: { onClick: () => void; label: string }) {
     return (
         <button
             type="button"
             onClick={onClick}
             title="Export as PNG"
+            aria-label={`Export ${label} as PNG`}
             className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm transition hover:bg-gray-50 hover:text-gray-800"
         >
-            <Image className="h-3.5 w-3.5" />
+            <Image className="h-3.5 w-3.5" aria-hidden="true" />
             PNG
         </button>
     );
@@ -378,7 +455,7 @@ export default function ReportsIndex({
     function handleMonthsChange(months: number) {
         router.get(
             route('reports.index'),
-            { months, map_month: mapMonth, map_year: mapYear },
+            { months, month: chartMonth, year: chartYear, map_month: mapMonth, map_year: mapYear },
             { preserveState: true, preserveScroll: true, only: ['trends', 'trendMonths'] },
         );
     }
@@ -409,7 +486,7 @@ export default function ReportsIndex({
     const muniYAxisWidth = useMemo(() => {
         if (!municipalityChartData.length) return 96;
         const longest = Math.max(...municipalityChartData.map((d) => d.name.length));
-        return Math.min(Math.max(longest * 8, 110), 180);
+        return Math.min(Math.max(longest * 8 + 24, 130), 200);
     }, [municipalityChartData]);
 
     const trendAverage = useMemo(() => {
@@ -512,6 +589,39 @@ export default function ReportsIndex({
     const activityGroups = useMemo(() => groupActivity(recentActivity), [recentActivity]);
     const hasChartFilter = chartMonth !== 'all' || chartYear !== 'all';
     const hasMapFilter   = mapMonth !== 'all' || mapYear !== 'all';
+    const chartPeriodLabel = useMemo(() => {
+        const m = chartMonth !== 'all' ? MONTH_NAMES[Number(chartMonth)] : null;
+        const y = chartYear !== 'all' ? chartYear : null;
+        if (m && y) return `${m} ${y}`;
+        if (m) return `${m}, all years`;
+        if (y) return `Year ${y}`;
+        return 'All time';
+    }, [chartMonth, chartYear]);
+
+    const muniTotal = useMemo(
+        () => municipalityChartData.reduce((s, d) => s + d.count, 0),
+        [municipalityChartData],
+    );
+
+    const trendAriaLabel = useMemo(
+        () =>
+            `Stacked bar chart of confiscations per month, last ${trendMonths} months. ` +
+            trends
+                .map(
+                    (t) =>
+                        `${t.month}: ${t.total} total (${typeLabels.log ?? 'Log'} ${t.log}, ${typeLabels.equipment ?? 'Equipment'} ${t.equipment}, ${typeLabels.vehicle ?? 'Vehicle'} ${t.vehicle})`,
+                )
+                .join('. '),
+        [trends, trendMonths, typeLabels],
+    );
+
+    const typeAriaLabel = `Assets by type, ${chartPeriodLabel}. ` +
+        typeChartData.map((d) => `${d.name}: ${d.count} (${formatPct(d.count, totalTypeCount)})`).join(', ');
+
+    const muniAriaLabel = `Confiscations by municipality, ${chartPeriodLabel}. ` +
+        municipalityChartData
+            .map((d) => `${d.name}: ${d.count} (${formatPct(d.count, muniTotal)})`)
+            .join(', ');
 
     const TrendPctLabel = useCallback(
         (props: { x?: number; y?: number; width?: number; index?: number }) => {
@@ -538,25 +648,17 @@ export default function ReportsIndex({
         [trends.length, trendPctChange],
     );
 
-    const MuniRankLabel = useCallback(
-        (props: { x?: number; y?: number; width?: number; height?: number; value?: number; index?: number }) => {
-            const { x = 0, y = 0, height = 0, index = 0 } = props;
-            const rank = (index + 1).toString();
+    const TypeCountLabel = useCallback(
+        (props: { x?: number; y?: number; width?: number; value?: number | string }) => {
+            const { x = 0, y = 0, width = 0, value = 0 } = props;
+            const n = Number(value);
             return (
-                <text
-                    x={x - 6}
-                    y={y + height / 2}
-                    textAnchor="end"
-                    dominantBaseline="middle"
-                    fill="#9ca3af"
-                    fontSize={10}
-                    fontWeight={600}
-                >
-                    #{rank}
+                <text x={x + width / 2} y={y - 6} textAnchor="middle" fill="#374151" fontSize={12} fontWeight={700}>
+                    {`${n} (${formatPct(n, totalTypeCount)})`}
                 </text>
             );
         },
-        [],
+        [totalTypeCount],
     );
 
     return (
@@ -635,6 +737,7 @@ export default function ReportsIndex({
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                             <select
+                                aria-label='Map Month'
                                 value={mapMonth}
                                 onChange={(e) => handleMapFilterChange(e.target.value, mapYear)}
                                 className="h-8 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
@@ -645,6 +748,7 @@ export default function ReportsIndex({
                                 ))}
                             </select>
                             <select
+                                aria-label='Map Year'
                                 value={mapYear}
                                 onChange={(e) => handleMapFilterChange(mapMonth, e.target.value)}
                                 className="h-8 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
@@ -681,7 +785,6 @@ export default function ReportsIndex({
                             <CardTitle className="text-base font-semibold text-gray-900">
                                 Confiscations Over Time
                                 {trendPctChange !== null && (
-                                    // FIX 3: amber instead of red for upward trend
                                     <span
                                         className={`ml-2 text-sm font-semibold ${trendPctChange >= 0 ? 'text-amber-500' : 'text-emerald-600'}`}
                                     >
@@ -691,19 +794,37 @@ export default function ReportsIndex({
                                     </span>
                                 )}
                             </CardTitle>
-                            <p className="text-sm text-gray-500">Monthly intake volume, broken down by asset type.</p>
+                            <p className="text-sm text-gray-500">
+                                Monthly intake by asset type, last {trendMonths} months.{' '}
+                                <span className="text-gray-400">Not affected by the breakdown filters below.</span>
+                            </p>
                         </div>
                         <div className="flex items-center gap-2">
                             <ExportPngButton
-                                onClick={() => exportChartAsPng(trendChartRef, `trend-chart-${trendMonths}m.png`)}
+                                label="trend chart"
+                                onClick={() =>
+                                    exportChartAsPng(trendChartRef, `trend-chart-${trendMonths}m.png`, {
+                                        title: 'Confiscations Over Time',
+                                        subtitle: `Monthly intake by asset type, last ${trendMonths} months`,
+                                        legend: [
+                                            { label: typeLabels.log ?? 'Log', color: TYPE_COLORS.log },
+                                            { label: typeLabels.equipment ?? 'Equipment', color: TYPE_COLORS.equipment },
+                                            { label: typeLabels.vehicle ?? 'Vehicle', color: TYPE_COLORS.vehicle },
+                                        ],
+                                    })
+                                }
                             />
-                            <div className="flex gap-1.5">
+                            <div className="flex items-center gap-1.5" role="group" aria-label="Trend time range">
+                                <span className="text-xs text-gray-500">Range:</span>
                                 {[3, 6, 12].map((m) => (
                                     <button
                                         key={m}
+                                        type="button"
+                                        aria-pressed={trendMonths === m}
+                                        aria-label={`Last ${m} months`}
                                         onClick={() => handleMonthsChange(m)}
                                         className={
-                                            'rounded-full px-3 py-1 text-xs font-semibold transition ' +
+                                            'rounded-full px-3 py-1 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-emerald-600 ' +
                                             (trendMonths === m
                                                 ? 'bg-emerald-700 text-white'
                                                 : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')
@@ -716,9 +837,9 @@ export default function ReportsIndex({
                         </div>
                     </CardHeader>
                     <CardContent className="h-72 pt-2">
-                        <div ref={trendChartRef} className="h-full w-full">
+                        <div ref={trendChartRef} role="img" aria-label={trendAriaLabel} className="h-full w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <ComposedChart data={trends} margin={{ top: 16, right: 8, left: -16, bottom: 0 }}>
+                                <BarChart data={trends} margin={{ top: 16, right: 8, left: -16, bottom: 0 }}>
                                     <CartesianGrid vertical={false} stroke="#e5e7eb" />
                                     <XAxis
                                         dataKey="month"
@@ -734,7 +855,7 @@ export default function ReportsIndex({
                                     />
                                     <Tooltip content={<TrendTooltip typeLabels={typeLabels} />} cursor={{ fill: '#f3f4f6' }} />
                                     <Legend
-                                        formatter={(value) => value === 'total' ? 'Total (line)' : (typeLabels[value as string] ?? value)}
+                                        formatter={(value) => typeLabels[value as string] ?? value}
                                         wrapperStyle={{ fontSize: 12 }}
                                     />
                                     {trendAverage > 0 && (
@@ -743,7 +864,7 @@ export default function ReportsIndex({
                                             stroke="#9ca3af"
                                             strokeDasharray="4 3"
                                             label={{
-                                                value: `Avg ${trendAverage}`,
+                                                value: `Avg ${trendAverage}/mo`,
                                                 position: 'insideTopRight',
                                                 fontSize: 10,
                                                 fill: '#9ca3af',
@@ -755,15 +876,7 @@ export default function ReportsIndex({
                                     <Bar dataKey="vehicle" stackId="a" fill={TYPE_COLORS.vehicle} radius={[6, 6, 0, 0]} maxBarSize={48}>
                                         <LabelList content={<TrendPctLabel />} />
                                     </Bar>
-                                    <Line
-                                        type="monotone"
-                                        dataKey="total"
-                                        stroke="#6366f1"
-                                        strokeWidth={2}
-                                        dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }}
-                                        activeDot={{ r: 5 }}
-                                    />
-                                </ComposedChart>
+                                </BarChart>
                             </ResponsiveContainer>
                         </div>
                     </CardContent>
@@ -774,6 +887,7 @@ export default function ReportsIndex({
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                         <span className="text-sm font-medium text-gray-600">Filter breakdowns by:</span>
                         <select
+                            aria-label="Breakdown month"
                             value={chartMonth}
                             onChange={(e) => handleChartFilterChange(e.target.value, chartYear)}
                             className="h-8 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
@@ -784,6 +898,7 @@ export default function ReportsIndex({
                             ))}
                         </select>
                         <select
+                            aria-label="Breakdown year"
                             value={chartYear}
                             onChange={(e) => handleChartFilterChange(chartMonth, e.target.value)}
                             className="h-8 rounded-md border border-gray-200 bg-white pl-3 pr-8 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600"
@@ -797,11 +912,15 @@ export default function ReportsIndex({
                             <button
                                 type="button"
                                 onClick={() => handleChartFilterChange('all', 'all')}
-                                className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
+                                className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100"
                             >
                                 Clear ×
                             </button>
                         )}
+                        <span className="text-xs text-gray-500">
+                            Applies to the two charts below. Showing:{' '}
+                            <span className="font-semibold text-gray-700">{chartPeriodLabel}</span>
+                        </span>
                     </div>
 
                     <div className="grid gap-6 lg:grid-cols-2">
@@ -809,13 +928,15 @@ export default function ReportsIndex({
                         {/* Assets by Type */}
                         <Card>
                             <CardHeader className="pb-2">
-                                <div className="flex items-start justify-between">
-                                    <div>
+                                <div className="flex flex-wrap items-start justify-between gap-2">
+                                    <div className="min-w-[12rem] flex-1">
                                         <CardTitle className="text-base font-semibold text-gray-900">Assets by Type</CardTitle>
-                                        <p className="text-xs text-gray-500">Click a bar to filter the asset list.</p>
+                                        <p className="text-xs text-gray-500">
+                                            <span className="font-medium text-gray-600">{chartPeriodLabel}</span>
+                                            {' · '}Click a bar or label to filter the asset list.
+                                        </p>
                                     </div>
-                                    {/* FIX 2: count + PNG + toggle all in one aligned row */}
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex shrink-0 items-center gap-2">
                                         {typeChartData.some((d) => d.count > 0) && (
                                             <div className="text-right">
                                                 <p className="text-2xl font-bold tabular-nums text-gray-900">
@@ -825,25 +946,38 @@ export default function ReportsIndex({
                                             </div>
                                         )}
                                         <ExportPngButton
-                                            onClick={() => exportChartAsPng(typeChartRef, 'assets-by-type.png')}
+                                            label="assets by type chart"
+                                            onClick={() =>
+                                                exportChartAsPng(typeChartRef, 'assets-by-type.png', {
+                                                    title: 'Assets by Type',
+                                                    subtitle: chartPeriodLabel,
+                                                    legend: typeChartData.map((d) => ({
+                                                        label: `${d.name}: ${d.count} (${formatPct(d.count, totalTypeCount)})`,
+                                                        color: TYPE_LABEL_COLORS[d.name]?.fill ?? FALLBACK_BAR_COLOR,
+                                                    })),
+                                                })
+                                            }
                                         />
-                                        {/* Bar / Pie toggle — same row as PNG */}
-                                        <div className="flex overflow-hidden rounded-md border border-gray-200">
+                                        <div role="group" aria-label="Chart type" className="flex overflow-hidden rounded-md border border-gray-200">
                                             <button
                                                 type="button"
+                                                aria-pressed={typeChartView === 'bar'}
+                                                aria-label="Bar chart"
                                                 onClick={() => setTypeChartView('bar')}
-                                                title="Bar chart"
-                                                className={`flex items-center justify-center px-2 py-1 text-xs transition ${typeChartView === 'bar' ? 'bg-emerald-700 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                                                className={`flex items-center gap-1 px-2 py-1 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-600 ${typeChartView === 'bar' ? 'bg-emerald-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                                             >
-                                                <BarChart2 className="h-3.5 w-3.5" />
+                                                <BarChart2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                                Bar
                                             </button>
                                             <button
                                                 type="button"
+                                                aria-pressed={typeChartView === 'pie'}
+                                                aria-label="Pie chart"
                                                 onClick={() => setTypeChartView('pie')}
-                                                title="Pie chart"
-                                                className={`flex items-center justify-center px-2 py-1 text-xs transition ${typeChartView === 'pie' ? 'bg-emerald-700 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                                                className={`flex items-center gap-1 border-l border-gray-200 px-2 py-1 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-600 ${typeChartView === 'pie' ? 'bg-emerald-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                                             >
-                                                <PieChartIcon className="h-3.5 w-3.5" />
+                                                <PieChartIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                                                Pie
                                             </button>
                                         </div>
                                     </div>
@@ -856,83 +990,95 @@ export default function ReportsIndex({
                                         <p className="text-sm text-gray-400">No data for this period.</p>
                                     </div>
                                 ) : (
-                                    <div className="h-64" ref={typeChartRef}>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            {typeChartView === 'bar' ? (
-                                                <BarChart data={typeChartData} margin={{ top: 24, right: 8, left: -16, bottom: 0 }}>
-                                                    <GradientDefs />
-                                                    <CartesianGrid vertical={false} stroke="#e5e7eb" />
-                                                    <XAxis
-                                                        dataKey="name"
-                                                        tick={{ fontSize: 12, fill: '#6b7280' }}
-                                                        axisLine={{ stroke: '#e5e7eb' }}
-                                                        tickLine={false}
-                                                    />
-                                                    <YAxis
-                                                        allowDecimals={false}
-                                                        tick={{ fontSize: 12, fill: '#6b7280' }}
-                                                        axisLine={false}
-                                                        tickLine={false}
-                                                    />
-                                                    <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f8fafc' }} />
-                                                    <Bar
-                                                        dataKey="count"
-                                                        radius={[6, 6, 0, 0]}
-                                                        maxBarSize={64}
-                                                        cursor="pointer"
-                                                        onClick={(data) => goToAssetsByType((data as unknown as { typeValue: string }).typeValue)}
-                                                    >
-                                                        <LabelList
-                                                            dataKey="count"
-                                                            position="top"
-                                                            style={{ fontSize: 12, fontWeight: 700, fill: '#374151' }}
-                                                            formatter={(value: unknown) => {
-                                                                const n = Number(value);
-                                                                return totalTypeCount > 0
-                                                                    ? `${n} (${Math.round((n / totalTypeCount) * 100)}%)`
-                                                                    : n;
-                                                            }}
+                                    <>
+                                        <div className="h-64" ref={typeChartRef} role="img" aria-label={typeAriaLabel}>
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                {typeChartView === 'bar' ? (
+                                                    <BarChart data={typeChartData} margin={{ top: 24, right: 8, left: -16, bottom: 0 }}>
+                                                        <GradientDefs />
+                                                        <CartesianGrid vertical={false} stroke="#e5e7eb" />
+                                                        <XAxis
+                                                            dataKey="name"
+                                                            tick={{ fontSize: 12, fill: '#6b7280' }}
+                                                            axisLine={{ stroke: '#e5e7eb' }}
+                                                            tickLine={false}
                                                         />
-                                                        {typeChartData.map((entry) => {
-                                                            const cfg = TYPE_LABEL_COLORS[entry.name];
-                                                            return (
-                                                                <Cell
-                                                                    key={entry.name}
-                                                                    fill={cfg ? `url(#${cfg.gradientId})` : FALLBACK_BAR_COLOR}
-                                                                />
-                                                            );
-                                                        })}
-                                                    </Bar>
-                                                </BarChart>
-                                            ) : (
-                                                <PieChart>
-                                                    <Pie
-                                                        data={pieData}
-                                                        cx="50%"
-                                                        cy="50%"
-                                                        innerRadius="45%"
-                                                        outerRadius="70%"
-                                                        paddingAngle={3}
-                                                        dataKey="value"
-                                                        cursor="pointer"
-                                                        onClick={(data) => {
-                                                            const entry = typeChartData.find((d) => d.name === data.name);
-                                                            if (entry) goToAssetsByType(entry.typeValue);
-                                                        }}
-                                                        label={({ name, percent }: { name?: string; percent?: number }) =>
-                                                            `${(name ?? '').split(' / ')[0]} ${((percent ?? 0) * 100).toFixed(0)}%`
-                                                        }
-                                                        labelLine={false}
+                                                        <YAxis
+                                                            allowDecimals={false}
+                                                            tick={{ fontSize: 12, fill: '#6b7280' }}
+                                                            axisLine={false}
+                                                            tickLine={false}
+                                                        />
+                                                        <Tooltip content={<ChartTooltip total={totalTypeCount} />} cursor={{ fill: '#f8fafc' }} />
+                                                        <Bar
+                                                            dataKey="count"
+                                                            radius={[6, 6, 0, 0]}
+                                                            maxBarSize={64}
+                                                            cursor="pointer"
+                                                            onClick={(data) => goToAssetsByType((data as unknown as { typeValue: string }).typeValue)}
+                                                        >
+                                                            <LabelList dataKey="count" content={<TypeCountLabel />} />
+                                                            {typeChartData.map((entry) => {
+                                                                const cfg = TYPE_LABEL_COLORS[entry.name];
+                                                                return (
+                                                                    <Cell
+                                                                        key={entry.name}
+                                                                        fill={cfg ? `url(#${cfg.gradientId})` : FALLBACK_BAR_COLOR}
+                                                                    />
+                                                                );
+                                                            })}
+                                                        </Bar>
+                                                    </BarChart>
+                                                ) : (
+                                                    <PieChart>
+                                                        <Pie
+                                                            data={pieData}
+                                                            cx="50%"
+                                                            cy="50%"
+                                                            innerRadius="45%"
+                                                            outerRadius="70%"
+                                                            paddingAngle={3}
+                                                            dataKey="value"
+                                                            cursor="pointer"
+                                                            onClick={(data) => {
+                                                                const entry = typeChartData.find((d) => d.name === data.name);
+                                                                if (entry) goToAssetsByType(entry.typeValue);
+                                                            }}
+                                                            label={({ name, percent }: { name?: string; percent?: number }) =>
+                                                                `${(name ?? '').split(' / ')[0]} ${((percent ?? 0) * 100).toFixed(0)}%`
+                                                            }
+                                                            labelLine={false}
+                                                        >
+                                                            {pieData.map((entry, index) => (
+                                                                <Cell key={index} fill={entry.fill} />
+                                                            ))}
+                                                        </Pie>
+                                                        <Tooltip content={<PieTooltip />} />
+                                                    </PieChart>
+                                                )}
+                                            </ResponsiveContainer>
+                                        </div>
+                                        <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1" aria-label="Asset types">
+                                            {typeChartData.map((d) => (
+                                                <li key={d.typeValue}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => goToAssetsByType(d.typeValue)}
+                                                        className="inline-flex items-center gap-1.5 rounded text-xs text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                                                     >
-                                                        {pieData.map((entry, index) => (
-                                                            <Cell key={index} fill={entry.fill} />
-                                                        ))}
-                                                    </Pie>
-                                                    <Tooltip content={<PieTooltip />} />
-                                                </PieChart>
-                                            )}
-                                        </ResponsiveContainer>
-                                    </div>
+                                                        <span
+                                                            aria-hidden="true"
+                                                            className="h-2.5 w-2.5 rounded-sm"
+                                                            style={{ backgroundColor: TYPE_LABEL_COLORS[d.name]?.fill ?? FALLBACK_BAR_COLOR }}
+                                                        />
+                                                        {d.name}:
+                                                        <span className="font-semibold tabular-nums text-gray-800">{d.count.toLocaleString()}</span>
+                                                        ({formatPct(d.count, totalTypeCount)})
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </>
                                 )}
                             </CardContent>
                         </Card>
@@ -941,22 +1087,29 @@ export default function ReportsIndex({
                         <Card>
                             <CardHeader className="pb-2">
                                 {/* FIX 4: municipality header matches type card layout — count + PNG in same row */}
-                                <div className="flex items-start justify-between">
-                                    <div>
+                                <div className="flex flex-wrap items-start justify-between gap-2">
+                                    <div className="min-w-[12rem] flex-1">
                                         <CardTitle className="text-base font-semibold text-gray-900">Confiscations by Municipality</CardTitle>
-                                        <p className="text-xs text-gray-500">Click a bar to filter the asset list.</p>
+                                        <p className="text-xs text-gray-500">
+                                            <span className="font-medium text-gray-600">{chartPeriodLabel}</span>
+                                            {' · '}Top 10. % of shown total. Click a bar to filter.
+                                        </p>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        {municipalityChartData.some((d) => d.count > 0) && (
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        {muniTotal > 0 && (
                                             <div className="text-right">
-                                                <p className="text-2xl font-bold tabular-nums text-gray-900">
-                                                    {municipalityChartData.reduce((s, d) => s + d.count, 0).toLocaleString()}
-                                                </p>
-                                                <p className="text-xs text-gray-400">total assets</p>
+                                                <p className="text-2xl font-bold tabular-nums text-gray-900">{muniTotal.toLocaleString()}</p>
+                                                <p className="text-xs text-gray-400">assets shown</p>
                                             </div>
                                         )}
                                         <ExportPngButton
-                                            onClick={() => exportChartAsPng(muniChartRef, 'by-municipality.png')}
+                                            label="municipality chart"
+                                            onClick={() =>
+                                                exportChartAsPng(muniChartRef, 'by-municipality.png', {
+                                                    title: 'Confiscations by Municipality',
+                                                    subtitle: `${chartPeriodLabel} · Top 10 · % of shown total`,
+                                                })
+                                            }
                                         />
                                     </div>
                                 </div>
@@ -970,13 +1123,15 @@ export default function ReportsIndex({
                                 ) : (
                                     <div
                                         ref={muniChartRef}
+                                        role="img"
+                                        aria-label={muniAriaLabel}
                                         style={{ height: Math.max(240, municipalityChartData.length * 36 + 16) }}
                                     >
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart
                                                 data={municipalityChartData}
                                                 layout="vertical"
-                                                margin={{ top: 4, right: 48, left: 40, bottom: 4 }}
+                                                margin={{ top: 4, right: 72, left: 8, bottom: 4 }}
                                             >
                                                 <GradientDefs />
                                                 <CartesianGrid horizontal={false} stroke="#e5e7eb" />
@@ -992,11 +1147,12 @@ export default function ReportsIndex({
                                                     type="category"
                                                     dataKey="name"
                                                     width={muniYAxisWidth}
+                                                    tickFormatter={(v: string, i: number) => `${i + 1}. ${v}`}
                                                     tick={{ fontSize: 11, fill: '#374151' }}
                                                     axisLine={false}
                                                     tickLine={false}
                                                 />
-                                                <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f8fafc' }} />
+                                                <Tooltip content={<ChartTooltip total={muniTotal} />} cursor={{ fill: '#f8fafc' }} />
                                                 <Bar
                                                     dataKey="count"
                                                     radius={[0, 6, 6, 0]}
@@ -1004,11 +1160,11 @@ export default function ReportsIndex({
                                                     cursor="pointer"
                                                     onClick={(data) => goToAssetsByMunicipality((data as unknown as { name: string }).name)}
                                                 >
-                                                    <LabelList content={<MuniRankLabel />} />
                                                     <LabelList
                                                         dataKey="count"
                                                         position="right"
                                                         style={{ fontSize: 11, fontWeight: 700, fill: '#374151' }}
+                                                        formatter={(value: unknown) => `${Number(value)} (${formatPct(Number(value), muniTotal)})`}
                                                     />
                                                     {municipalityChartData.map((entry, index) => (
                                                         <Cell
