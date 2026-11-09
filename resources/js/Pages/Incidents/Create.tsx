@@ -3,11 +3,12 @@ import InputError from '@/Components/InputError';
 import Modal from '@/Components/Modal';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/Components/ui/tooltip';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Head, useForm } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Shield, Trash2, Truck, X, Copy, Calculator } from 'lucide-react';
+import { Plus, Shield, Trash2, Truck, X, Copy, Calculator, Info } from 'lucide-react';
 import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
 import MultiStepWizard from '@/Components/shared/MultiStepWizard';
@@ -1149,7 +1150,43 @@ export default function IncidentsCreate({
                 {!isTurnedOver && (
                     <Card className="border-0 shadow-sm border-amber-100">
                         <CardHeader className="border-b border-amber-100 bg-amber-50 rounded-t-lg">
-                            <CardTitle className="text-base">Legal Case</CardTitle>
+                            <div className="flex items-center gap-1.5">
+                                <CardTitle className="text-base">Legal Case</CardTitle>
+                                <TooltipProvider delayDuration={100}>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                type="button"
+                                                aria-label="What do the Legal Case options mean?"
+                                                className="rounded-full text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                                            >
+                                                <Info className="h-4 w-4" aria-hidden="true" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="right" className="max-w-[300px] space-y-2 text-xs">
+                                            <p className="font-semibold">Legal Case options</p>
+                                            <div>
+                                                <p className="font-medium">Ongoing case</p>
+                                                <p className="text-gray-600">
+                                                    Choose this if a court or prosecutor case has been filed and is still unresolved for
+                                                    this apprehension. Leave it as "No ongoing case" if none has been filed.
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="font-medium">Confiscation / Forfeiture Order</p>
+                                                <p className="text-gray-600">
+                                                    Choose this if an official order to confiscate or forfeit these items has already
+                                                    been issued. You will need to upload a scanned copy (PDF). Leave it as "No
+                                                    confiscation order" if none has been issued yet.
+                                                </p>
+                                            </div>
+                                            <p className="text-gray-500">
+                                                The two options are independent. Check with your supervisor if unsure.
+                                            </p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </div>
                             <p className="text-sm text-gray-600">Applies to all items in this incident.</p>
                         </CardHeader>
                         <CardContent className="pt-4 space-y-4">
