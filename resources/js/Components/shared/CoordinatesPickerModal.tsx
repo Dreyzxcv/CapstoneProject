@@ -6,8 +6,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { Map as LeafletMap, Marker as LeafletMarker } from 'leaflet';
 
 const CATANDUANES_BOUNDS: [[number, number], [number, number]] = [
-    [13.40, 124.05],
-    [14.10, 124.45],
+    [13.35, 124.00],
+    [14.15, 124.50],
 ];
 const CATANDUANES_CENTER: [number, number] = [13.75, 124.24];
 

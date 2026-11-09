@@ -100,6 +100,19 @@ function totalPiecesOf(assets: AssetRow[]): number {
     return assets.reduce((s, a) => s + a.pieces.reduce((t, p) => t + pieceQty(p), 0), 0);
 }
 
+function ReviewField({ label, value, mono = false, wide = false }: {
+    label: string; value?: string | null; mono?: boolean; wide?: boolean;
+}) {
+    return (
+        <div className={wide ? 'sm:col-span-2' : undefined}>
+            <dt className="text-xs text-gray-500">{label}</dt>
+            <dd className={`mt-0.5 break-words text-sm text-gray-900 ${mono ? 'font-mono' : ''}`}>
+                {value && value.trim() !== '' ? value : <span className="text-gray-400">Not provided</span>}
+            </dd>
+        </div>
+    );
+}
+
 // Soft pulsing highlight used to guide the user to the next required field.
 const HIGHLIGHT_CSS = `
 @keyframes nfPulse {
@@ -1340,305 +1353,323 @@ export default function IncidentsCreate({
 
     function renderStep4() {
         const isTurnedOver = data.intake_mode === 'turned_over';
+        const money = (v: string | number) =>
+            `₱${Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const num = (v: string | number, d = 2) =>
+            Number(v).toLocaleString('en-PH', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+        const EditButton = ({ to }: { to: number }) => (
+            <Button type="button" variant="outline" size="sm" onClick={() => setStep(to)}>
+                Edit
+            </Button>
+        );
+
+        type ReviewCol = { header: string; right?: boolean; cell: (p: PieceRow, q: number) => React.ReactNode };
+
+        function columnsFor(type: string): ReviewCol[] {
+            if (type === 'log') {
+                return [
+                    {
+                        header: 'Species',
+                        cell: (p) => (
+                            <>
+                                <span className="font-medium text-gray-900">{p.species || '—'}</span>
+                                {p.description && <p className="text-xs text-gray-500">{p.description}</p>}
+                            </>
+                        ),
+                    },
+                    { header: 'Dimensions (L × W × H)', cell: (p) => `${p.length || '—'} × ${p.width || '—'} × ${p.height || '—'}` },
+                    { header: 'Qty', right: true, cell: (_, q) => `×${q}` },
+                    {
+                        header: 'Volume (bd.ft)',
+                        right: true,
+                        cell: (p, q) =>
+                            p.volume_bd_ft ? (
+                                <>
+                                    {num(parseFloat(p.volume_bd_ft) * q)}
+                                    {q > 1 && <p className="text-xs text-gray-500">{num(p.volume_bd_ft)} each</p>}
+                                </>
+                            ) : '—',
+                    },
+                    {
+                        header: 'Est. Value',
+                        right: true,
+                        cell: (p, q) =>
+                            p.estimated_value ? (
+                                <>
+                                    {money(parseFloat(p.estimated_value) * q)}
+                                    {q > 1 && <p className="text-xs text-gray-500">{money(p.estimated_value)} each</p>}
+                                </>
+                            ) : '—',
+                    },
+                ];
+            }
+            if (type === 'vehicle') {
+                return [
+                    { header: 'Vehicle Type', cell: (p) => <span className="font-medium text-gray-900">{p.vehicle_type || '—'}</span> },
+                    { header: 'Plate No.', cell: (p) => <span className="font-mono">{p.plate_number || '—'}</span> },
+                    { header: 'Qty', right: true, cell: (_, q) => `×${q}` },
+                    { header: 'Description', cell: (p) => p.description || '—' },
+                ];
+            }
+            return [
+                { header: 'Equipment Type', cell: (p) => <span className="font-medium text-gray-900">{p.equipment_type || '—'}</span> },
+                { header: 'Serial No.', cell: (p) => <span className="font-mono">{p.serial_number || '—'}</span> },
+                { header: 'Qty', right: true, cell: (_, q) => `×${q}` },
+                { header: 'Description', cell: (p) => p.description || '—' },
+            ];
+        }
+
+        const totalPieces = totalPiecesOf(data.assets);
+
         return (
             <div className="space-y-6">
                 <p className="text-sm text-gray-600">
-                    Review everything below. Go back to any step to make changes before recording.
+                    Review everything below. Use Edit to go back to a step before recording.
                 </p>
 
-                {/* Incident summary */}
-                {(() => {
-                const Field = ({ label, value, mono = false, wide = false }: {
-                    label: string; value?: string | null; mono?: boolean; wide?: boolean;
-                }) => (
-                    <div className={wide ? 'sm:col-span-2' : undefined}>
-                        <dt className="text-xs text-gray-400 mb-0.5">{label}</dt>
-                        <dd className={`text-sm font-medium text-gray-900 ${mono ? 'font-mono' : ''}`}>
-                            {value && value.trim() !== '' ? value : <span className="font-normal text-gray-300">—</span>}
-                        </dd>
-                    </div>
-                );
-
-                return (
-                    <Card className="border-0 shadow-sm">
-                        {/* Header row: title + asset ID + edit */}
-                        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
-                            <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-sm font-semibold text-gray-900">
-                                        {isTurnedOver ? 'Turn-Over Details' : 'Apprehension Details'}
-                                    </h3>
-                                    {previewCode && (
-                                        <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-700">
-                                            {previewCode}
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                                        {labelFor(modes, data.intake_mode)}
-                                    </span>
-                                    {!isTurnedOver && !data.has_claimant && (
-                                        <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                                            Abandoned
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            <button type="button" onClick={() => setStep(2)}
-                                className="text-xs font-medium text-emerald-700 hover:underline mt-0.5">
-                                Edit
-                            </button>
-                        </div>
-
-                        <CardContent className="pt-5 pb-6 space-y-5">
-                            {/* Dates + location in one flat grid — no section header needed */}
-                            <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
-                                <Field
-                                    label={isTurnedOver ? 'Date of Turn-Over' : 'Date of Apprehension'}
-                                    value={data.date_of_apprehension}
-                                />
-                                <Field label="Report Submitted" value={data.date_report_submitted} />
-                                <Field label="Municipality" value={labelFor(municipalities, data.place_of_apprehension)} />
-                                <Field label="Land Class" value={data.area} />
-                                <Field label="Coordinates" value={data.coordinates} mono wide />
-                            </dl>
-
-                            {/* Thin divider before party info */}
-                            <div className="border-t border-gray-100" />
-
-                            <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
-                                <Field
-                                    label={isTurnedOver ? 'Turning-Over Party' : 'Apprehending Party'}
-                                    value={data.apprehending_parties.filter((p) => p.trim()).join('; ')}
-                                    wide
-                                />
-                                {!isTurnedOver && data.initial_custodian_name && (
-                                    <Field label="Initial Custodian" value={data.initial_custodian_name} wide />
-                                )}
-                            </dl>
-
-                            {/* Claimant (apprehended only) */}
-                            {!isTurnedOver && (
-                                <>
-                                    <div className="border-t border-gray-100" />
-
-                                    {data.has_claimant ? (
-                                        <div className="space-y-4">
-                                            {data.claimants.map((c, i) => (
-                                                <div key={i} className="space-y-2">
-                                                    {data.claimants.length > 1 && (
-                                                        <p className="text-xs font-semibold text-gray-500">Claimant {i + 1}</p>
-                                                    )}
-                                                    <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
-                                                        <Field label="Claimant Name" value={c.name} />
-                                                        <Field label="Address" value={c.address} />
-                                                        {c.contact_number && <Field label="Contact" value={c.contact_number} />}
-                                                        {(c.id_type || c.id_number) && (
-                                                            <Field label="Valid ID" value={[c.id_type, c.id_number].filter(Boolean).join(' · ')} />
-                                                        )}
-                                                    </dl>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
-                                            <p className="text-sm font-medium text-amber-900">No claimant — recorded as abandoned</p>
-                                            <p className="mt-0.5 text-xs text-amber-700">
-                                                Proceeds toward automatic confiscation per DAO 97-32.
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {/* Legal status — only show if something is toggled on */}
-                                    {(data.has_ongoing_case || data.has_confiscation_order) && (
-                                        <>
-                                            <div className="border-t border-gray-100" />
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {data.has_ongoing_case ? (
-                                                    <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
-                                                        Ongoing case
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-400">
-                                                        No ongoing case
-                                                    </span>
-                                                )}
-                                                {data.has_confiscation_order && data.has_confiscation_order_file ? (
-                                                    <span className="inline-flex items-center rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-800">
-                                                        Confiscation order issued
-                                                    </span>
-                                                ) : data.has_confiscation_order && !data.has_confiscation_order_file ? (
-                                                    <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-                                                        Confiscation order — file not yet uploaded
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-400">
-                                                        No confiscation order
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </>
-                                    )}
-                                </>
+                {/* Incident details */}
+                <Card className="border-0 shadow-sm">
+                    <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-gray-100">
+                        <div>
+                            <CardTitle className="text-xl">
+                                {isTurnedOver ? 'Turn-Over Details' : 'Apprehension Details'}
+                            </CardTitle>
+                            <p className="text-sm text-gray-600">Shared across every item in this incident.</p>
+                            {previewCode && (
+                                <span className="mt-2 inline-flex w-fit items-center rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-mono font-semibold text-emerald-800">
+                                    Asset ID: {previewCode}
+                                </span>
                             )}
+                        </div>
+                        <EditButton to={2} />
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        <dl className="grid gap-4 sm:grid-cols-2">
+                            <ReviewField label="Intake Mode" value={labelFor(modes, data.intake_mode)} />
+                            <ReviewField label="Province" value="Catanduanes" />
+                            <ReviewField
+                                label={isTurnedOver ? 'Date of Turn-Over' : 'Date of Apprehension'}
+                                value={data.date_of_apprehension}
+                            />
+                            <ReviewField
+                                label={isTurnedOver ? 'Date Submitted (Turn-Over Report)' : 'Date Submitted (Apprehension Report)'}
+                                value={data.date_report_submitted}
+                            />
+                            <ReviewField
+                                label={isTurnedOver ? 'Municipality (Place of Turn-Over)' : 'Municipality (Place of Apprehension)'}
+                                value={labelFor(municipalities, data.place_of_apprehension)}
+                            />
+                            <ReviewField label="Land Class" value={data.area} />
+                            <ReviewField
+                                label={isTurnedOver ? 'Turn-Over Site Coordinates' : 'Apprehension Site Coordinates'}
+                                value={data.coordinates}
+                                mono
+                            />
+                            <ReviewField
+                                label={isTurnedOver ? 'Turning-Over Party' : 'Apprehending Party'}
+                                value={data.apprehending_parties.filter((p) => p.trim()).join('; ')}
+                            />
+                            {!isTurnedOver && data.initial_custodian_name && (
+                                <ReviewField label="Initial Custodian" value={data.initial_custodian_name} wide />
+                            )}
+                        </dl>
+                    </CardContent>
+                </Card>
 
-                            {/* Map preview */}
-                            {data.coordinates && (
-                                <>
-                                    <div className="border-t border-gray-100" />
-                                    <IncidentLocationMap
-                                        coordinates={data.coordinates}
-                                        placeName={data.place_of_apprehension}
-                                        areaName={data.area}
-                                    />
-                                </>
+                {/* Location map */}
+                {data.coordinates && (
+                    <Card className="border-0 shadow-sm">
+                        <CardHeader className="border-b border-gray-100">
+                            <CardTitle className="text-base">Location</CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-4">
+                            <IncidentLocationMap
+                                coordinates={data.coordinates}
+                                placeName={data.place_of_apprehension}
+                                areaName={data.area}
+                            />
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Claimant */}
+                {!isTurnedOver && (
+                    <Card className="border-0 shadow-sm">
+                        <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-gray-100">
+                            <div>
+                                <CardTitle className="text-base">Claimant</CardTitle>
+                                <p className="text-sm text-gray-600">
+                                    {data.has_claimant
+                                        ? 'A claimant/offender has come forward regarding this apprehension.'
+                                        : 'No claimant came forward.'}
+                                </p>
+                            </div>
+                            <EditButton to={2} />
+                        </CardHeader>
+                        <CardContent className="space-y-4 pt-4">
+                            {data.has_claimant ? (
+                                data.claimants.map((c, i) => (
+                                    <div key={i} className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                        <span className="text-sm font-semibold text-gray-700">Claimant {i + 1}</span>
+                                        <dl className="grid gap-4 sm:grid-cols-2">
+                                            <ReviewField label="Claimant / Offender Name" value={c.name} />
+                                            <ReviewField label="Claimant Address" value={c.address} />
+                                            <ReviewField label="Contact Number" value={c.contact_number} />
+                                            <ReviewField
+                                                label="Valid ID"
+                                                value={[c.id_type, c.id_number].filter(Boolean).join(' · ')}
+                                            />
+                                        </dl>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-sm text-gray-600">
+                                    Recorded as <span className="font-semibold text-amber-700">abandoned</span>. This proceeds
+                                    toward automatic confiscation per DAO 97-32.
+                                </p>
                             )}
                         </CardContent>
                     </Card>
-                );
-            })()}
+                )}
 
-                {/* Assets */}
-                {(() => {
-                    const totalPieces = totalPiecesOf(data.assets);
-                    const money = (v: string | number) =>
-                        `₱${Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                    const num = (v: string | number, d = 2) =>
-                        Number(v).toLocaleString('en-PH', { minimumFractionDigits: d, maximumFractionDigits: d });
+                {/* Legal case */}
+                {!isTurnedOver && (data.has_ongoing_case || data.has_confiscation_order) && (
+                    <Card className="border-0 border-amber-100 shadow-sm">
+                        <CardHeader className="flex flex-row items-start justify-between gap-3 rounded-t-lg border-b border-amber-100 bg-amber-50">
+                            <div>
+                                <CardTitle className="text-base">Legal Case</CardTitle>
+                                <p className="text-sm text-gray-600">Applies to all items in this incident.</p>
+                            </div>
+                            <EditButton to={2} />
+                        </CardHeader>
+                        <CardContent className="pt-4">
+                            <dl className="grid gap-4 sm:grid-cols-2">
+                                <ReviewField label="Ongoing Case" value={data.has_ongoing_case ? 'Ongoing case' : 'No ongoing case'} />
+                                <ReviewField
+                                    label="Confiscation / Forfeiture Order"
+                                    value={
+                                        data.has_confiscation_order
+                                            ? data.has_confiscation_order_file
+                                                ? `Issued · ${data.has_confiscation_order_file.name}`
+                                                : 'Order flagged, file not yet uploaded'
+                                            : 'No confiscation order'
+                                    }
+                                />
+                            </dl>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Items */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="text-base font-semibold text-gray-900">Items to Record</h3>
+                        <p className="text-sm text-gray-600">
+                            {data.assets.length} {data.assets.length === 1 ? 'item' : 'items'} · {totalPieces}{' '}
+                            {totalPieces === 1 ? 'piece' : 'pieces'}
+                        </p>
+                    </div>
+                    <EditButton to={3} />
+                </div>
+
+                {data.assets.map((asset, ai) => {
+                    const cols = columnsFor(asset.type);
+                    const { totalBdFt, totalCuM, totalVal, totalPieces: itemPieces } = assetTotals(asset);
 
                     return (
-                        <Card className="border-0 shadow-sm">
-                            <CardHeader className="flex flex-row items-start justify-between border-b border-gray-100">
-                                <div>
-                                    <CardTitle className="text-base">Items to Record</CardTitle>
-                                    <p className="mt-0.5 text-sm text-gray-500">
-                                        {data.assets.length} {data.assets.length === 1 ? 'item' : 'items'} ·{' '}
-                                        {totalPieces} {totalPieces === 1 ? 'piece' : 'pieces'}
-                                    </p>
-                                </div>
-                                <button type="button" onClick={() => setStep(3)} className="text-xs font-medium text-emerald-700 hover:underline">
-                                    Edit
-                                </button>
+                        <Card key={ai} className="border-0 shadow-sm">
+                            <CardHeader className="border-b border-gray-100">
+                                <CardTitle className="text-base">
+                                    Item {ai + 1}: {labelFor(types, asset.type)}
+                                    <span className="ml-2 text-xs font-normal text-gray-500">
+                                        ({itemPieces} {itemPieces === 1 ? 'piece' : 'pieces'})
+                                    </span>
+                                </CardTitle>
+                                {!isTurnedOver && (
+                                    <p className="text-sm text-gray-600">Apprehending Agency: {asset.apprehending_agency || '—'}</p>
+                                )}
                             </CardHeader>
+                            <CardContent className="space-y-4 pt-4">
+                                {/* Desktop table */}
+                                <div className="hidden overflow-x-auto rounded-md border border-gray-200 sm:block">
+                                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left font-medium text-gray-500">Pieces</th>
+                                                {cols.map((c) => (
+                                                    <th
+                                                        key={c.header}
+                                                        className={`whitespace-nowrap px-3 py-2 font-medium text-gray-500 ${c.right ? 'text-right' : 'text-left'}`}
+                                                    >
+                                                        {c.header}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 bg-white">
+                                            {asset.pieces.map((piece, pi) => {
+                                                const q = pieceQty(piece);
+                                                return (
+                                                    <tr key={pi} className="align-top">
+                                                        <td className="whitespace-nowrap px-3 py-2 text-gray-500">
+                                                            {pieceRange(asset.pieces, pi)}
+                                                        </td>
+                                                        {cols.map((c) => (
+                                                            <td
+                                                                key={c.header}
+                                                                className={`px-3 py-2 text-gray-700 ${c.right ? 'whitespace-nowrap text-right tabular-nums' : ''}`}
+                                                            >
+                                                                {c.cell(piece, q)}
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
 
-                            <CardContent className="space-y-5 pt-5">
-                                {data.assets.map((asset, ai) => {
-                                    const isLog = asset.type === 'log';
-                                    const isVehicle = asset.type === 'vehicle';
-                                    const { totalBdFt, totalCuM, totalVal, totalPieces: itemPieces } = assetTotals(asset);
-
-                                    const headers = isLog
-                                        ? ['Pieces', 'Species', 'Dimensions (L × W × H)', 'Qty', 'Volume (bd.ft)', 'Est. Value']
-                                        : isVehicle
-                                            ? ['Pieces', 'Vehicle Type', 'Plate No.', 'Qty', 'Description']
-                                            : ['Pieces', 'Equipment Type', 'Serial No.', 'Qty', 'Description'];
-
-                                    return (
-                                        <div key={ai} className="overflow-hidden rounded-lg border border-gray-200">
-                                            <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
-                                                        Item {ai + 1}
-                                                    </span>
-                                                    <span className="text-sm font-semibold text-gray-900">
-                                                        {labelFor(types, asset.type)}
-                                                    </span>
-                                                </div>
-                                                <span className="text-xs text-gray-500">
-                                                    {itemPieces} {itemPieces === 1 ? 'piece' : 'pieces'}
+                                {/* Mobile cards */}
+                                <div className="space-y-3 sm:hidden">
+                                    {asset.pieces.map((piece, pi) => {
+                                        const q = pieceQty(piece);
+                                        return (
+                                            <div key={pi} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                                <span className="text-sm font-semibold text-gray-700">
+                                                    {q > 1 ? `Pieces ${pieceRange(asset.pieces, pi)} (×${q})` : `Piece ${pieceRange(asset.pieces, pi)}`}
                                                 </span>
+                                                <dl className="mt-3 grid grid-cols-2 gap-3">
+                                                    {cols.map((c) => (
+                                                        <div key={c.header} className="min-w-0 break-words">
+                                                            <dt className="text-xs text-gray-500">{c.header}</dt>
+                                                            <dd className="mt-0.5 text-sm text-gray-900">{c.cell(piece, q)}</dd>
+                                                        </div>
+                                                    ))}
+                                                </dl>
                                             </div>
+                                        );
+                                    })}
+                                </div>
 
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-sm">
-                                                    <thead>
-                                                        <tr className="border-b border-gray-100 text-left text-[11px] uppercase tracking-wide text-gray-400">
-                                                            {headers.map((h, i) => (
-                                                                <th key={h}
-                                                                    className={`whitespace-nowrap px-4 py-2 font-medium ${isLog && i >= 3 ? 'text-right' : ''}`}>
-                                                                    {h}
-                                                                </th>
-                                                            ))}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-gray-100">
-                                                        {asset.pieces.map((piece, pi) => {
-                                                            const q = pieceQty(piece);
-                                                            return (
-                                                                <tr key={pi} className="align-top">
-                                                                    <td className="whitespace-nowrap px-4 py-3 text-gray-400">{pieceRange(asset.pieces, pi)}</td>
-
-                                                                    {isLog && (
-                                                                        <>
-                                                                            <td className="px-4 py-3 font-semibold text-gray-900">
-                                                                                {piece.species || '—'}
-                                                                                {piece.description && (
-                                                                                    <p className="mt-0.5 text-xs font-normal text-gray-500">{piece.description}</p>
-                                                                                )}
-                                                                            </td>
-                                                                            <td className="whitespace-nowrap px-4 py-3 text-gray-700">
-                                                                                {piece.length || '—'} × {piece.width || '—'} × {piece.height || '—'}
-                                                                            </td>
-                                                                            <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-gray-900">×{q}</td>
-                                                                            <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-gray-900">
-                                                                                {piece.volume_bd_ft ? num(parseFloat(piece.volume_bd_ft) * q) : '—'}
-                                                                                {q > 1 && piece.volume_bd_ft && (
-                                                                                    <p className="text-xs font-normal text-gray-500">{num(piece.volume_bd_ft)} each</p>
-                                                                                )}
-                                                                            </td>
-                                                                            <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-emerald-700">
-                                                                                {piece.estimated_value ? money(parseFloat(piece.estimated_value) * q) : '—'}
-                                                                                {q > 1 && piece.estimated_value && (
-                                                                                    <p className="text-xs font-normal text-gray-500">{money(piece.estimated_value)} each</p>
-                                                                                )}
-                                                                            </td>
-                                                                        </>
-                                                                    )}
-
-                                                                    {isVehicle && (
-                                                                        <>
-                                                                            <td className="px-4 py-3 font-semibold text-gray-900">{piece.vehicle_type || '—'}</td>
-                                                                            <td className="px-4 py-3 font-mono text-gray-900">{piece.plate_number || '—'}</td>
-                                                                            <td className="px-4 py-3 font-semibold tabular-nums text-gray-900">×{q}</td>
-                                                                            <td className="px-4 py-3 text-gray-600">{piece.description || '—'}</td>
-                                                                        </>
-                                                                    )}
-
-                                                                    {asset.type === 'equipment' && (
-                                                                        <>
-                                                                            <td className="px-4 py-3 font-semibold text-gray-900">{piece.equipment_type || '—'}</td>
-                                                                            <td className="px-4 py-3 font-mono text-gray-900">{piece.serial_number || '—'}</td>
-                                                                            <td className="px-4 py-3 font-semibold tabular-nums text-gray-900">×{q}</td>
-                                                                            <td className="px-4 py-3 text-gray-600">{piece.description || '—'}</td>
-                                                                        </>
-                                                                    )}
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-
-                                                    {isLog && itemPieces > 1 && (
-                                                        <tfoot>
-                                                            <tr className="border-t-2 border-emerald-100 bg-emerald-50">
-                                                                <td colSpan={3} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-emerald-800">
-                                                                    Total · {num(totalCuM, 4)} cu.m
-                                                                </td>
-                                                                <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-emerald-800">×{itemPieces}</td>
-                                                                <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-emerald-800">{num(totalBdFt)}</td>
-                                                                <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-emerald-800">{money(totalVal)}</td>
-                                                            </tr>
-                                                        </tfoot>
-                                                    )}
-                                                </table>
-                                            </div>
+                                {asset.type === 'log' && itemPieces > 1 && (
+                                    <div className="flex flex-wrap gap-4 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm">
+                                        <div className="flex items-center gap-1.5 text-emerald-800">
+                                            <Calculator className="h-3.5 w-3.5 shrink-0" />
+                                            <span className="font-semibold">Totals:</span>
                                         </div>
-                                    );
-                                })}
+                                        <span className="text-emerald-700"><span className="font-medium">{num(totalBdFt)}</span> bd.ft</span>
+                                        <span className="text-emerald-700"><span className="font-medium">{num(totalCuM, 4)}</span> cu.m</span>
+                                        {totalVal > 0 && (
+                                            <span className="text-emerald-700"><span className="font-medium">{money(totalVal)}</span></span>
+                                        )}
+                                        <span className="ml-auto text-xs text-emerald-600">{itemPieces} pieces</span>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     );
-                })()}
+                })}
             </div>
         );
     }

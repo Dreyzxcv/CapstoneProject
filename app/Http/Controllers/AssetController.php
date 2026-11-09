@@ -408,6 +408,8 @@ class AssetController extends Controller
 
     public function updateCaseDetails(UpdateCaseDetailsRequest $request, Asset $asset, UpdateCaseDetails $action): RedirectResponse
     {
+        $this->authorize('editAssetInformation', $asset);
+        
         $action->execute($asset, $request->validated(), $request->user());
 
         return back()->with('success', 'Case details updated.');
