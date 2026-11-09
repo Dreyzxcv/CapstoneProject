@@ -13,6 +13,7 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
+use Illuminate\Support\Facades\DB;
 
 class AssetInformationLockTest extends TestCase
 {
@@ -29,13 +30,13 @@ class AssetInformationLockTest extends TestCase
         return User::factory()->create()->assignRole($role);
     }
 
-    private function makeAsset(AssetStatus $status): Asset
+    private function makeAsset(AssetStatus $status, ?string $code = null, int $item = 1): Asset
     {
         $creator = User::factory()->create();
 
         return Asset::create([
-            'asset_code'             => 'TEST-'.Str::upper(Str::random(8)),
-            'item_number'            => 1,
+            'asset_code'             => $code ?? 'TEST-'.Str::upper(Str::random(8)),
+            'item_number'            => $item,
             'type'                   => AssetType::Log,
             'quantity'               => 1,
             'quantity_unit'          => 'pcs',
@@ -124,5 +125,28 @@ class AssetInformationLockTest extends TestCase
 
         $this->actingAs($this->user('System Admin'))->get(route('assets.show', $asset))
             ->assertInertia(fn ($p) => $p->where('can.edit', true)->where('can.updateCaseDetails', true));
+    }
+
+    public function test_lock_cannot_be_bypassed_through_a_sibling_row(): void
+    {
+        $this->makeAsset(AssetStatus::DocumentsVerified, 'TEST-SHARED', 1);
+        $sibling = $this->makeAsset(AssetStatus::PendingCustodyReview, 'TEST-SHARED', 2);
+        $piece   = $this->makePiece($sibling);
+        $mes     = $this->user('MES Officer');
+
+        $this->actingAs($mes)->put(route('assets.update', $sibling), $this->assetPayload())->assertForbidden();
+        $this->actingAs($mes)->put(route('asset-pieces.update', $piece), ['description' => 'x'])->assertForbidden();
+        $this->actingAs($mes)->post(route('assets.stcp-number.update', $sibling), ['stcp_number' => 'STCP-1'])->assertForbidden();
+        $this->actingAs($mes)->post(route('assets.case-details.update', $sibling), ['case_number' => 'C-1'])->assertForbidden();
+    }
+
+    public function test_lock_holds_when_status_is_written_as_a_raw_string(): void
+    {
+        $asset = $this->makeAsset(AssetStatus::Stored);
+        DB::table('assets')->where('id', $asset->id)->update(['current_status' => 'documents_verified']);
+
+        $this->actingAs($this->user('MES Officer'))
+            ->put(route('assets.update', $asset), $this->assetPayload())
+            ->assertForbidden();
     }
 }

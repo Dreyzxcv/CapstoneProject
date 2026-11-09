@@ -96,8 +96,16 @@ class AssetPolicy
 
     private function informationLocked(User $user, Asset $asset): bool
     {
-        return $asset->current_status === AssetStatus::DocumentsVerified
-            && ! $user->hasRole('System Admin');
+        if ($user->hasRole('System Admin')) {
+            return false;
+        }
+
+        $current = $asset->current_status instanceof AssetStatus
+            ? $asset->current_status
+            : AssetStatus::tryFrom((string) $asset->current_status);
+
+        // Only the very first stage is editable by non-admins.
+        return $current !== AssetStatus::Stored && $current !== AssetStatus::DocumentsUploaded && $current !== AssetStatus::PendingCustodyReview;
     }
 
     /** Lock-only ability, for endpoints that have no other policy gate. */
