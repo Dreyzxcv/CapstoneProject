@@ -81,7 +81,6 @@ interface ShowProps {
         all_verified: boolean;
         any_rejected: boolean;
         can_approve: boolean;
-        can_return: boolean;
         show_panel: boolean;
     };
 }
@@ -1732,76 +1731,23 @@ export default function AssetsShow({
     const stickerSpecies = asset.species ?? "—";
     const stickerPcs = asset.quantity ?? 1;
 
-    function CustodianReviewPanel({
-        asset,
-        documentReviewStatus,
-    }: {
-        asset: ShowProps["asset"];
-        documentReviewStatus: ShowProps["documentReviewStatus"];
-    }) {
-        const [remarks, setRemarks] = useState("");
-
-        function submit(decision: "approved" | "returned") {
-            if (decision === "returned" && !remarks.trim()) {
-                alert("Please provide remarks when returning for revision.");
-                return;
-            }
-            if (
-                !confirm(
-                    decision === "approved"
-                        ? "Approve custody review?"
-                        : "Return for revision?",
-                )
-            )
-                return;
+    function CustodianReviewPanel({ asset }: { asset: ShowProps["asset"] }) {
+        function approve() {
+            if (!confirm("Approve custody review?")) return;
             router.post(route("assets.resolve-custody-review", asset.id), {
-                decision,
-                remarks,
+                decision: "approved",
             });
         }
 
         return (
-            <div className="border border-blue-200 bg-blue-50 rounded p-3 space-y-2">
-                <p className="text-sm font-semibold text-blue-800">
-                    Action Required — Custody Review
-                </p>
+            <div className="space-y-2 rounded border border-blue-200 bg-blue-50 p-3">
+                <p className="text-sm font-semibold text-blue-800">Action Required — Custody Review</p>
                 <p className="text-xs text-blue-700">
-                    {documentReviewStatus.all_verified
-                        ? "All required documents are verified. You may now approve this asset."
-                        : "Some documents were rejected. Return this asset to MES for corrections."}
+                    All required documents are verified. You may now approve this asset.
                 </p>
-
-                {documentReviewStatus.can_return && (
-                    <textarea
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                        rows={2}
-                        placeholder="Remarks (required if returning)"
-                        value={remarks}
-                        onChange={(e) => setRemarks(e.target.value)}
-                    />
-                )}
-
-                <div className="flex gap-2">
-                    {documentReviewStatus.can_approve && (
-                        <Button
-                            size="sm"
-                            onClick={() => submit("approved")}
-                            className="bg-green-600 hover:bg-green-700 text-white"
-                        >
-                            Approve
-                        </Button>
-                    )}
-                    {documentReviewStatus.can_return && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => submit("returned")}
-                            className="border-red-300 text-red-700 hover:bg-red-50"
-                        >
-                            Return
-                        </Button>
-                    )}
-                </div>
+                <Button size="sm" onClick={approve} className="bg-green-600 text-white hover:bg-green-700">
+                    Approve
+                </Button>
             </div>
         );
     }
@@ -2573,13 +2519,8 @@ export default function AssetsShow({
                             )}
                             {can.resolveCustodyReview &&
                                 asset.custody_review_status === "pending" &&
-                                documentReviewStatus.show_panel && (
-                                    <CustodianReviewPanel
-                                        asset={asset}
-                                        documentReviewStatus={
-                                            documentReviewStatus
-                                        }
-                                    />
+                                documentReviewStatus.can_approve && (
+                                    <CustodianReviewPanel asset={asset} />
                                 )}
                         </CardContent>
                     </Card>
