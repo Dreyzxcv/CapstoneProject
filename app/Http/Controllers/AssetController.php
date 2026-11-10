@@ -241,8 +241,7 @@ class AssetController extends Controller
                 'all_verified' => $allVerified,
                 'any_rejected' => $anyRejected,
                 'can_approve'  => $allVerified,
-                'can_return'   => $anyRejected && !$anyPending && !$anyMissing,
-                'show_panel'   => $allVerified || ($anyRejected && !$anyPending && !$anyMissing),
+                'show_panel' => $allVerified,
             ];
         })();
 

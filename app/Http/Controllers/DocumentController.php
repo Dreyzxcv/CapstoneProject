@@ -24,7 +24,7 @@ use App\Enums\AssetStatus;
 use App\Services\AssetLifecycleService;
 use App\Services\NotificationService;
 use App\Models\User;
-use Illuminate\Support\Facades\Auth;
+use App\Actions\ResolveCustodyReview;
 
 class DocumentController extends Controller
 {
@@ -267,6 +267,7 @@ class DocumentController extends Controller
         Document $document,
         AuditLogService $auditLog,
         NotificationService $notifications,
+        ResolveCustodyReview $custodyReview,
     ): RedirectResponse {
         $this->authorize('verify', $document);
 
@@ -343,6 +344,31 @@ class DocumentController extends Controller
 
             if ($allVerified && ! $primary->acknowledgementReceipt()->exists()) {
                 app(\App\Actions\CreateAsset::class)->issueReceiptFor($primary, $request->user());
+            }
+        }
+
+        // Rejecting a required document IS the return-to-MES action.
+        if ($decision === 'rejected' && $document->attachable instanceof Asset) {
+            $primary = Asset::where('asset_code', $document->attachable->asset_code)
+                ->orderBy('id')
+                ->first();
+
+            $requiredValues = collect($primary->requiredDocumentTypes())
+                ->map(fn ($t) => $t->value)
+                ->reject(fn ($v) => $v === DocumentType::AapDocument->value);
+
+            $type = $document->document_type?->value;
+
+            if ($type
+                && $requiredValues->contains($type)
+                && $primary->custody_review_status === 'pending'
+                && $primary->current_status === AssetStatus::PendingCustodyReview
+            ) {
+                $custodyReview->returnForRevision(
+                    $primary,
+                    $request->validated('remarks'),
+                    $request->user(),
+                );
             }
         }
 

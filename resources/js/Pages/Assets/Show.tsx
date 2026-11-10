@@ -24,9 +24,12 @@ import {
     Upload,
     ChevronDown,
     ChevronUp,
+    CheckCircle2,
+    XCircle,
+    Clock,
+    Circle,
 } from "lucide-react";
 import { IncidentLocationMap } from "@/Components/shared/IncidentLocationMap";
-import { PdfBadge } from "@/Components/shared/PdfBadge";
 import RequiredDocumentsModal from "@/Components/shared/RequiredDocumentsModal";
 import CoordinatesPickerModal from "@/Components/shared/CoordinatesPickerModal";
 import { CaseDetailsModal } from "@/Components/shared/CaseDetailsCard";
@@ -78,7 +81,6 @@ interface ShowProps {
         all_verified: boolean;
         any_rejected: boolean;
         can_approve: boolean;
-        can_return: boolean;
         show_panel: boolean;
     };
 }
@@ -100,6 +102,34 @@ const UNTAGGED_STATUSES = [
     "pending_custody_review",
     "stored",
 ];
+
+const EVIDENCE_TYPE_LABELS: Record<string, string> = {
+    confiscation_order: "Confiscation Order",
+    forfeiture_order: "Forfeiture Order",
+    regional_confiscation_order: "Regional Confiscation Order",
+    court_order: "Court Order",
+    certificate_of_finality: "Certificate of Finality",
+    other: "Other Supporting Document",
+};
+
+function DocStatusIcon({ status }: { status?: string | null }) {
+    const base = "h-4 w-4 shrink-0";
+    if (status === "verified")
+        return <CheckCircle2 className={`${base} text-emerald-600`} aria-hidden="true" />;
+    if (status === "rejected")
+        return <XCircle className={`${base} text-red-600`} aria-hidden="true" />;
+    if (status === "pending")
+        return <Clock className={`${base} text-amber-600`} aria-hidden="true" />;
+    return <Circle className={`${base} text-gray-300`} aria-hidden="true" />;
+}
+
+function evidenceLabel(type?: string | null): string {
+    if (!type) return "Supporting Document";
+    return (
+        EVIDENCE_TYPE_LABELS[type] ??
+        type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    );
+}
 
 const selectClass =
     "flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600";
@@ -1701,76 +1731,23 @@ export default function AssetsShow({
     const stickerSpecies = asset.species ?? "—";
     const stickerPcs = asset.quantity ?? 1;
 
-    function CustodianReviewPanel({
-        asset,
-        documentReviewStatus,
-    }: {
-        asset: ShowProps["asset"];
-        documentReviewStatus: ShowProps["documentReviewStatus"];
-    }) {
-        const [remarks, setRemarks] = useState("");
-
-        function submit(decision: "approved" | "returned") {
-            if (decision === "returned" && !remarks.trim()) {
-                alert("Please provide remarks when returning for revision.");
-                return;
-            }
-            if (
-                !confirm(
-                    decision === "approved"
-                        ? "Approve custody review?"
-                        : "Return for revision?",
-                )
-            )
-                return;
+    function CustodianReviewPanel({ asset }: { asset: ShowProps["asset"] }) {
+        function approve() {
+            if (!confirm("Approve custody review?")) return;
             router.post(route("assets.resolve-custody-review", asset.id), {
-                decision,
-                remarks,
+                decision: "approved",
             });
         }
 
         return (
-            <div className="border border-blue-200 bg-blue-50 rounded p-3 space-y-2">
-                <p className="text-sm font-semibold text-blue-800">
-                    Action Required — Custody Review
-                </p>
+            <div className="space-y-2 rounded border border-blue-200 bg-blue-50 p-3">
+                <p className="text-sm font-semibold text-blue-800">Action Required — Custody Review</p>
                 <p className="text-xs text-blue-700">
-                    {documentReviewStatus.all_verified
-                        ? "All required documents are verified. You may now approve this asset."
-                        : "Some documents were rejected. Return this asset to MES for corrections."}
+                    All required documents are verified. You may now approve this asset.
                 </p>
-
-                {documentReviewStatus.can_return && (
-                    <textarea
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                        rows={2}
-                        placeholder="Remarks (required if returning)"
-                        value={remarks}
-                        onChange={(e) => setRemarks(e.target.value)}
-                    />
-                )}
-
-                <div className="flex gap-2">
-                    {documentReviewStatus.can_approve && (
-                        <Button
-                            size="sm"
-                            onClick={() => submit("approved")}
-                            className="bg-green-600 hover:bg-green-700 text-white"
-                        >
-                            Approve
-                        </Button>
-                    )}
-                    {documentReviewStatus.can_return && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => submit("returned")}
-                            className="border-red-300 text-red-700 hover:bg-red-50"
-                        >
-                            Return
-                        </Button>
-                    )}
-                </div>
+                <Button size="sm" onClick={approve} className="bg-green-600 text-white hover:bg-green-700">
+                    Approve
+                </Button>
             </div>
         );
     }
@@ -2420,95 +2397,47 @@ export default function AssetsShow({
                                 if (evidenceDocs.length === 0) return null;
                                 return (
                                     <div className="space-y-1.5">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                            Additional Evidence
-                                        </p>
-                                        <div className="space-y-1.5">
-                                            {evidenceDocs.map((doc) => {
-                                                const url = documentUrl(
-                                                    doc.file_path,
-                                                );
-                                                const isImage =
-                                                    doc.mime_type?.startsWith(
-                                                        "image/",
-                                                    );
-                                                const typeLabel = [
-                                                    {
-                                                        value: "confiscation_order",
-                                                        label: "Confiscation Order",
-                                                    },
-                                                    {
-                                                        value: "forfeiture_order",
-                                                        label: "Forfeiture Order",
-                                                    },
-                                                    {
-                                                        value: "regional_confiscation_order",
-                                                        label: "Regional Confiscation Order",
-                                                    },
-                                                    {
-                                                        value: "court_order",
-                                                        label: "Court Order",
-                                                    },
-                                                    {
-                                                        value: "certificate_of_finality",
-                                                        label: "Certificate of Finality",
-                                                    },
-                                                    {
-                                                        value: "other",
-                                                        label: "Other Supporting Document",
-                                                    },
-                                                ].find(
-                                                    (t) =>
-                                                        t.value ===
-                                                        doc.document_type,
-                                                )?.label;
+                                        {evidenceDocs.map((doc) => {
+                                            const url = documentUrl(doc.file_path);
+                                            const label = evidenceLabel(doc.document_type);
+                                            const status = doc.status;
+                                            const statusLabel = status
+                                                ? status.charAt(0).toUpperCase() + status.slice(1)
+                                                : "";
 
-                                                return (
-                                                    <a
-                                                        key={doc.id}
-                                                        href={url ?? "#"}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-2.5 rounded-md border border-gray-100 bg-gray-50 px-3 py-2 hover:bg-gray-100 transition"
-                                                    >
-                                                        {isImage ? (
-                                                            <img
-                                                                src={url ?? ""}
-                                                                className="h-7 w-7 rounded object-cover shrink-0"
-                                                            />
-                                                        ) : (
-                                                            <PdfBadge className="h-5 w-5 shrink-0" />
-                                                        )}
-                                                        <div className="min-w-0 flex-1">
-                                                            <p className="truncate text-xs font-medium text-gray-700">
-                                                                {
-                                                                    doc.original_name
-                                                                }
-                                                            </p>
-                                                            {typeLabel && (
-                                                                <p className="text-[10px] text-gray-400">
-                                                                    {typeLabel}
-                                                                </p>
-                                                            )}
-                                                        </div>
+                                            return (
+                                                <a
+                                                    key={doc.id}
+                                                    href={url ?? "#"}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title={doc.original_name}
+                                                    aria-label={`Open ${label}${statusLabel ? `, ${statusLabel}` : ""}`}
+                                                    className="-mx-1 flex items-center gap-2.5 rounded px-1 py-0.5 transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                                                >
+                                                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+                                                        <DocStatusIcon status={doc.status} />
+                                                    </span>
+                                                    <span className="min-w-0 flex-1 truncate text-xs text-gray-700">
+                                                        {label}
+                                                    </span>
+                                                    {status && (
                                                         <span
-                                                            className={
-                                                                "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold " +
-                                                                (doc.status ===
-                                                                "verified"
-                                                                    ? "bg-emerald-100 text-emerald-800"
-                                                                    : doc.status ===
-                                                                        "rejected"
-                                                                      ? "bg-red-100 text-red-800"
-                                                                      : "bg-amber-100 text-amber-800")
-                                                            }
+                                                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] ${
+                                                                status === "verified"
+                                                                    ? "bg-emerald-100 text-emerald-600"
+                                                                    : status === "rejected"
+                                                                    ? "bg-red-100 text-red-600"
+                                                                    : "bg-amber-100 text-amber-600"
+                                                            }`}
+                                                            aria-hidden="true"
                                                         >
-                                                            {doc.status}
+                                                            <DocStatusIcon status={status} />
                                                         </span>
-                                                    </a>
-                                                );
-                                            })}
-                                        </div>
+                                                    )}
+                                                </a>
+                                            );
+                                        })}
                                     </div>
                                 );
                             })()}
@@ -2552,27 +2481,26 @@ export default function AssetsShow({
                                         </div>
                                     ) : asset.custody_review_status ===
                                       "approved" ? (
-                                        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
-                                            <span>✅</span>
-                                            <span>
-                                                Custody review approved.
-                                            </span>
+                                        <div className="flex items-center gap-2 rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                                            <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                            <span>Custody review approved.</span>
                                         </div>
                                     ) : asset.custody_review_status ===
                                       "returned" ? (
-                                        <div className="flex flex-col gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
-                                            <span>
-                                                ❌ Returned for revision.
-                                                {asset.custody_review_remarks
-                                                    ? ` Remarks: ${asset.custody_review_remarks}`
-                                                    : ""}
+                                        <div className="flex flex-col gap-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                            <span className="flex items-start gap-2">
+                                                <XCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                                                <span className="min-w-0 break-words">
+                                                    Returned for revision.
+                                                    {asset.custody_review_remarks
+                                                        ? ` Remarks: ${asset.custody_review_remarks}`
+                                                        : ""}
+                                                </span>
                                             </span>
                                             <button
                                                 type="button"
-                                                className="text-xs underline text-red-800 hover:text-red-600 text-left"
-                                                onClick={
-                                                    handleSubmitForCustodyReview
-                                                }
+                                                className="text-left text-xs text-red-800 underline hover:text-red-600"
+                                                onClick={handleSubmitForCustodyReview}
                                             >
                                                 Re-submit for review
                                             </button>
@@ -2591,13 +2519,8 @@ export default function AssetsShow({
                             )}
                             {can.resolveCustodyReview &&
                                 asset.custody_review_status === "pending" &&
-                                documentReviewStatus.show_panel && (
-                                    <CustodianReviewPanel
-                                        asset={asset}
-                                        documentReviewStatus={
-                                            documentReviewStatus
-                                        }
-                                    />
+                                documentReviewStatus.can_approve && (
+                                    <CustodianReviewPanel asset={asset} />
                                 )}
                         </CardContent>
                     </Card>
