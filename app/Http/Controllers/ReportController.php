@@ -257,9 +257,9 @@ class ReportController extends Controller
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('action', 'like', "%{$search}%")
-                  ->orWhere('ip_address', 'like', "%{$search}%")
-                  ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%"))
-                  ->orWhere('model_type', 'like', "%{$search}%");
+                ->orWhere('ip_address', 'like', "%{$search}%")
+                ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%"))
+                ->orWhere('model_type', 'like', "%{$search}%");
             });
         }
  
@@ -357,17 +357,27 @@ class ReportController extends Controller
         $query = \App\Models\Donation::query()
             ->with([
                 'disposals:id,donation_id,asset_id,disposal_type,quantity,volume_bd_ft,details,processed_at,processed_by',
-                'disposals.asset:id,asset_code,aap_number,species,type,description',
+                'disposals.asset:id,asset_code,aap_number,species,type,description,equipment_type,vehicle_type,plate_number,quantity_unit,length,width,height,volume_cu_m',
+                'disposals.pieces' => fn ($q) => $q->select([
+                    'id', 'asset_id', 'disposal_id', 'piece_number', 'species',
+                    'equipment_type', 'vehicle_type', 'description',
+                    'length', 'width', 'height', 'volume_bd_ft', 'volume_cu_m',
+                    'plate_number', 'serial_number',
+                ]),
                 'disposals.disposalJev',
                 'disposals.processedBy:id,name',
             ])
             ->whereHas('disposals', fn ($q) => $q->where('disposal_type', 'donation'));
-
+            
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
+            // Accept "DON-0001", "don0001" or just "1"
+            $idPart = preg_replace('/^don-?/i', '', $search);
+
+            $query->where(function ($q) use ($search, $idPart) {
                 $q->where('requester_name', 'like', "%{$search}%")
                     ->orWhere('agency_name', 'like', "%{$search}%")
-                    ->orWhereHas('disposals.asset', fn ($a) => $a->where('asset_code', 'like', "%{$search}%"));
+                    ->orWhereHas('disposals.asset', fn ($a) => $a->where('asset_code', 'like', "%{$search}%"))
+                    ->when(ctype_digit($idPart), fn ($q2) => $q2->orWhere('id', (int) $idPart));
             });
         }
 
@@ -386,7 +396,38 @@ class ReportController extends Controller
         return Inertia::render('Reports/Donations', [
             'donations' => $donations,
             'filters'   => ['status' => $status, 'search' => $search],
+            'can'       => [
+                'releaseDonation' => $request->user()?->can('create', \App\Models\Disposal::class) ?? false,
+            ],
         ]);
+    }
+
+    public function donationDocument(\App\Models\Donation $donation, string $type)
+    {
+        $this->authorize('viewAny', \App\Models\Disposal::class);
+
+        $columns = [
+            'deed-of-donation' => 'deed_of_donation_path',
+            'waybill'          => 'waybill_pdf_path',
+            'release-order'    => 'release_order_pdf_path',
+            'release-photo'    => 'release_photo_path',
+        ];
+
+        abort_unless(isset($columns[$type]), 404);
+
+        $path = $donation->{$columns[$type]};
+        $disk = \Illuminate\Support\Facades\Storage::disk('local');
+
+        abort_unless($path && $disk->exists($path), 404);
+
+        $filename = sprintf(
+            'DON-%04d-%s.%s',
+            $donation->id,
+            $type,
+            pathinfo($path, PATHINFO_EXTENSION) ?: 'file',
+        );
+
+        return $disk->response($path, $filename);
     }
 
     private const ATTRIBUTE_TABLE_ROLE = 'System Admin';

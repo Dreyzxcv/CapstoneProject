@@ -145,7 +145,6 @@ class ProcessDisposal
     protected function handleDonation(Asset $asset, Disposal $disposal, array $details): void
     {
         $donation = Donation::create([
-            'disposal_id' => $disposal->id,
             'requester_name' => $details['requester_name'] ?? 'Unknown Requester',
             'organization_type' => $details['organization_type'] ?? null,
             'organization_type_other' => $details['organization_type_other'] ?? null,
@@ -168,6 +167,7 @@ class ProcessDisposal
 
         // Single-asset donation — a one-item collection so it goes through
         // the same batch-aware PDF generation as ProcessBatchDonation.
+        $disposal->update(['donation_id' => $donation->id]);
         $disposal->setRelation('asset', $asset);
         $this->pdfDocumentService->generateDeedOfDonation(collect([$disposal]), $donation);
     }

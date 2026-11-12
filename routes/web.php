@@ -123,6 +123,9 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
             ->middleware('throttle:report-export')
             ->name('reports.attribute-table.export');
         Route::get('/reports/donations', [ReportController::class, 'donations'])->name('reports.donations');
+        Route::get('/donations/{donation}/documents/{type}', [ReportController::class, 'donationDocument'])
+            ->whereNumber('donation')
+            ->name('donations.document');
     });
 
     // Audit Logs (System Admin only)

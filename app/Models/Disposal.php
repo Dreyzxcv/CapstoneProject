@@ -6,6 +6,7 @@ use App\Enums\DisposalType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Disposal extends Model
 {
@@ -71,5 +72,10 @@ class Disposal extends Model
 
         return self::where('donation_batch_id', $this->donation_batch_id)
             ->where('id', '!=', $this->id);
+    }
+
+    public function pieces(): HasMany
+    {
+        return $this->hasMany(AssetPiece::class)->orderBy('piece_number');
     }
 }

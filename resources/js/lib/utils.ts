@@ -9,3 +9,18 @@ export function documentUrl(path: string | null | undefined): string | null {
     if (!path) return null;
     return route('documents.download', { path: btoa(path) });
 }
+
+export function formatDonationId(id: number): string {
+    return `DON-${String(id).padStart(4, '0')}`;
+}
+
+export type DonationDocumentType = 'deed-of-donation' | 'waybill' | 'release-order' | 'release-photo';
+
+export function donationDocumentUrl(
+    donationId: number,
+    type: DonationDocumentType,
+    path: string | null | undefined,
+): string | null {
+    if (!path) return null;
+    return route('donations.document', { donation: donationId, type });
+}

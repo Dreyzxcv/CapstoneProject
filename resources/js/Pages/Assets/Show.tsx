@@ -16,7 +16,7 @@ import {
     usePage,
     usePoll,
 } from "@inertiajs/react";
-import { FormEvent, Fragment, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import {
     FileText,
     MapPin,
@@ -24,10 +24,14 @@ import {
     Upload,
     ChevronDown,
     ChevronUp,
+    ChevronLeft,
+    ChevronRight,
     CheckCircle2,
     XCircle,
     Clock,
     Circle,
+    Search,
+    X,
 } from "lucide-react";
 import { IncidentLocationMap } from "@/Components/shared/IncidentLocationMap";
 import RequiredDocumentsModal from "@/Components/shared/RequiredDocumentsModal";
@@ -1004,7 +1008,7 @@ function Amount({
                 {fmt(Number(value) * n, digits)}
             </span>
             {n > 1 && (
-                <span className="block text-[11px] font-normal text-gray-400">
+                <span className="block text-xs font-normal text-gray-400">
                     {prefix}
                     {fmt(value, digits)} each
                 </span>
@@ -1117,33 +1121,144 @@ function columnsFor(type: string): Col[] {
     }
 }
 
-function PieceChips({
-    pieces,
-    onViewPiece,
+const PIECE_PAGE_SIZE = 24;
+
+function SummaryTile({
+    label,
+    value,
+    hint,
 }: {
-    pieces: PieceT[];
-    onViewPiece: (p: PieceT) => void;
+    label: string;
+    value: React.ReactNode;
+    hint?: string;
 }) {
     return (
-        <div className="max-h-44 overflow-y-auto rounded-md bg-gray-50 p-3">
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-gray-400">
-                Select a piece to view its details and QR code
+        <div className="min-w-0 rounded-lg border border-gray-200 bg-gray-50/70 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                {label}
             </p>
-            <div className="flex flex-wrap gap-1.5">
-                {pieces.map((p) => (
-                    <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => onViewPiece(p)}
-                        className="rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50"
-                    >
-                        #{p.piece_number}
-                    </button>
-                ))}
-            </div>
+            <p className="mt-1 break-words text-lg font-semibold tabular-nums text-gray-900">
+                {value}
+            </p>
+            {hint && <p className="mt-0.5 text-xs text-gray-500">{hint}</p>}
         </div>
     );
 }
+
+function PieceSelector({
+    pieces,
+    lastViewedId,
+    onViewPiece,
+}: {
+    pieces: PieceT[];
+    lastViewedId: number | null;
+    onViewPiece: (p: PieceT) => void;
+}) {
+    const [query, setQuery] = useState("");
+    const [page, setPage] = useState(0);
+
+    const q = query.trim().replace(/^#/, "");
+    const matches = q
+        ? pieces.filter((p) => String(p.piece_number).includes(q))
+        : pieces;
+    const pageCount = Math.max(1, Math.ceil(matches.length / PIECE_PAGE_SIZE));
+    const safePage = Math.min(page, pageCount - 1);
+    const start = safePage * PIECE_PAGE_SIZE;
+    const shown = matches.slice(start, start + PIECE_PAGE_SIZE);
+    const showSearch = pieces.length > PIECE_PAGE_SIZE / 2;
+
+    return (
+        <div className="rounded-md border border-gray-200 bg-white p-3 sm:p-4">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-medium text-gray-700">
+                    Select a piece to view its details and QR code
+                </p>
+                {showSearch && (
+                    <div className="relative w-full sm:w-44">
+                        <Search
+                            className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                            aria-hidden="true"
+                        />
+                        <Input
+                            value={query}
+                            onChange={(e) => {
+                                setQuery(e.target.value);
+                                setPage(0);
+                            }}
+                            inputMode="numeric"
+                            placeholder="Find piece #"
+                            aria-label="Find piece number"
+                            className="h-9 pl-8 text-sm"
+                        />
+                    </div>
+                )}
+            </div>
+
+            {shown.length === 0 ? (
+                <p className="py-4 text-center text-sm italic text-gray-500">
+                    No piece number contains “{q}”.
+                </p>
+            ) : (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(4rem,1fr))] gap-2">
+                    {shown.map((p) => {
+                        const active = p.id === lastViewedId;
+                        return (
+                            <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => onViewPiece(p)}
+                                aria-label={`View piece ${p.piece_number}`}
+                                aria-current={active ? "true" : undefined}
+                                title={active ? "Last viewed" : undefined}
+                                className={
+                                    "h-10 rounded-md border text-sm font-medium tabular-nums transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 " +
+                                    (active
+                                        ? "border-emerald-600 bg-emerald-600 text-white"
+                                        : "border-gray-200 bg-white text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50")
+                                }
+                            >
+                                #{p.piece_number}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
+            {pageCount > 1 && (
+                <div className="mt-3 flex items-center justify-between gap-2 text-sm text-gray-500">
+                    <span>
+                        {start + 1}–{start + shown.length} of {matches.length}
+                    </span>
+                    <div className="flex gap-1">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={safePage === 0}
+                            onClick={() => setPage(safePage - 1)}
+                            aria-label="Previous pieces"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={safePage >= pageCount - 1}
+                            onClick={() => setPage(safePage + 1)}
+                            aria-label="Next pieces"
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+const TH =
+    "sticky top-0 z-10 whitespace-nowrap bg-gray-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 shadow-[0_1px_0_0_rgb(229,231,235)] first:rounded-tl-lg last:rounded-tr-lg";
 
 function GroupedPiecesTable({
     asset,
@@ -1155,6 +1270,7 @@ function GroupedPiecesTable({
     const [query, setQuery] = useState("");
     const [open, setOpen] = useState<Set<string>>(new Set());
     const [limit, setLimit] = useState(GROUP_PAGE_SIZE);
+    const [lastViewedId, setLastViewedId] = useState<number | null>(null);
 
     const cols = useMemo(() => columnsFor(asset.type), [asset.type]);
 
@@ -1168,8 +1284,12 @@ function GroupedPiecesTable({
                 if (arr) arr.push(p);
                 else map.set(k, [p]);
             });
-        return Array.from(map, ([key, pieces]) => ({ key, pieces }));
-    }, [asset.pieces, asset.type]);
+        return Array.from(map, ([key, pieces], i) => ({
+            key,
+            id: `piece-group-${asset.id}-${i}`,
+            pieces,
+        }));
+    }, [asset.id, asset.pieces, asset.type]);
 
     const q = query.trim().toLowerCase();
     const filtered = q
@@ -1216,33 +1336,58 @@ function GroupedPiecesTable({
         });
     }
 
+    function viewPiece(p: PieceT) {
+        setLastViewedId(p.id);
+        onViewPiece(p);
+    }
+
     const expandable = visible.filter((g) => g.pieces.length > 1);
 
     return (
-        <div className="space-y-3">
-            {/* Summary + controls */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm text-gray-600">
-                    <span className="font-semibold text-gray-900">
-                        {totalPieces}
-                    </span>{" "}
-                    {totalPieces === 1 ? "piece" : "pieces"} in{" "}
-                    <span className="font-semibold text-gray-900">
-                        {groups.length}
-                    </span>{" "}
-                    {groups.length === 1 ? "group" : "groups"}
-                    {totals && (
-                        <span className="text-gray-400">
-                            {" "}
-                            · {fmt(totals.bd, 2)} bd.ft · {fmt(totals.cu, 4)}{" "}
-                            cu.m · ₱{fmt(totals.val, 2)}
-                        </span>
+        <div className="space-y-4">
+            {/* Summary */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+                <SummaryTile
+                    label="Pieces"
+                    value={totalPieces}
+                    hint={`in ${groups.length} ${groups.length === 1 ? "group" : "groups"}`}
+                />
+                {totals && (
+                    <>
+                        <SummaryTile label="Volume (bd.ft)" value={fmt(totals.bd, 2)} />
+                        <SummaryTile label="Volume (cu.m)" value={fmt(totals.cu, 4)} />
+                        <SummaryTile label="Est. value" value={`₱${fmt(totals.val, 2)}`} />
+                    </>
+                )}
+            </div>
+
+            {/* Toolbar */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-medium text-gray-700">Piece groups</p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    {groups.length > 5 && (
+                        <div className="relative w-full sm:w-64">
+                            <Search
+                                className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                                aria-hidden="true"
+                            />
+                            <Input
+                                value={query}
+                                onChange={(e) => {
+                                    setQuery(e.target.value);
+                                    setLimit(GROUP_PAGE_SIZE);
+                                }}
+                                placeholder="Search species, plate, piece #…"
+                                aria-label="Search piece groups"
+                                className="h-9 pl-8 text-sm"
+                            />
+                        </div>
                     )}
-                </p>
-                <div className="flex items-center gap-2">
                     {expandable.length > 0 && (
-                        <button
+                        <Button
                             type="button"
+                            variant="outline"
+                            size="sm"
                             onClick={() =>
                                 setOpen(
                                     open.size > 0
@@ -1250,147 +1395,141 @@ function GroupedPiecesTable({
                                         : new Set(expandable.map((g) => g.key)),
                                 )
                             }
-                            className="text-xs font-medium text-emerald-700 hover:underline"
                         >
                             {open.size > 0 ? "Collapse all" : "Expand all"}
-                        </button>
-                    )}
-                    {groups.length > 5 && (
-                        <Input
-                            value={query}
-                            onChange={(e) => {
-                                setQuery(e.target.value);
-                                setLimit(GROUP_PAGE_SIZE);
-                            }}
-                            placeholder="Search species, plate, piece #…"
-                            className="h-8 w-56 text-xs"
-                        />
+                        </Button>
                     )}
                 </div>
             </div>
 
             {filtered.length === 0 && (
-                <p className="py-6 text-center text-sm italic text-gray-400">
+                <p className="py-6 text-center text-sm italic text-gray-500">
                     No pieces match “{query}”.
                 </p>
             )}
 
-            {/* Desktop table */}
+            {/* Laptop and desktop: table */}
             {filtered.length > 0 && (
-                <div className="hidden max-h-[55vh] overflow-auto rounded-md border border-gray-200 sm:block">
-                    <table className="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead className="sticky top-0 z-10 bg-gray-50 shadow-[0_1px_0_0_rgb(229,231,235)]">
+                <div className="hidden rounded-lg border border-gray-200 bg-white lg:block">
+                    <table className="w-full text-sm">
+                        <thead>
                             <tr>
-                                <th className="px-3 py-2 text-left font-medium text-gray-500">
+                                <th scope="col" className={`${TH} w-52 text-left`}>
                                     Pieces
                                 </th>
                                 {cols.map((c) => (
                                     <th
                                         key={c.header}
-                                        className={`whitespace-nowrap px-3 py-2 font-medium text-gray-500 ${c.right ? "text-right" : "text-left"}`}
+                                        scope="col"
+                                        className={`${TH} ${c.right ? "text-right" : "text-left"}`}
                                     >
                                         {c.header}
                                     </th>
                                 ))}
-                                <th className="px-3 py-2 text-right font-medium text-gray-500">
+                                <th scope="col" className={`${TH} text-right`}>
                                     Action
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100 bg-white">
-                            {visible.map((g) => {
-                                const first = g.pieces[0];
-                                const n = g.pieces.length;
-                                const isOpen = open.has(g.key);
-                                const range = formatRanges(
-                                    g.pieces.map((p) => p.piece_number),
-                                );
-                                return (
-                                    <Fragment key={g.key}>
-                                        <tr className="align-top hover:bg-gray-50">
-                                            <td className="px-3 py-2">
-                                                {n > 1 ? (
-                                                    <button
-                                                        type="button"
-                                                        aria-expanded={isOpen}
-                                                        onClick={() => toggle(g.key)}
-                                                        className="flex items-center gap-1.5 text-left"
-                                                    >
-                                                        {isOpen ? (
-                                                            <ChevronUp className="h-3.5 w-3.5 text-gray-400" />
-                                                        ) : (
-                                                            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-                                                        )}
-                                                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                                                            ×{n}
-                                                        </span>
-                                                        <span
-                                                            title={`#${range}`}
-                                                            className="max-w-[9rem] truncate text-xs text-gray-500"
-                                                        >
-                                                            #{range}
-                                                        </span>
-                                                    </button>
-                                                ) : (
-                                                    <span className="pl-5 text-xs text-gray-500">
-                                                        #{first.piece_number}
-                                                    </span>
-                                                )}
-                                            </td>
-                                            {cols.map((c, i) => (
-                                                <td
-                                                    key={c.header}
-                                                    className={`px-3 py-2 text-gray-700 ${c.right ? "whitespace-nowrap text-right" : ""}`}
-                                                >
-                                                    {c.cell(first, n)}
-                                                    {i === 0 && first.description && (
-                                                        <p className="mt-0.5 text-xs font-normal text-gray-400">
-                                                            {first.description}
-                                                        </p>
-                                                    )}
-                                                </td>
-                                            ))}
-                                            <td className="whitespace-nowrap px-3 py-2 text-right">
+                        {visible.map((g) => {
+                            const first = g.pieces[0];
+                            const n = g.pieces.length;
+                            const isOpen = open.has(g.key);
+                            const range = formatRanges(
+                                g.pieces.map((p) => p.piece_number),
+                            );
+                            return (
+                                <tbody key={g.key} className="border-t border-gray-200">
+                                    <tr className={isOpen ? "bg-emerald-50/50" : "hover:bg-gray-50"}>
+                                        <td
+                                            className={
+                                                "border-l-2 px-4 py-3 align-top " +
+                                                (isOpen ? "border-emerald-500" : "border-transparent")
+                                            }
+                                        >
+                                            {n > 1 ? (
                                                 <button
                                                     type="button"
-                                                    onClick={() =>
-                                                        n > 1
-                                                            ? toggle(g.key)
-                                                            : onViewPiece(first)
-                                                    }
-                                                    className="text-xs font-medium text-emerald-700 hover:underline"
+                                                    aria-expanded={isOpen}
+                                                    aria-controls={isOpen ? `${g.id}-table` : undefined}
+                                                    onClick={() => toggle(g.key)}
+                                                    className="flex items-center gap-2 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                                                 >
-                                                    {n > 1
-                                                        ? isOpen
-                                                            ? "Hide pieces"
-                                                            : "Show pieces"
-                                                        : "View"}
+                                                    <ChevronDown
+                                                        className={
+                                                            "h-4 w-4 shrink-0 text-gray-500 transition-transform " +
+                                                            (isOpen ? "rotate-180" : "")
+                                                        }
+                                                        aria-hidden="true"
+                                                    />
+                                                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                                                        ×{n}
+                                                    </span>
+                                                    <span
+                                                        title={`#${range}`}
+                                                        className="max-w-[9rem] truncate text-sm text-gray-600"
+                                                    >
+                                                        #{range}
+                                                    </span>
                                                 </button>
+                                            ) : (
+                                                <span className="pl-6 text-sm text-gray-600">
+                                                    #{first.piece_number}
+                                                </span>
+                                            )}
+                                        </td>
+                                        {cols.map((c, i) => (
+                                            <td
+                                                key={c.header}
+                                                className={
+                                                    "px-4 py-3 align-top text-gray-700 " +
+                                                    (c.right ? "whitespace-nowrap text-right" : "")
+                                                }
+                                            >
+                                                {c.cell(first, n)}
+                                                {i === 0 && first.description && (
+                                                    <p className="mt-0.5 text-xs font-normal text-gray-500">
+                                                        {first.description}
+                                                    </p>
+                                                )}
+                                            </td>
+                                        ))}
+                                        <td className="whitespace-nowrap px-4 py-3 text-right align-top">
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    n > 1 ? toggle(g.key) : viewPiece(first)
+                                                }
+                                                className="rounded-md px-2 py-1 text-sm font-medium text-emerald-700 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                                            >
+                                                {n > 1
+                                                    ? isOpen
+                                                        ? "Hide pieces"
+                                                        : "Show pieces"
+                                                    : "View"}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {isOpen && n > 1 && (
+                                        <tr id={`${g.id}-table`} className="bg-emerald-50/50">
+                                            <td colSpan={cols.length + 2} className="px-4 pb-4 pt-0">
+                                                <PieceSelector
+                                                    pieces={g.pieces}
+                                                    lastViewedId={lastViewedId}
+                                                    onViewPiece={viewPiece}
+                                                />
                                             </td>
                                         </tr>
-                                        {isOpen && n > 1 && (
-                                            <tr>
-                                                <td
-                                                    colSpan={cols.length + 2}
-                                                    className="bg-white px-3 pb-3 pt-0"
-                                                >
-                                                    <PieceChips
-                                                        pieces={g.pieces}
-                                                        onViewPiece={onViewPiece}
-                                                    />
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </Fragment>
-                                );
-                            })}
-                        </tbody>
+                                    )}
+                                </tbody>
+                            );
+                        })}
                     </table>
                 </div>
             )}
 
-            {/* Mobile cards */}
-            <div className="space-y-2 sm:hidden">
+            {/* Phone and tablet: cards */}
+            <div className="space-y-3 lg:hidden">
                 {visible.map((g) => {
                     const first = g.pieces[0];
                     const n = g.pieces.length;
@@ -1398,51 +1537,60 @@ function GroupedPiecesTable({
                     return (
                         <div
                             key={g.key}
-                            className="rounded-md border border-gray-200 bg-white p-3"
+                            className={
+                                "rounded-lg border bg-white " +
+                                (isOpen
+                                    ? "border-emerald-300 ring-1 ring-emerald-200"
+                                    : "border-gray-200")
+                            }
                         >
-                            <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2">
-                                    {n > 1 && (
-                                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                                            ×{n}
+                            <div className="p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        {n > 1 && (
+                                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                                                ×{n}
+                                            </span>
+                                        )}
+                                        <span className="min-w-0 break-words text-sm text-gray-600">
+                                            #{formatRanges(g.pieces.map((p) => p.piece_number))}
                                         </span>
-                                    )}
-                                    <span className="text-xs text-gray-500">
-                                        #{formatRanges(g.pieces.map((p) => p.piece_number))}
-                                    </span>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        n > 1 ? toggle(g.key) : onViewPiece(first)
-                                    }
-                                    className="text-xs font-medium text-emerald-700"
-                                >
-                                    {n > 1 ? (isOpen ? "Hide" : "Show pieces") : "View"}
-                                </button>
-                            </div>
-                            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
-                                {cols.map((c) => (
-                                    <div key={c.header}>
-                                        <dt className="text-[11px] text-gray-400">
-                                            {c.header}
-                                        </dt>
-                                        <dd className="text-gray-800">
-                                            {c.cell(first, n)}
-                                        </dd>
                                     </div>
-                                ))}
-                            </dl>
-                            {first.description && (
-                                <p className="mt-1.5 text-xs text-gray-400">
-                                    {first.description}
-                                </p>
-                            )}
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        aria-expanded={n > 1 ? isOpen : undefined}
+                                        aria-controls={n > 1 && isOpen ? `${g.id}-card` : undefined}
+                                        onClick={() => (n > 1 ? toggle(g.key) : viewPiece(first))}
+                                    >
+                                        {n > 1 ? (isOpen ? "Hide pieces" : `Show ${n} pieces`) : "View"}
+                                    </Button>
+                                </div>
+
+                                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+                                    {cols.map((c) => (
+                                        <div key={c.header} className="min-w-0">
+                                            <dt className="text-xs text-gray-500">{c.header}</dt>
+                                            <dd className="break-words text-sm text-gray-900">
+                                                {c.cell(first, n)}
+                                            </dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                                {first.description && (
+                                    <p className="mt-3 break-words text-xs text-gray-500">
+                                        {first.description}
+                                    </p>
+                                )}
+                            </div>
+
                             {isOpen && n > 1 && (
-                                <div className="mt-2">
-                                    <PieceChips
+                                <div id={`${g.id}-card`} className="border-t border-gray-100 bg-gray-50 p-3">
+                                    <PieceSelector
                                         pieces={g.pieces}
-                                        onViewPiece={onViewPiece}
+                                        lastViewedId={lastViewedId}
+                                        onViewPiece={viewPiece}
                                     />
                                 </div>
                             )}
@@ -2626,141 +2774,6 @@ export default function AssetsShow({
                     canVerify={can.verifyDocuments}
                 />
 
-                {/* QR + Donation */}
-                {donationReadyForRelease && (
-                    <div className="grid items-start gap-6 lg:grid-cols-3">
-                        {donationReadyForRelease &&
-                            pendingDonationDisposal?.donation && (
-                                <Card className="lg:col-span-2">
-                                    <CardHeader>
-                                        <CardTitle className="text-base">
-                                            {pendingDonationDisposal.donation
-                                                .released_at
-                                                ? "Donation Released"
-                                                : "Donation Release"}
-                                        </CardTitle>
-                                    </CardHeader>
-
-                                    <CardContent className="space-y-4">
-                                        {!pendingDonationDisposal.donation
-                                            .released_at && (
-                                            <>
-                                                <p className="text-sm text-gray-600">
-                                                    Deed of Donation is on file
-                                                    for{" "}
-                                                    <span className="font-medium">
-                                                        {
-                                                            pendingDonationDisposal
-                                                                .donation
-                                                                .requester_name
-                                                        }
-                                                    </span>
-                                                    . Mark as released once the
-                                                    item has been handed over.
-                                                </p>
-
-                                                {documentUrl(
-                                                    pendingDonationDisposal
-                                                        .donation
-                                                        .waybill_pdf_path,
-                                                ) && (
-                                                    <a
-                                                        href={
-                                                            documentUrl(
-                                                                pendingDonationDisposal
-                                                                    .donation
-                                                                    .waybill_pdf_path,
-                                                            ) ?? "#"
-                                                        }
-                                                        className="block text-sm text-emerald-700 hover:underline"
-                                                    >
-                                                        Download Donation
-                                                        Waybill (
-                                                        {
-                                                            pendingDonationDisposal.quantity
-                                                        }{" "}
-                                                        piece
-                                                        {pendingDonationDisposal.quantity ===
-                                                        1
-                                                            ? ""
-                                                            : "s"}
-                                                        )
-                                                    </a>
-                                                )}
-
-                                                {(
-                                                    pendingDonationDisposal.details as {
-                                                        delivery_coordinates?: string;
-                                                    }
-                                                )?.delivery_coordinates && (
-                                                    <IncidentLocationMap
-                                                        coordinates={
-                                                            (
-                                                                pendingDonationDisposal.details as {
-                                                                    delivery_coordinates?: string;
-                                                                }
-                                                            )
-                                                                .delivery_coordinates
-                                                        }
-                                                        placeName={
-                                                            pendingDonationDisposal
-                                                                .donation
-                                                                .requester_name
-                                                        }
-                                                        areaName="Delivery location"
-                                                    />
-                                                )}
-
-                                                {can.releaseDonation && (
-                                                    <form
-                                                        onSubmit={submitRelease}
-                                                        className="space-y-3"
-                                                    >
-                                                        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm text-gray-500 hover:border-emerald-400 hover:text-emerald-600">
-                                                            {releaseForm.data
-                                                                .photo
-                                                                ? releaseForm
-                                                                      .data
-                                                                      .photo
-                                                                      .name
-                                                                : "Attach release photo (opens camera on mobile)"}
-
-                                                            <input
-                                                                type="file"
-                                                                accept="image/*"
-                                                                capture="environment"
-                                                                className="hidden"
-                                                                onChange={(e) =>
-                                                                    releaseForm.setData(
-                                                                        "photo",
-                                                                        e.target
-                                                                            .files?.[0] ??
-                                                                            null,
-                                                                    )
-                                                                }
-                                                                required
-                                                            />
-                                                        </label>
-
-                                                        <Button
-                                                            type="submit"
-                                                            disabled={
-                                                                releaseForm.processing
-                                                            }
-                                                        >
-                                                            Mark Donation
-                                                            Released
-                                                        </Button>
-                                                    </form>
-                                                )}
-                                            </>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            )}
-                    </div>
-                )}
-
                 {asset.type === "vehicle" && asset.appeal_deadline && (
                     <Card>
                         <CardHeader>
@@ -2977,71 +2990,83 @@ export default function AssetsShow({
                     setSelectedSibling(null);
                     setSelectedSiblingPiece(null);
                 }}
-                maxWidth="4xl"
+                maxWidth={selectedSiblingPiece ? "md" : "6xl"}
             >
                 {selectedSibling && (
-                    <div
-                        key={selectedSibling.id}
-                        className="max-h-[85vh] overflow-y-auto"
-                    >
+                    <div key={selectedSibling.id}>
                         {selectedSiblingPiece && (
-                            <PieceModal
-                                piece={selectedSiblingPiece}
-                                asset={selectedSibling}
-                                qrSvg={pieceQrSvgs[selectedSiblingPiece.id] ?? null}
-                                canEdit={false}
-                                onClose={() => setSelectedSiblingPiece(null)}
-                            />
+                            <div className="mx-auto w-full max-w-xl">
+                                <PieceModal
+                                    piece={selectedSiblingPiece}
+                                    asset={selectedSibling}
+                                    qrSvg={pieceQrSvgs[selectedSiblingPiece.id] ?? null}
+                                    canEdit={false}
+                                    onClose={() => setSelectedSiblingPiece(null)}
+                                />
+                            </div>
                         )}
 
-                        {/* Kept mounted (just hidden) so search/expanded state survives */}
-                        <div className={selectedSiblingPiece ? "hidden" : "p-4 sm:p-6"}>
-                            <div className="mb-4 flex items-start justify-between gap-4">
-                                <div className="min-w-0">
-                                    <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-600">
-                                        {selectedSibling.asset_code}
-                                    </p>
-                                    <h2 className="text-lg font-bold capitalize text-gray-900">
-                                        {selectedSibling.type}
-                                    </h2>
-                                    <p className="text-xs text-gray-400">
-                                        {selectedSibling.pieces?.length ?? 0} piece(s) ·{" "}
-                                        {selectedSibling.municipality_of_origin}
-                                    </p>
-                                </div>
-                                <div className="flex shrink-0 items-center gap-3">
-                                    <AssetStatusBadge
-                                        status={selectedSibling.current_status}
-                                        label={selectedSibling.current_status.replace(/_/g, " ")}
-                                        disposedQuantity={selectedSibling.disposed_quantity}
-                                        quantity={selectedSibling.quantity}
-                                    />
+                        {/* Kept mounted (just hidden) so search and expanded state survive */}
+                        <div
+                            className={
+                                selectedSiblingPiece
+                                    ? "hidden"
+                                    : "flex max-h-[calc(100dvh-5rem)] flex-col"
+                            }
+                        >
+                            {/* Fixed header */}
+                            <div className="shrink-0 border-b border-gray-100 px-4 py-3 sm:px-6 sm:py-4">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-xs font-semibold uppercase tracking-widest text-emerald-600">
+                                            {selectedSibling.asset_code}
+                                        </p>
+                                        <h2 className="mt-0.5 text-xl font-semibold capitalize text-gray-900">
+                                            {selectedSibling.type}
+                                        </h2>
+                                    </div>
                                     <button
                                         type="button"
                                         onClick={() => {
                                             setSelectedSibling(null);
                                             setSelectedSiblingPiece(null);
                                         }}
-                                        className="text-lg leading-none text-gray-300 hover:text-gray-500"
                                         aria-label="Close"
+                                        className="shrink-0 rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                                     >
-                                        ✕
+                                        <X className="h-5 w-5" />
                                     </button>
+                                </div>
+                                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                                    <AssetStatusBadge
+                                        status={selectedSibling.current_status}
+                                        label={selectedSibling.current_status.replace(/_/g, " ")}
+                                        disposedQuantity={selectedSibling.disposed_quantity}
+                                        quantity={selectedSibling.quantity}
+                                    />
+                                    <span className="text-sm text-gray-500">
+                                        {selectedSibling.pieces?.length ?? 0}{" "}
+                                        {(selectedSibling.pieces?.length ?? 0) === 1 ? "piece" : "pieces"}
+                                        {selectedSibling.municipality_of_origin
+                                            ? ` · ${selectedSibling.municipality_of_origin}`
+                                            : ""}
+                                    </span>
                                 </div>
                             </div>
 
-                            <div className="mb-4 h-px bg-gray-100" />
-
-                            {selectedSibling.pieces && selectedSibling.pieces.length > 0 ? (
-                                <GroupedPiecesTable
-                                    asset={selectedSibling}
-                                    onViewPiece={setSelectedSiblingPiece}
-                                />
-                            ) : (
-                                <p className="text-sm italic text-gray-400">
-                                    No pieces recorded yet.
-                                </p>
-                            )}
+                            {/* Scrollable body */}
+                            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
+                                {selectedSibling.pieces && selectedSibling.pieces.length > 0 ? (
+                                    <GroupedPiecesTable
+                                        asset={selectedSibling}
+                                        onViewPiece={setSelectedSiblingPiece}
+                                    />
+                                ) : (
+                                    <p className="text-sm italic text-gray-500">
+                                        No pieces recorded yet.
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}

@@ -31,9 +31,14 @@ class ReleaseDonation
             throw new DomainException('Donation has already been released.');
         }
 
-        $asset = $disposal->asset;
+        return DB::transaction(function () use ($donation, $user, $photo) {
+            // Re-read under lock so two simultaneous requests can't both release it.
+            $donation = Donation::whereKey($donation->id)->lockForUpdate()->firstOrFail();
 
-        return DB::transaction(function () use ($donation, $user, $photo, $asset) {
+            if ($donation->released_at !== null) {
+                throw new DomainException('Donation has already been released.');
+            }
+
             $before = $donation->toArray();
 
             $updates = ['released_at' => now()];
@@ -45,23 +50,31 @@ class ReleaseDonation
 
             $this->auditLogService->log('donation.released', $donation, $before, $donation->fresh()->toArray(), $user->id);
 
-            // Only push the AAP to its terminal "Donated" status once every
-            // unit has been disposed AND every donation tied to this asset
-            // has been physically released — one AAP can now carry more
-            // than one donation disposal event over time.
-            $hasUnreleasedDonations = $asset->disposals()
+            // A batch donation covers several assets; check each one, not just the
+            // asset of whichever disposal the request came through.
+            $assets = $donation->disposals()
                 ->where('disposal_type', DisposalType::Donation->value)
-                ->whereHas('donation', fn ($q) => $q->whereNull('released_at'))
-                ->exists();
+                ->with('asset')
+                ->get()
+                ->pluck('asset')
+                ->filter()
+                ->unique('id');
 
-            if ($asset->isFullyDisposed() && ! $hasUnreleasedDonations && $asset->current_status !== AssetStatus::Donated) {
-                $this->lifecycleService->transition(
-                    $asset,
-                    AssetStatus::Donated,
-                    $user,
-                    'All donations for this AAP confirmed released/delivered to donee(s).',
-                    'donation.released',
-                );
+            foreach ($assets as $asset) {
+                $hasUnreleasedDonations = $asset->disposals()
+                    ->where('disposal_type', DisposalType::Donation->value)
+                    ->whereHas('donation', fn ($q) => $q->whereNull('released_at'))
+                    ->exists();
+
+                if ($asset->isFullyDisposed() && ! $hasUnreleasedDonations && $asset->current_status !== AssetStatus::Donated) {
+                    $this->lifecycleService->transition(
+                        $asset,
+                        AssetStatus::Donated,
+                        $user,
+                        'All donations for this AAP confirmed released/delivered to donee(s).',
+                        'donation.released',
+                    );
+                }
             }
 
             return $donation->fresh();

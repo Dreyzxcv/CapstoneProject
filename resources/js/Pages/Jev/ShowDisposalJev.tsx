@@ -5,6 +5,7 @@ import { FormEventHandler, Fragment, ReactNode, useState } from 'react';
 import InputError from '@/Components/InputError';
 import PrimaryButton from '@/Components/PrimaryButton';
 import { Badge } from '@/Components/ui/badge';
+import { formatDonationId } from '@/lib/utils';
 
 interface AssetPiece {
     id: number;
@@ -239,7 +240,7 @@ export default function ShowDisposalJev({ disposal, siblings, can }: Props) {
         });
     };
 
-    const donationId = donation ? `DON-${String(donation.id).padStart(4, '0')}` : '—';
+    const donationId = donation ? formatDonationId(donation.id) : '—';
     const recipient = donation ? donation.agency_name || donation.requester_name : '—';
     const contact = donation && donation.agency_name ? donation.requester_name : null;
     const address =
