@@ -390,7 +390,38 @@ class ReportController extends Controller
         return Inertia::render('Reports/Donations', [
             'donations' => $donations,
             'filters'   => ['status' => $status, 'search' => $search],
+            'can'       => [
+                'releaseDonation' => $request->user()?->can('create', \App\Models\Disposal::class) ?? false,
+            ],
         ]);
+    }
+
+    public function donationDocument(\App\Models\Donation $donation, string $type)
+    {
+        $this->authorize('viewAny', \App\Models\Disposal::class);
+
+        $columns = [
+            'deed-of-donation' => 'deed_of_donation_path',
+            'waybill'          => 'waybill_pdf_path',
+            'release-order'    => 'release_order_pdf_path',
+            'release-photo'    => 'release_photo_path',
+        ];
+
+        abort_unless(isset($columns[$type]), 404);
+
+        $path = $donation->{$columns[$type]};
+        $disk = \Illuminate\Support\Facades\Storage::disk('local');
+
+        abort_unless($path && $disk->exists($path), 404);
+
+        $filename = sprintf(
+            'DON-%04d-%s.%s',
+            $donation->id,
+            $type,
+            pathinfo($path, PATHINFO_EXTENSION) ?: 'file',
+        );
+
+        return $disk->response($path, $filename);
     }
 
     private const ATTRIBUTE_TABLE_ROLE = 'System Admin';

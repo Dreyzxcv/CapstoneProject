@@ -2,10 +2,11 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Modal from '@/Components/Modal';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent } from '@/Components/ui/card';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
+import InputError from '@/Components/InputError';
 import { FormEvent, useState } from 'react';
 import { Gift, X } from 'lucide-react';
-import { documentUrl, formatDonationId } from '@/lib/utils';
+import { documentUrl, donationDocumentUrl, formatDonationId } from '@/lib/utils';
 
 interface DisposalItem {
     id: number;
@@ -15,6 +16,7 @@ interface DisposalItem {
     processed_by?: { name: string };
     asset: { id: number; asset_code: string; aap_number: string | null; species: string | null; type: string } | null;
     disposal_jev: { jev_number: string; uploaded_at: string | null; pdf_path: string | null } | null;
+    details: { delivery_coordinates?: string } | null;
 }
 
 interface DonationRow {
@@ -54,6 +56,7 @@ interface PaginatedDonations {
 interface DonationsProps {
     donations: PaginatedDonations;
     filters: { status: string; search: string };
+    can: { releaseDonation: boolean };
 }
 
 const STATUS_OPTIONS = [
@@ -156,9 +159,103 @@ function DonationCard({ row, onView }: { row: DonationRow; onView: () => void })
     );
 }
 
-export default function Donations({ donations, filters }: DonationsProps) {
+function donationDocuments(d: DonationRow) {
+    return [
+        { label: 'Deed of Donation', url: donationDocumentUrl(d.id, 'deed-of-donation', d.deed_of_donation_path) },
+        { label: 'Waybill',          url: donationDocumentUrl(d.id, 'waybill', d.waybill_pdf_path) },
+        { label: 'Release Order',    url: donationDocumentUrl(d.id, 'release-order', d.release_order_pdf_path) },
+        { label: 'Release Photo',    url: donationDocumentUrl(d.id, 'release-photo', d.release_photo_path) },
+        // JEV Out belongs to a disposal, so it keeps the existing route
+        { label: 'JEV Out',          url: documentUrl(d.disposals.find((x) => x.disposal_jev?.pdf_path)?.disposal_jev?.pdf_path ?? null) },
+    ].filter((doc) => doc.url);
+}
+
+function DonationReleaseSection({ donation, canRelease }: { donation: DonationRow; canRelease: boolean }) {
+    const form = useForm<{ photo: File | null }>({ photo: null });
+
+    // Any disposal of this donation resolves to the same donation on the server.
+    const releaseDisposal = donation.disposals[0];
+    const readyForRelease = donation.disposals.some((d) => d.disposal_jev?.uploaded_at);
+    const photoUrl = donationDocumentUrl(donation.id, 'release-photo', donation.release_photo_path);
+
+    function submit(e: FormEvent) {
+        e.preventDefault();
+        if (!releaseDisposal) return;
+        if (!confirm('Mark this donation as released to the requester?')) return;
+        form.post(route('disposals.release-donation', releaseDisposal.id), {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => form.reset(),
+        });
+    }
+
+    return (
+        <section className={MODAL_SECTION}>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                {donation.released_at ? 'Donation Released' : 'Donation Release'}
+            </p>
+
+            {donation.released_at ? (
+                <div className="space-y-3">
+
+                    {photoUrl ? (
+                        <a
+                            href={photoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Open release photo"
+                            className="block overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+                        >
+                            <img
+                                src={photoUrl}
+                                alt="Release photo"
+                                loading="lazy"
+                                className="max-h-72 w-full object-contain"
+                            />
+                        </a>
+                    ) : (
+                        <p className="text-xs text-gray-400">No release photo on file.</p>
+                    )}
+                </div>
+            ) : !readyForRelease ? (
+                <p className="text-sm text-gray-500">Release becomes available once the JEV Out has been uploaded.</p>
+            ) : (
+                <div className="space-y-3">
+                    <p className="text-sm text-gray-600">
+                        Deed of Donation is on file for <span className="font-medium">{donation.requester_name}</span>. Mark
+                        as released once the item has been handed over.
+                    </p>
+
+                    {canRelease && (
+                        <form onSubmit={submit} className="space-y-3">
+                            <label className="flex cursor-pointer items-center justify-center gap-2 break-all rounded-lg border-2 border-dashed border-gray-300 p-3 text-center text-sm text-gray-500 hover:border-emerald-400 hover:text-emerald-600">
+                                {form.data.photo ? form.data.photo.name : 'Attach release photo (opens camera on mobile)'}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    className="hidden"
+                                    onChange={(e) => form.setData('photo', e.target.files?.[0] ?? null)}
+                                    required
+                                />
+                            </label>
+                            <InputError message={form.errors.photo} />
+                            <Button type="submit" disabled={form.processing}>
+                                {form.processing ? 'Releasing…' : 'Mark Donation Released'}
+                            </Button>
+                        </form>
+                    )}
+                </div>
+            )}
+        </section>
+    );
+}
+
+export default function Donations({ donations, filters, can }: DonationsProps) {
     const [search, setSearch] = useState(filters.search);
-    const [viewingDonation, setViewingDonation] = useState<DonationRow | null>(null);
+    const [viewingId, setViewingId] = useState<number | null>(null);
+    const viewingDonation = donations.data.find((d) => d.id === viewingId) ?? null;
+    const viewingDocs = viewingDonation ? donationDocuments(viewingDonation) : [];
 
     function applyFilters(next: Partial<{ status: string; search: string }>) {
         router.get(
@@ -230,7 +327,7 @@ export default function Donations({ donations, filters }: DonationsProps) {
                         </div>
                     ) : (
                         donations.data.map((row) => (
-                            <DonationCard key={formatDonationId(row.id)} row={row} onView={() => setViewingDonation(row)} />
+                            <DonationCard key={formatDonationId(row.id)} row={row} onView={() => setViewingId(row.id)} />
                         ))
                     )}
                 </div>
@@ -300,7 +397,7 @@ export default function Donations({ donations, filters }: DonationsProps) {
                                     <td className="px-4 py-3 text-right">
                                         <button
                                             type="button"
-                                            onClick={() => setViewingDonation(row)}
+                                            onClick={() => setViewingId(row.id)}
                                             className="text-sm text-emerald-700 hover:underline"
                                         >
                                             View
@@ -343,7 +440,7 @@ export default function Donations({ donations, filters }: DonationsProps) {
             </div>
 
             {/* Donation detail modal */}
-            <Modal show={viewingDonation !== null} onClose={() => setViewingDonation(null)} maxWidth="6xl">
+            <Modal show={viewingDonation !== null} onClose={() => setViewingId(null)} maxWidth="6xl">
                 {viewingDonation && (
                     <div className="flex max-h-[calc(100dvh-5rem)] flex-col">
 
@@ -362,7 +459,7 @@ export default function Donations({ donations, filters }: DonationsProps) {
                                     <StatusPill row={viewingDonation} />
                                     <button
                                         type="button"
-                                        onClick={() => setViewingDonation(null)}
+                                        onClick={() => setViewingId(null)}
                                         aria-label="Close"
                                         className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                                     >
@@ -471,26 +568,16 @@ export default function Donations({ donations, filters }: DonationsProps) {
                                         </p>
                                     </section>
 
-                                    {[
-                                        { path: viewingDonation.deed_of_donation_path,  label: 'Deed of Donation' },
-                                        { path: viewingDonation.waybill_pdf_path,        label: 'Waybill' },
-                                        { path: viewingDonation.release_order_pdf_path,  label: 'Release Order' },
-                                        { path: viewingDonation.release_photo_path,      label: 'Release Photo' },
-                                        { path: viewingDonation.disposals.find((d) => d.disposal_jev?.pdf_path)?.disposal_jev?.pdf_path ?? null, label: 'JEV Out' },
-                                    ].filter((doc) => documentUrl(doc.path)).length > 0 && (
+                                    <DonationReleaseSection key={viewingDonation.id} donation={viewingDonation} canRelease={can.releaseDonation} />
+
+                                    {viewingDocs.length > 0 && (
                                         <section className={MODAL_SECTION}>
                                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Documents</p>
                                             <div className="flex flex-wrap gap-2">
-                                                {[
-                                                    { path: viewingDonation.deed_of_donation_path,  label: 'Deed of Donation' },
-                                                    { path: viewingDonation.waybill_pdf_path,        label: 'Waybill' },
-                                                    { path: viewingDonation.release_order_pdf_path,  label: 'Release Order' },
-                                                    { path: viewingDonation.release_photo_path,      label: 'Release Photo' },
-                                                    { path: viewingDonation.disposals.find((d) => d.disposal_jev?.pdf_path)?.disposal_jev?.pdf_path ?? null, label: 'JEV Out' },
-                                                ].filter((doc) => documentUrl(doc.path)).map((doc) => (
+                                                {viewingDocs.map((doc) => (
                                                     <a
                                                         key={doc.label}
-                                                        href={documentUrl(doc.path) ?? '#'}
+                                                        href={doc.url ?? '#'}
                                                         className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100"
                                                     >
                                                         {doc.label}
@@ -505,7 +592,7 @@ export default function Donations({ donations, filters }: DonationsProps) {
 
                         {/* Sticky footer */}
                         <div className="flex shrink-0 justify-end border-t border-gray-100 px-4 py-3 sm:px-6">
-                            <Button type="button" variant="outline" onClick={() => setViewingDonation(null)}>Close</Button>
+                            <Button type="button" variant="outline" onClick={() => setViewingId(null)}>Close</Button>
                         </div>
                     </div>
                 )}
