@@ -4,7 +4,7 @@ import { Button } from '@/Components/ui/button';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Head, router } from '@inertiajs/react';
 import { FormEvent, useState } from 'react';
-import { Gift } from 'lucide-react';
+import { Gift, X } from 'lucide-react';
 import { documentUrl, formatDonationId } from '@/lib/utils';
 
 interface DisposalItem {
@@ -63,6 +63,9 @@ const STATUS_OPTIONS = [
     { value: 'awaiting_release', label: 'Awaiting Release' },
     { value: 'released', label: 'Released' },
 ];
+
+// Modal section: top divider and spacing, except when it's the first in its column
+const MODAL_SECTION = 'border-t border-gray-100 pt-3 first:border-t-0 first:pt-0';
 
 // Converts snake_case or underscore strings to Title Case
 function humanize(str: string | null | undefined): string {
@@ -340,157 +343,168 @@ export default function Donations({ donations, filters }: DonationsProps) {
             </div>
 
             {/* Donation detail modal */}
-            <Modal show={viewingDonation !== null} onClose={() => setViewingDonation(null)} maxWidth="lg">
+            <Modal show={viewingDonation !== null} onClose={() => setViewingDonation(null)} maxWidth="6xl">
                 {viewingDonation && (
-                    <div className="flex flex-col max-h-[85vh]">
+                    <div className="flex max-h-[calc(100dvh-5rem)] flex-col">
 
-                        {/* Sticky header */}
-                        <div className="px-5 pt-5 pb-3 border-b border-gray-100 shrink-0">
+                        {/* Sticky header (stays visible while the body scrolls) */}
+                        <div className="shrink-0 border-b border-gray-100 px-4 pb-3 pt-4 sm:px-6 sm:pt-5">
                             <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
                                     <h2 className="text-base font-semibold text-gray-900">Donation Details</h2>
-                                    <p className="mt-0.5 text-xs text-gray-500 break-words">
+                                    <p className="mt-0.5 break-words text-xs text-gray-500">
                                         Donation ID: {formatDonationId(viewingDonation.id)}
                                         {viewingDonation.disposals[0]?.processed_at &&
                                             ` · ${new Date(viewingDonation.disposals[0].processed_at).toLocaleDateString()}`}
                                     </p>
                                 </div>
-                                <div className="shrink-0">
+                                <div className="flex shrink-0 items-center gap-2">
                                     <StatusPill row={viewingDonation} />
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewingDonation(null)}
+                                        aria-label="Close"
+                                        className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                                    >
+                                        <X className="h-5 w-5" />
+                                    </button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Scrollable body */}
-                        <div className="overflow-y-auto flex-1 px-5 py-3 space-y-4">
+                        {/* Scrollable body: one column on small screens, two from lg */}
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6">
+                            <div className="grid gap-6 lg:grid-cols-2">
 
-                            {/* Requester info */}
-                            <section>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Requester</p>
-                                <dl>
-                                    <Field label="Name">{viewingDonation.requester_name}</Field>
-                                    <Field label="Organization">{orgLabel(viewingDonation)}</Field>
-                                    {viewingDonation.agency_name && (
-                                        <Field label="Agency">{viewingDonation.agency_name}</Field>
-                                    )}
-                                    {viewingDonation.donee_position && (
-                                        <Field label="Donee Position">{viewingDonation.donee_position}</Field>
-                                    )}
-                                    <Field label="Delivery Address">
-                                        {[viewingDonation.street, viewingDonation.barangay, viewingDonation.municipality]
-                                            .filter(Boolean)
-                                            .join(', ') || 'No address on file'}
-                                    </Field>
-                                    {viewingDonation.purpose_statement && (
-                                        <Field label="Purpose">{viewingDonation.purpose_statement}</Field>
-                                    )}
-                                    {viewingDonation.confiscation_order_reference && (
-                                        <Field label="Confiscation Order Ref.">{viewingDonation.confiscation_order_reference}</Field>
-                                    )}
-                                </dl>
-                            </section>
+                                {/* Left column: who it's for */}
+                                <div className="min-w-0 space-y-4">
+                                    <section className={MODAL_SECTION}>
+                                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Requester</p>
+                                        <dl>
+                                            <Field label="Name">{viewingDonation.requester_name}</Field>
+                                            <Field label="Organization">{orgLabel(viewingDonation)}</Field>
+                                            {viewingDonation.agency_name && (
+                                                <Field label="Agency">{viewingDonation.agency_name}</Field>
+                                            )}
+                                            {viewingDonation.donee_position && (
+                                                <Field label="Donee Position">{viewingDonation.donee_position}</Field>
+                                            )}
+                                            <Field label="Delivery Address">
+                                                {[viewingDonation.street, viewingDonation.barangay, viewingDonation.municipality]
+                                                    .filter(Boolean)
+                                                    .join(', ') || 'No address on file'}
+                                            </Field>
+                                            {viewingDonation.purpose_statement && (
+                                                <Field label="Purpose">{viewingDonation.purpose_statement}</Field>
+                                            )}
+                                            {viewingDonation.confiscation_order_reference && (
+                                                <Field label="Confiscation Order Ref.">{viewingDonation.confiscation_order_reference}</Field>
+                                            )}
+                                        </dl>
+                                    </section>
 
-                            {/* Assets donated */}
-                            {viewingDonation.disposals.length > 0 && (
-                                <section className="border-t border-gray-100 pt-3">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Assets Donated</p>
-                                    <div className="space-y-1">
-                                        {viewingDonation.disposals.map((d) => (
-                                            <div key={d.id} className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm gap-2">
-                                                <span className="font-medium text-gray-900 shrink-0">
-                                                    <span className="text-xs font-normal text-gray-400">Asset No.: </span>
-                                                    {d.asset?.aap_number ?? d.asset?.asset_code ?? '—'}
-                                                </span>
-                                                <span className="text-gray-500 text-xs text-right">
-                                                    {d.quantity} unit{d.quantity === 1 ? '' : 's'}
-                                                    {d.volume_bd_ft && ` · ${Number(d.volume_bd_ft).toFixed(2)} bd.ft`}
-                                                </span>
+                                    {(viewingDonation.donor_representative_name || viewingDonation.witness_1_name || viewingDonation.witness_2_name) && (
+                                        <section className={MODAL_SECTION}>
+                                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Signatories</p>
+                                            <dl>
+                                                {viewingDonation.donor_representative_name && (
+                                                    <Field label="Donor Representative">
+                                                        {viewingDonation.donor_representative_name}
+                                                        {viewingDonation.donor_representative_title && (
+                                                            <span className="text-gray-500"> — {viewingDonation.donor_representative_title}</span>
+                                                        )}
+                                                    </Field>
+                                                )}
+                                                {viewingDonation.witness_1_name && (
+                                                    <Field label="Witness 1">
+                                                        {viewingDonation.witness_1_name}
+                                                        {viewingDonation.witness_1_title && (
+                                                            <span className="text-gray-500"> — {viewingDonation.witness_1_title}</span>
+                                                        )}
+                                                    </Field>
+                                                )}
+                                                {viewingDonation.witness_2_name && (
+                                                    <Field label="Witness 2">
+                                                        {viewingDonation.witness_2_name}
+                                                        {viewingDonation.witness_2_title && (
+                                                            <span className="text-gray-500"> — {viewingDonation.witness_2_title}</span>
+                                                        )}
+                                                    </Field>
+                                                )}
+                                            </dl>
+                                        </section>
+                                    )}
+                                </div>
+
+                                {/* Right column: what was donated and where it stands */}
+                                <div className="min-w-0 space-y-4">
+                                    {viewingDonation.disposals.length > 0 && (
+                                        <section className={MODAL_SECTION}>
+                                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Assets Donated</p>
+                                            <div className="space-y-1">
+                                                {viewingDonation.disposals.map((d) => (
+                                                    <div key={d.id} className="flex items-center justify-between gap-2 rounded-md bg-gray-50 px-3 py-2 text-sm">
+                                                        <span className="min-w-0 break-words font-medium text-gray-900">
+                                                            <span className="text-xs font-normal text-gray-400">Asset No.: </span>
+                                                            {d.asset?.aap_number ?? d.asset?.asset_code ?? '—'}
+                                                        </span>
+                                                        <span className="shrink-0 text-right text-xs text-gray-500">
+                                                            {d.quantity} unit{d.quantity === 1 ? '' : 's'}
+                                                            {d.volume_bd_ft && ` · ${Number(d.volume_bd_ft).toFixed(2)} bd.ft`}
+                                                        </span>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
+                                        </section>
+                                    )}
 
-                            {/* Signatories */}
-                            {(viewingDonation.donor_representative_name || viewingDonation.witness_1_name || viewingDonation.witness_2_name) && (
-                                <section className="border-t border-gray-100 pt-3">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Signatories</p>
-                                    <dl>
-                                        {viewingDonation.donor_representative_name && (
-                                            <Field label="Donor Representative">
-                                                {viewingDonation.donor_representative_name}
-                                                {viewingDonation.donor_representative_title && (
-                                                    <span className="text-gray-500"> — {viewingDonation.donor_representative_title}</span>
-                                                )}
-                                            </Field>
-                                        )}
-                                        {viewingDonation.witness_1_name && (
-                                            <Field label="Witness 1">
-                                                {viewingDonation.witness_1_name}
-                                                {viewingDonation.witness_1_title && (
-                                                    <span className="text-gray-500"> — {viewingDonation.witness_1_title}</span>
-                                                )}
-                                            </Field>
-                                        )}
-                                        {viewingDonation.witness_2_name && (
-                                            <Field label="Witness 2">
-                                                {viewingDonation.witness_2_name}
-                                                {viewingDonation.witness_2_title && (
-                                                    <span className="text-gray-500"> — {viewingDonation.witness_2_title}</span>
-                                                )}
-                                            </Field>
-                                        )}
-                                    </dl>
-                                </section>
-                            )}
+                                    <section className={MODAL_SECTION}>
+                                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Status</p>
+                                        <p className="text-sm text-gray-700">
+                                            {viewingDonation.released_at
+                                                ? `Released ${new Date(viewingDonation.released_at).toLocaleString()}`
+                                                : viewingDonation.disposals.some((d) => d.disposal_jev?.uploaded_at)
+                                                    ? 'JEV Out uploaded — awaiting physical release.'
+                                                    : viewingDonation.disposals.some((d) => d.disposal_jev)
+                                                        ? 'JEV Out issued — awaiting MES upload confirmation.'
+                                                        : 'Awaiting JEV Out from Accounting.'}
+                                        </p>
+                                    </section>
 
-                            {/* Status */}
-                            <section className="border-t border-gray-100 pt-3">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Status</p>
-                                <p className="text-sm text-gray-700">
-                                    {viewingDonation.released_at
-                                        ? `Released ${new Date(viewingDonation.released_at).toLocaleString()}`
-                                        : viewingDonation.disposals.some((d) => d.disposal_jev?.uploaded_at)
-                                            ? 'JEV Out uploaded — awaiting physical release.'
-                                            : viewingDonation.disposals.some((d) => d.disposal_jev)
-                                                ? 'JEV Out issued — awaiting MES upload confirmation.'
-                                                : 'Awaiting JEV Out from Accounting.'}
-                                </p>
-                            </section>
-
-                            {/* Documents */}
-                            {[
-                                { path: viewingDonation.deed_of_donation_path,  label: 'Deed of Donation' },
-                                { path: viewingDonation.waybill_pdf_path,        label: 'Waybill' },
-                                { path: viewingDonation.release_order_pdf_path,  label: 'Release Order' },
-                                { path: viewingDonation.release_photo_path,      label: 'Release Photo' },
-                                { path: viewingDonation.disposals.find((d) => d.disposal_jev?.pdf_path)?.disposal_jev?.pdf_path ?? null, label: 'JEV Out' },
-                            ].filter((doc) => documentUrl(doc.path)).length > 0 && (
-                                <section className="border-t border-gray-100 pt-3">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Documents</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {[
-                                            { path: viewingDonation.deed_of_donation_path,  label: 'Deed of Donation' },
-                                            { path: viewingDonation.waybill_pdf_path,        label: 'Waybill' },
-                                            { path: viewingDonation.release_order_pdf_path,  label: 'Release Order' },
-                                            { path: viewingDonation.release_photo_path,      label: 'Release Photo' },
-                                            { path: viewingDonation.disposals.find((d) => d.disposal_jev?.pdf_path)?.disposal_jev?.pdf_path ?? null, label: 'JEV Out' },
-                                        ].filter((doc) => documentUrl(doc.path)).map((doc) => (
-                                            <a
-                                                key={doc.label}
-                                                href={documentUrl(doc.path) ?? '#'}
-                                                className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
-                                            >
-                                                {doc.label}
-                                            </a>
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
+                                    {[
+                                        { path: viewingDonation.deed_of_donation_path,  label: 'Deed of Donation' },
+                                        { path: viewingDonation.waybill_pdf_path,        label: 'Waybill' },
+                                        { path: viewingDonation.release_order_pdf_path,  label: 'Release Order' },
+                                        { path: viewingDonation.release_photo_path,      label: 'Release Photo' },
+                                        { path: viewingDonation.disposals.find((d) => d.disposal_jev?.pdf_path)?.disposal_jev?.pdf_path ?? null, label: 'JEV Out' },
+                                    ].filter((doc) => documentUrl(doc.path)).length > 0 && (
+                                        <section className={MODAL_SECTION}>
+                                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Documents</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {[
+                                                    { path: viewingDonation.deed_of_donation_path,  label: 'Deed of Donation' },
+                                                    { path: viewingDonation.waybill_pdf_path,        label: 'Waybill' },
+                                                    { path: viewingDonation.release_order_pdf_path,  label: 'Release Order' },
+                                                    { path: viewingDonation.release_photo_path,      label: 'Release Photo' },
+                                                    { path: viewingDonation.disposals.find((d) => d.disposal_jev?.pdf_path)?.disposal_jev?.pdf_path ?? null, label: 'JEV Out' },
+                                                ].filter((doc) => documentUrl(doc.path)).map((doc) => (
+                                                    <a
+                                                        key={doc.label}
+                                                        href={documentUrl(doc.path) ?? '#'}
+                                                        className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100"
+                                                    >
+                                                        {doc.label}
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </section>
+                                    )}
+                                </div>
+                            </div>
                         </div>
 
                         {/* Sticky footer */}
-                        <div className="px-5 py-3 border-t border-gray-100 shrink-0 flex justify-end">
+                        <div className="flex shrink-0 justify-end border-t border-gray-100 px-4 py-3 sm:px-6">
                             <Button type="button" variant="outline" onClick={() => setViewingDonation(null)}>Close</Button>
                         </div>
                     </div>
