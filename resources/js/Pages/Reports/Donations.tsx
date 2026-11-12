@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/Components/ui/card';
 import { Head, router } from '@inertiajs/react';
 import { FormEvent, useState } from 'react';
 import { Gift } from 'lucide-react';
-import { documentUrl } from '@/lib/utils';
+import { documentUrl, formatDonationId } from '@/lib/utils';
 
 interface DisposalItem {
     id: number;
@@ -110,15 +110,14 @@ function DonationCard({ row, onView }: { row: DonationRow; onView: () => void })
 
     return (
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm space-y-2">
-            {/* Top row: assets + status */}
+            {/* Top row: donation ID + status */}
             <div className="flex items-start justify-between gap-2">
-                <div>
+                <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 leading-snug">Donation ID: {formatDonationId(row.id)}</p>
                     {assetCodes.length > 0 ? (
-                        assetCodes.map((code, i) => (
-                            <p key={i} className="text-sm font-semibold text-gray-900 leading-snug">{code}</p>
-                        ))
+                        <p className="text-xs text-gray-500 break-words">Assets: {assetCodes.join(', ')}</p>
                     ) : (
-                        <p className="text-sm text-gray-400">No assets</p>
+                        <p className="text-xs text-gray-400">No assets</p>
                     )}
                     {row.disposals[0]?.asset?.species && (
                         <p className="text-xs text-gray-500">{row.disposals[0].asset.species}</p>
@@ -193,7 +192,7 @@ export default function Donations({ donations, filters }: DonationsProps) {
                                 type="text"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Search asset code, requester, or agency…"
+                                placeholder="Search donation ID, asset code, requester, or agency…"
                                 className="h-9 flex-1 min-w-0 rounded-md border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
                             />
                             <Button type="submit" size="sm" variant="outline" className="shrink-0">Search</Button>
@@ -228,17 +227,18 @@ export default function Donations({ donations, filters }: DonationsProps) {
                         </div>
                     ) : (
                         donations.data.map((row) => (
-                            <DonationCard key={row.id} row={row} onView={() => setViewingDonation(row)} />
+                            <DonationCard key={formatDonationId(row.id)} row={row} onView={() => setViewingDonation(row)} />
                         ))
                     )}
                 </div>
 
                 {/* Desktop: table */}
                 <div className="hidden sm:block rounded-lg border border-gray-200 bg-white shadow-sm overflow-x-auto">
-                    <table className="min-w-[900px] w-full divide-y divide-gray-200">
+                    <table className="min-w-[1000px] w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Asset</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Donation ID</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Assets</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Requester</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Organization</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Municipality</th>
@@ -250,7 +250,7 @@ export default function Donations({ donations, filters }: DonationsProps) {
                         <tbody className="divide-y divide-gray-200">
                             {donations.data.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-500">
+                                    <td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-500">
                                         <div className="flex flex-col items-center gap-2">
                                             <Gift className="h-8 w-8 text-gray-300" />
                                             No donations match these filters.
@@ -260,12 +260,14 @@ export default function Donations({ donations, filters }: DonationsProps) {
                             )}
                             {donations.data.map((row) => (
                                 <tr key={row.id}>
+                                    <td className="px-4 py-3 text-sm font-semibold text-gray-900 whitespace-nowrap">{formatDonationId(row.id)}</td>
                                     <td className="px-4 py-3 text-sm">
                                         {row.disposals.length > 0 ? (
                                             <div className="space-y-0.5">
                                                 {row.disposals.map((d) => (
                                                     <div key={d.id}>
-                                                        <span className="font-medium text-gray-900">
+                                                        <span className="font-medium text-gray-900 shrink-0">
+                                                            <span className="text-xs font-normal text-gray-400">Asset No.: </span>
                                                             {d.asset?.aap_number ?? d.asset?.asset_code ?? '—'}
                                                         </span>
                                                         {d.asset?.species && (
@@ -348,7 +350,7 @@ export default function Donations({ donations, filters }: DonationsProps) {
                                 <div className="min-w-0">
                                     <h2 className="text-base font-semibold text-gray-900">Donation Details</h2>
                                     <p className="mt-0.5 text-xs text-gray-500 break-words">
-                                        {viewingDonation.disposals.map((d) => d.asset?.aap_number ?? d.asset?.asset_code).filter(Boolean).join(', ')}
+                                        Donation ID: {formatDonationId(viewingDonation.id)}
                                         {viewingDonation.disposals[0]?.processed_at &&
                                             ` · ${new Date(viewingDonation.disposals[0].processed_at).toLocaleDateString()}`}
                                     </p>
@@ -395,7 +397,10 @@ export default function Donations({ donations, filters }: DonationsProps) {
                                     <div className="space-y-1">
                                         {viewingDonation.disposals.map((d) => (
                                             <div key={d.id} className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm gap-2">
-                                                <span className="font-medium text-gray-900 shrink-0">{d.asset?.aap_number ?? d.asset?.asset_code ?? '—'}</span>
+                                                <span className="font-medium text-gray-900 shrink-0">
+                                                    <span className="text-xs font-normal text-gray-400">Asset No.: </span>
+                                                    {d.asset?.aap_number ?? d.asset?.asset_code ?? '—'}
+                                                </span>
                                                 <span className="text-gray-500 text-xs text-right">
                                                     {d.quantity} unit{d.quantity === 1 ? '' : 's'}
                                                     {d.volume_bd_ft && ` · ${Number(d.volume_bd_ft).toFixed(2)} bd.ft`}

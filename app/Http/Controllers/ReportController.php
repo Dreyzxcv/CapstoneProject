@@ -257,9 +257,9 @@ class ReportController extends Controller
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('action', 'like', "%{$search}%")
-                  ->orWhere('ip_address', 'like', "%{$search}%")
-                  ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%"))
-                  ->orWhere('model_type', 'like', "%{$search}%");
+                ->orWhere('ip_address', 'like', "%{$search}%")
+                ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%"))
+                ->orWhere('model_type', 'like', "%{$search}%");
             });
         }
  
@@ -364,10 +364,14 @@ class ReportController extends Controller
             ->whereHas('disposals', fn ($q) => $q->where('disposal_type', 'donation'));
 
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
+            // Accept "DON-0001", "don0001" or just "1"
+            $idPart = preg_replace('/^don-?/i', '', $search);
+
+            $query->where(function ($q) use ($search, $idPart) {
                 $q->where('requester_name', 'like', "%{$search}%")
                     ->orWhere('agency_name', 'like', "%{$search}%")
-                    ->orWhereHas('disposals.asset', fn ($a) => $a->where('asset_code', 'like', "%{$search}%"));
+                    ->orWhereHas('disposals.asset', fn ($a) => $a->where('asset_code', 'like', "%{$search}%"))
+                    ->when(ctype_digit($idPart), fn ($q2) => $q2->orWhere('id', (int) $idPart));
             });
         }
 
