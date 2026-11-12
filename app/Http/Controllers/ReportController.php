@@ -357,12 +357,18 @@ class ReportController extends Controller
         $query = \App\Models\Donation::query()
             ->with([
                 'disposals:id,donation_id,asset_id,disposal_type,quantity,volume_bd_ft,details,processed_at,processed_by',
-                'disposals.asset:id,asset_code,aap_number,species,type,description',
+                'disposals.asset:id,asset_code,aap_number,species,type,description,equipment_type,vehicle_type,plate_number,quantity_unit,length,width,height,volume_cu_m',
+                'disposals.pieces' => fn ($q) => $q->select([
+                    'id', 'asset_id', 'disposal_id', 'piece_number', 'species',
+                    'equipment_type', 'vehicle_type', 'description',
+                    'length', 'width', 'height', 'volume_bd_ft', 'volume_cu_m',
+                    'plate_number', 'serial_number',
+                ]),
                 'disposals.disposalJev',
                 'disposals.processedBy:id,name',
             ])
             ->whereHas('disposals', fn ($q) => $q->where('disposal_type', 'donation'));
-
+            
         if ($search !== '') {
             // Accept "DON-0001", "don0001" or just "1"
             $idPart = preg_replace('/^don-?/i', '', $search);

@@ -5,8 +5,41 @@ import { Card, CardContent } from '@/Components/ui/card';
 import { Head, router, useForm } from '@inertiajs/react';
 import InputError from '@/Components/InputError';
 import { FormEvent, useState } from 'react';
-import { Gift, X } from 'lucide-react';
+import { ChevronDown, Gift, X } from 'lucide-react';
 import { documentUrl, donationDocumentUrl, formatDonationId } from '@/lib/utils';
+
+interface DonatedPiece {
+    id: number;
+    piece_number: number | null;
+    species: string | null;
+    equipment_type: string | null;
+    vehicle_type: string | null;
+    description: string | null;
+    length: number | null;
+    width: number | null;
+    height: number | null;
+    volume_bd_ft: number | null;
+    volume_cu_m: number | null;
+    plate_number: string | null;
+    serial_number: string | null;
+}
+
+interface DonatedAsset {
+    id: number;
+    asset_code: string;
+    aap_number: string | null;
+    species: string | null;
+    type: string;
+    description: string | null;
+    equipment_type: string | null;
+    vehicle_type: string | null;
+    plate_number: string | null;
+    quantity_unit: string | null;
+    length: string | number | null;
+    width: string | number | null;
+    height: string | number | null;
+    volume_cu_m: string | number | null;
+}
 
 interface DisposalItem {
     id: number;
@@ -14,7 +47,8 @@ interface DisposalItem {
     volume_bd_ft: string | null;
     processed_at: string;
     processed_by?: { name: string };
-    asset: { id: number; asset_code: string; aap_number: string | null; species: string | null; type: string } | null;
+    asset: DonatedAsset | null;
+    pieces?: DonatedPiece[];
     disposal_jev: { jev_number: string; uploaded_at: string | null; pdf_path: string | null } | null;
     details: { delivery_coordinates?: string } | null;
 }
@@ -103,6 +137,108 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
         <div className="py-2 border-b border-gray-100 last:border-0">
             <dt className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-0.5">{label}</dt>
             <dd className="text-sm text-gray-900 break-words">{children}</dd>
+        </div>
+    );
+}
+
+function formatNumber(value: string | number | null | undefined, digits = 2): string | null {
+    if (value === null || value === undefined || value === '') return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n.toFixed(digits) : null;
+}
+
+// "L × W × H" with "?" for any missing side. Units are not stored, so none are shown.
+function dimensionText(src: { length?: unknown; width?: unknown; height?: unknown } | null): string | null {
+    if (!src) return null;
+    const parts = [src.length, src.width, src.height].map((v) => formatNumber(v as string | number | null, 2));
+    if (parts.every((p) => p === null)) return null;
+    return parts.map((p) => p ?? '?').join(' × ');
+}
+
+function itemTitle(asset: DonatedAsset | null): string {
+    if (!asset) return 'Item details unavailable';
+    const label =
+        asset.type === 'equipment' ? asset.equipment_type
+        : asset.type === 'vehicle' ? asset.vehicle_type
+        : asset.species;
+    return label || asset.description || humanize(asset.type);
+}
+
+function pieceLabel(p: DonatedPiece): string | null {
+    return p.species || p.equipment_type || p.vehicle_type || p.description || null;
+}
+
+function DonatedItem({ disposal: d }: { disposal: DisposalItem }) {
+    const asset = d.asset;
+    const pieces = d.pieces ?? [];
+    const [showPieces, setShowPieces] = useState(pieces.length <= 3);
+    const reference = asset?.aap_number ?? asset?.asset_code ?? null;
+    const volume = formatNumber(d.volume_bd_ft);
+    // Asset with no piece records: fall back to asset-level measurements
+    const assetDims = pieces.length === 0 ? dimensionText(asset) : null;
+    const extra = [asset?.plate_number && `Plate ${asset.plate_number}`, assetDims && `${assetDims} (L × W × H)`]
+        .filter(Boolean)
+        .join(' · ');
+
+    return (
+        <div className="rounded-md bg-gray-50 px-3 py-2 text-sm">
+            <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <p className="break-words font-medium text-gray-900">{itemTitle(asset)}</p>
+                    {reference && (
+                        <p className="break-words text-xs text-gray-500">
+                            <span className="text-gray-400">Asset No.: </span>{reference}
+                        </p>
+                    )}
+                    {extra && <p className="break-words text-xs text-gray-500">{extra}</p>}
+                </div>
+                <span className="shrink-0 text-right text-xs text-gray-500">
+                    {d.quantity} unit{d.quantity === 1 ? '' : 's'}
+                    {volume && <><br />{volume} bd.ft</>}
+                </span>
+            </div>
+
+            {pieces.length > 0 && (
+                <div className="mt-2 border-t border-gray-200 pt-2">
+                    <button
+                        type="button"
+                        onClick={() => setShowPieces((v) => !v)}
+                        aria-expanded={showPieces}
+                        className="flex w-full items-center justify-between gap-2 text-left text-xs text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-600 rounded"
+                    >
+                        <span>
+                            {pieces.length} piece{pieces.length === 1 ? '' : 's'} donated
+                            {showPieces && ' (L × W × H)'}
+                        </span>
+                        <ChevronDown
+                            className={'h-4 w-4 shrink-0 transition-transform ' + (showPieces ? 'rotate-180' : '')}
+                        />
+                    </button>
+
+                    {showPieces && (
+                        <ul className="mt-1 space-y-1">
+                            {pieces.map((p) => {
+                                const dims = dimensionText(p);
+                                const vol = formatNumber(p.volume_bd_ft);
+                                const label = pieceLabel(p);
+                                return (
+                                    <li key={p.id} className="flex flex-wrap items-baseline justify-between gap-x-3 text-xs text-gray-700">
+                                        <span className="font-medium">
+                                            {p.piece_number !== null ? `Piece #${p.piece_number}` : 'Piece'}
+                                            {label && label !== itemTitle(asset) && (
+                                                <span className="ml-1 font-normal text-gray-500">{label}</span>
+                                            )}
+                                        </span>
+                                        <span className="text-gray-500">
+                                            {[dims, vol && `${vol} bd.ft`, p.plate_number, p.serial_number].filter(Boolean).join(' · ') || 'No measurements'}
+                                        </span>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
@@ -538,18 +674,9 @@ export default function Donations({ donations, filters, can }: DonationsProps) {
                                     {viewingDonation.disposals.length > 0 && (
                                         <section className={MODAL_SECTION}>
                                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Assets Donated</p>
-                                            <div className="space-y-1">
+                                            <div className="space-y-2">
                                                 {viewingDonation.disposals.map((d) => (
-                                                    <div key={d.id} className="flex items-center justify-between gap-2 rounded-md bg-gray-50 px-3 py-2 text-sm">
-                                                        <span className="min-w-0 break-words font-medium text-gray-900">
-                                                            <span className="text-xs font-normal text-gray-400">Asset No.: </span>
-                                                            {d.asset?.aap_number ?? d.asset?.asset_code ?? '—'}
-                                                        </span>
-                                                        <span className="shrink-0 text-right text-xs text-gray-500">
-                                                            {d.quantity} unit{d.quantity === 1 ? '' : 's'}
-                                                            {d.volume_bd_ft && ` · ${Number(d.volume_bd_ft).toFixed(2)} bd.ft`}
-                                                        </span>
-                                                    </div>
+                                                    <DonatedItem key={d.id} disposal={d} />
                                                 ))}
                                             </div>
                                         </section>
