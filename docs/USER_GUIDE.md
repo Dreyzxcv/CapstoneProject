@@ -1,158 +1,174 @@
-# ForestTrack User Guide
+# ForesTrack User Guide
 
-This guide explains the main tasks available to ForestTrack users. The
-navigation and available actions depend on the account's assigned role and
-permissions. If an expected action is missing, contact the System Admin rather
-than using another person's account.
+This guide covers the workflows currently available in ForesTrack. The
+navigation and actions shown depend on the account's role and permissions. If
+an expected action is missing, contact the System Admin; do not use another
+person's account. Follow current DENR-PENRO procedures and required approvals
+when handling official records or physical assets.
 
 ## Sign in and navigate
 
-1. Open the ForestTrack URL provided by the system administrator.
-2. Sign in with your assigned account.
-3. Use the sidebar to open **Dashboard**, **Assets**, **New Incident**,
-   **Scan QR**, **JEV**, **Disposals**, **Reports**, or **Audit Logs** when
-   those sections are available to your role.
-4. Use the account menu to open your profile or sign out.
+1. Open the ForesTrack URL provided by the system administrator and sign in
+   with your assigned account.
+2. Use the navigation menu to open **Dashboard**, **Assets**, **New
+   Incident**, **Scan QR**, **JEV**, **Disposals**, or **Reports** when your
+   permissions allow it. **Audit Logs** and administration pages are limited
+   to authorized accounts.
+3. The dashboard summarizes inventory, workflow stages, and alerts. Selected
+   summary and alert data refreshes periodically; open an asset record to
+   confirm its latest saved status and available actions.
 
-The dashboard summarizes current records and role-specific work queues. Check
-it for tasks that need attention. A notification or dashboard count indicates
-work to review; open the corresponding record to see its current status and
-available actions.
+## Record an incident (MES Officer)
 
-## Record a new incident (MES Officer)
+Incident encoding is available on desktop browsers; the intake page blocks
+mobile devices.
 
-Use **New Incident** when recording assets received through apprehension or
-turn-over. The intake form is a four-step wizard:
-
-1. **Intake Mode** — select how the asset came into MES custody.
-2. **Incident Details** — enter the incident, parties, and location
-   information. Record the apprehension location accurately; it is used for
-   map and reporting views.
-3. **Assets & Pieces** — add each asset and its pieces. Select the appropriate
-   type and enter identifying details, measurements, and other requested
-   information. Review the entries carefully, especially quantities and
-   measurements.
-4. **Review** — confirm the incident and asset details. Submit using
-   **Confirm & Record** only after checking the information.
-
-After submission, open the resulting asset record to verify the saved details
-and continue any follow-up work available to your role. Correct mistakes using
-the record's permitted edit actions; do not create a duplicate incident to
-work around an incorrect entry.
+1. Open **New Incident** and select **Apprehended** or **Turned Over**. For an
+   apprehension, indicate whether a claimant came forward; when there is no
+   claimant, the record is classified as abandoned.
+2. Enter incident dates, location, coordinates, apprehending or turning-over
+   party, claimant details when applicable, and case information.
+3. Add each asset and its pieces. Select the asset type and enter the
+   identifying details, quantities, measurements, and other requested
+   information. Review grouped piece quantities carefully.
+4. Review the incident and asset information, then select **Confirm & Record**.
+5. Open the resulting asset record and check that the saved information is
+   correct. Use the permitted edit actions to correct mistakes; do not create
+   a duplicate incident to work around an error.
 
 ## Find and review an asset
 
-1. Open **Assets** to search and review inventory records available to your
-   account.
-2. Open an asset to view its identifiers, incident and location details,
-   custody/status information, supporting documents, and available actions.
-3. Check the current status and activity before updating the record. Only
-   perform actions that match your role and the actual supporting paperwork.
-4. Use the record's document and history sections to review existing
-   attachments and prior workflow activity.
+1. Open **Assets** to browse the inventory. Available filters include status
+   and asset type; search can match asset code, AAP number, species, or
+   municipality.
+2. Open the matching asset record to review incident details, pieces,
+   claimant and location information, case/custody status, documents, and
+   workflow history.
+3. Use the record's available actions only when permitted by your role and
+   supported by the official paperwork. Some items sharing an asset code are
+   shown together.
 
-## Verify custody and assign QR tags (Property Custodian)
+## Upload documents and request custody review (MES Officer)
 
-1. Open the asset record that is awaiting custody action.
-2. Verify the asset details and required documents against the physical asset
-   and source paperwork.
-3. Complete the available receipt or custody-review action. Return or flag a
-   record for correction when the information or documentation is incomplete;
-   do not approve details you have not verified.
-4. Use **Mark Stored** only when the asset has actually been received into
-   storage.
-5. Generate and print the QR sticker from the asset record when that action is
-   available. Attach the tag to the correct asset and check that its code
-   corresponds to the record.
+1. Open the asset record and review its required-document checklist.
+2. Upload each required document to the correct asset record. Check that the
+   file is legible and belongs to that record.
+3. Enter or verify any requested AAP information and submit the record for
+   custody review when the action is available.
+4. Monitor the record and notifications. If the submission is returned,
+   address the custodian's remarks and submit it again when complete.
 
-The QR code identifies the live ForestTrack record; it is not a replacement
-for required signed receipts or original legal documents.
+## Review custody, sign receipts, and tag assets (Property Custodian)
+
+1. Open a record awaiting custody review and compare its details and uploaded
+   documents with the physical asset and source paperwork.
+2. Verify required documents and approve the review only when they are
+   complete and correct. Return the record with clear remarks when it needs
+   correction.
+3. Complete receipt, tagging, and storage-related actions shown on the record
+   when their prerequisites are satisfied. Required documents must be
+   verified before the asset can be tagged.
+4. Generate and print the QR sticker PDF when the action is available.
+   Confirm that the sticker is attached to the correct asset or piece.
+
+The QR code links to the current ForesTrack record; it does not replace signed
+receipts, source paperwork, or original legal documents.
 
 ## Scan a QR code
 
-1. Open **Scan QR** on a device with a camera.
-2. Allow the browser to use the camera when prompted. Camera access requires
-   HTTPS or `localhost`.
-3. Scan the ForestTrack QR code and open the result to review the linked asset.
-4. If scanning is unavailable, use the record's asset code search where
-   permitted, or ask the administrator to check the device's HTTPS/certificate
-   setup.
+1. Sign in, open **Scan QR**, and allow browser camera access.
+2. Camera scanning requires HTTPS or `localhost`. Scan the ForesTrack sticker
+   and open the linked asset or piece record.
+3. If camera scanning is unavailable, check the device's camera permission
+   and HTTPS setup. You can also search the Assets page by asset code if your
+   role permits it.
 
-Treat QR codes and scan results as government records. Do not share record
-links or screenshots with unauthorized people.
+QR links require an authorized signed-in account. Treat codes, scan results,
+and record links as government records; do not share them with unauthorized
+people. Scans are recorded in the system.
 
-## Review cases and supporting documents
+## Record case information and outcomes
 
-MES Officers update case details and submit available reviews from the asset
-record when new official information is received. Upload supporting documents
-to the correct asset and use the verification action only if your role permits
-it and you have checked the document. Keep physical originals according to
-office procedure.
+MES Officers can update case details and submit supported case information
+from the asset record. Upload the relevant official documents to the correct
+record. An asset with an unresolved legal or court matter may remain under
+trial; do not proceed with accounting or disposal unless the recorded outcome
+and required authority allow it.
 
-An asset subject to a pending case must remain in the appropriate custody
-workflow. Do not advance it to accounting or disposal unless the case has been
-resolved and the required official authority is recorded.
+## Process JEV work (Accounting Officer)
 
-## Process JEV tasks (Accounting Officer)
+1. Open **JEV** to review pending and issued JEV records. Confirm the
+   asset/disposal, reference numbers, dates, and supporting records before
+   acting.
+2. Create JEV IN information for an asset cleared for accounting, using the
+   available form and official reference details.
+3. For donation disposals awaiting JEV OUT, review the donation/disposal
+   record and issue or upload the JEV OUT using the available action.
+4. Review the record afterward and ensure any requested document is attached
+   to the correct asset or disposal.
 
-1. Open **JEV** to see assets cleared for custodian/accounting processing and
-   JEV records awaiting action.
-2. Select the asset and verify its identifiers and supporting records.
-3. Issue or record the JEV using the available action and enter the official
-   reference accurately.
-4. Upload the corresponding JEV document when requested, then confirm it is
-   attached to the correct record.
-5. Review disposal-related JEV tasks from the relevant disposal record when
-   applicable.
+Do not create a duplicate JEV to work around an existing record or a
+dashboard count. Follow the workflow and authorization shown for the record.
 
-Do not create a JEV based solely on a dashboard count; verify the record and
-the required authorization first.
+## Process a disposition or release
 
-## Record a disposal or release
+Only assets in the appropriate workflow status can be processed. The
+available disposition options depend on asset type:
 
-MES Officers and other authorized staff can open **Disposals** and the
-relevant asset record to review the eligible actions. Available options depend
-on asset type, legal/custody status, and permissions.
+- **Logs/lumber** — donation, decay, or fabrication. Quantity-based
+  dispositions may be processed in parts; verify the remaining quantity and
+  selected pieces.
+- **Vehicles** — release to the owner or forfeiture, as supported by the
+  legal outcome.
+- **Equipment/tools** — mark damaged/disabled.
 
-1. Verify the asset, legal status, supporting authority, and required
-   accounting documents.
-2. Choose only the disposition supported by the official decision and the
-   workflow shown in ForestTrack.
-3. Enter the requested recipient, delivery, or outcome information accurately
-   and attach the required documents.
-4. Confirm the disposition details before submitting. Review the asset's
-   status and disposal history afterward.
+1. Open **Disposals** or the relevant asset record and review the eligible
+   asset and action.
+2. Verify the legal/custody status, official decision, quantity or pieces,
+   recipient/outcome details, and required documents.
+3. Enter the requested details and submit the appropriate action. Donation
+   processing may require Accounting to issue JEV OUT before release
+   documents and delivery can be completed.
+4. Review the disposal history and resulting status. Confirm that partial
+   dispositions leave only the undisposed remainder available for further
+   processing.
 
 Do not release, donate, destroy, fabricate, or otherwise dispose of property
-without the required approval and completed paperwork. Follow current DENR and
-PENRO procedures where they are more specific than this guide.
+without the required approval and completed paperwork.
 
-## Reports, exports, and audit history
+## Reports, maps, exports, and audit history
 
-- Open **Reports** to review inventory summaries, trends, maps, and available
-  exports. Apply the displayed filters before exporting.
-- Use **Audit Logs** only when your role has access. Audit entries provide a
-  record of system activity; they do not replace official case files.
-- Handle downloaded CSV, PDF, map, and audit exports as sensitive records.
-  Store and share them only through approved office channels.
+- **Reports** provides inventory summaries, asset-type and municipality
+  breakdowns, monthly intake trends, recent status activity, and a map of
+  incidents with recorded coordinates. Use the map's available filters and
+  normal, satellite, or heat-map views. Map points represent incident
+  locations recorded at intake, not the current physical locations of assets.
+- Available tools may include inventory CSV and compliance PDF reports,
+  chart PNGs, map KML, donation records, and an attribute table. Export
+  controls depend on your permissions. Review an export before sharing it;
+  handle downloaded files as sensitive records.
+- **Audit Logs** is restricted to authorized users (System Admin by default).
+  Audit entries supplement but do not replace official case files.
 
 ## System Admin tasks
 
-- **Users** — create accounts with the correct role, update user details,
-  deactivate access when it is no longer needed, and use the password-reset
-  action according to office procedure. Assign each person an individual
-  account; do not share credentials.
-- **Market Prices** — maintain reference prices only from authorized sources.
-- **Backup** — run or schedule backups and review the last backup status.
-  Follow the [backup guide](BACKUP_PLAN.md) for server setup, off-device
-  copies, and restore procedures.
+- **Users** — create accounts, assign or update roles and permissions,
+  deactivate access, and send password-reset instructions. Use individual
+  accounts; do not share credentials.
+- **Market Prices** — maintain reference prices only from authorized
+  sources. Intake may use these prices for estimates when a matching entry
+  exists.
+- **Backup** — review backup status, configure the available schedule and
+  retention settings, or start a manual backup. A queue worker must be
+  running for queued backup jobs to complete. Follow the
+  [backup plan](BACKUP_PLAN.md) for server setup and restore procedures.
 
 ## Protect records and accounts
 
-- Sign out when leaving a shared workstation and do not save passwords in a
+- Sign out when leaving a shared workstation. Do not save passwords in a
   shared browser profile.
-- Never share passwords, QR links, exported reports, or case documents outside
-  authorized channels.
+- Do not share passwords, QR links, exported reports, or case documents
+  outside authorized channels.
 - Report incorrect, duplicated, missing, or unexpectedly changed records to
   the System Admin promptly. Do not edit records to conceal an error.
 - Keep the physical asset, signed paperwork, and digital record aligned.

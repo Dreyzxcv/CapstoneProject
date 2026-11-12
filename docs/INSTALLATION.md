@@ -1,8 +1,9 @@
-# ForestTrack Installation Guide
+# ForesTrack Installation Guide
 
 This guide covers Windows development and an office-LAN setup using IIS with
-PHP FastCGI, Caddy for HTTPS, and PostgreSQL in Docker. The application and
-database run on the host; other devices connect through Caddy.
+PHP FastCGI, Caddy for HTTPS, and PostgreSQL in Docker. The application runs
+on the host computer and the database runs in a local container; other
+devices connect through Caddy.
 
 ## Requirements
 
@@ -15,7 +16,8 @@ Install these tools before setting up the project:
 | PHP | 8.3 or newer in the 8.x series; PHP 8.3 is required by `composer.json` |
 | Composer | Composer 2 |
 | Node.js | 20.19+ or 22.12+; npm is included with Node.js |
-| Docker Desktop | Current version with Docker Compose; start Docker Desktop before running the database |
+| Docker Desktop | Current version with the Docker CLI; start Docker Desktop before running the database |
+| PostgreSQL client tools | `pg_dump` at the same or a newer major version than the server; required for database backups |
 | IIS | Windows edition with IIS support; enable CGI and IIS Management Console |
 | IIS URL Rewrite | Required to route Laravel URLs to its front controller |
 | Caddy | Required for HTTPS when serving the application to other devices on the LAN |
@@ -33,7 +35,7 @@ Open the listed `php.ini` and enable the extensions below in its Dynamic
 Extensions section. If a matching line is present but starts with `;`, remove
 the semicolon. Do not add duplicate entries.
 
-ForestTrack is configured to use PostgreSQL by default, so make sure these
+ForesTrack is configured to use PostgreSQL by default, so make sure these
 PostgreSQL extensions are enabled:
 
 ```ini
@@ -63,25 +65,6 @@ php -m
 Confirm the output includes `PDO`, `pdo_pgsql`, `pgsql`, `curl`, `fileinfo`,
 `gd`, `mbstring`, `openssl`, and `zip`.
 
-### MySQL extension lines
-
-The following lines were supplied for the project's PHP setup. They enable
-MySQL support, not PostgreSQL. The checked-in application configuration uses
-`DB_CONNECTION=pgsql`, so these MySQL extensions are not needed for the
-Docker setup below. If the application is intentionally switched to MySQL,
-enable these lines instead and configure a MySQL database and Laravel
-connection accordingly:
-
-```ini
-[PHP]
-extension=php_mysqli.dll
-extension=php_pdo_mysql.dll
-```
-
-For current PHP versions, the equivalent extension names are generally written
-as `extension=mysqli` and `extension=pdo_mysql`. Enabling MySQL extensions alone
-does not switch the application from PostgreSQL to MySQL.
-
 ## Get the project
 
 Clone the repository and change into its directory:
@@ -95,16 +78,33 @@ If the project is already cloned, open PowerShell in the repository folder.
 
 ## Start PostgreSQL with Docker
 
-Start Docker Desktop, then run this from the project root:
+Start Docker Desktop. This repository does not include a Docker Compose
+configuration, so create and start the PostgreSQL container directly. Run
+these commands once for the initial setup:
 
 ```powershell
-docker compose up -d
-docker compose ps
+docker volume create foresttrack-postgres-data
+docker run --name foresttrack-postgres --restart unless-stopped `
+  -e POSTGRES_DB=foresttrack `
+  -e POSTGRES_USER=foresttrack `
+  -e POSTGRES_PASSWORD=foresttrack_local_only `
+  -p 127.0.0.1:5432:5432 `
+  -v foresttrack-postgres-data:/var/lib/postgresql `
+  -d postgres:18
+docker ps --filter "name=foresttrack-postgres"
 ```
 
-The Compose file starts PostgreSQL 18 and persists its data in the
-`foresttrack-postgres-data` Docker volume. Its local development database
-settings are:
+The container stores PostgreSQL 18 data in the
+`foresttrack-postgres-data` Docker volume and binds the port to loopback so
+other LAN devices cannot connect directly. To start the existing container
+after a stop or restart, use:
+
+```powershell
+docker start foresttrack-postgres
+docker ps --filter "name=foresttrack-postgres"
+```
+
+Its local development database settings are:
 
 | Setting | Value |
 |---|---|
@@ -116,8 +116,12 @@ settings are:
 
 These credentials are for local development only. Do not reuse them in a
 production environment. To stop PostgreSQL while preserving its data, run
-`docker compose down`. Do not add `-v` unless you intend to delete the
-database volume and all data in it.
+`docker stop foresttrack-postgres`. The named volume preserves the data when
+the container stops; do not remove the volume unless you intend to delete the
+database data. The backup service runs `pg_dump` on the host; install the
+PostgreSQL 18 client tools and make `pg_dump.exe` available in `PATH`, or set
+`PG_DUMP_PATH` in `.env` to its full path. See the
+[backup plan](BACKUP_PLAN.md) for the backup setup.
 
 ## Install dependencies and configure the application
 
@@ -125,14 +129,19 @@ Install the PHP and JavaScript dependencies:
 
 ```powershell
 composer install
-npm ci
+npm install
 ```
 
-Create the local environment file and application key:
+There is no `package-lock.json` in the repository, so use `npm install` rather
+than `npm ci`.
+
+Create the local environment file only if one does not already exist. Generate
+the application key only when `APP_KEY` is empty; changing an existing key
+will invalidate encrypted data and sessions.
 
 ```powershell
-Copy-Item .env.example .env
-php artisan key:generate
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+if (-not (Select-String -Path .env -Pattern '^APP_KEY=.+$' -Quiet)) { php artisan key:generate }
 ```
 
 Edit `.env` and set these local values:
@@ -141,6 +150,7 @@ Edit `.env` and set these local values:
 APP_ENV=local
 APP_DEBUG=true
 APP_URL=http://127.0.0.1:8000
+APP_TIMEZONE=Asia/Manila
 
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
@@ -153,7 +163,10 @@ SESSION_SECURE_COOKIE=false
 ```
 
 `SESSION_SECURE_COOKIE=false` is for local HTTP development only. Use HTTPS
-and secure cookies in production.
+and secure cookies in production. The example environment uses
+`MAIL_MAILER=log`; configure a mail transport in `.env` if the installation
+must send password-reset emails. Set `APP_TIMEZONE=Asia/Manila` so scheduled
+backup times use Philippine local time rather than Laravel's UTC default.
 
 Create the database tables and seed the initial roles and users:
 
@@ -161,6 +174,12 @@ Create the database tables and seed the initial roles and users:
 php artisan migrate
 php artisan db:seed
 ```
+
+On a fresh database, the seeder creates five starter accounts that share a
+development password (`Password123!`). Change the password for every seeded
+account before allowing access from other LAN devices. Review
+`database\seeders\UsersSeeder.php` for the seeded account names and email
+addresses. Do not rely on reseeding to reset an existing user's password.
 
 Build the frontend assets:
 
@@ -184,6 +203,17 @@ php artisan queue:work --tries=1 --timeout=0 --sleep=3
 
 Open <http://127.0.0.1:8000> on the host. Do not use `php artisan serve` for
 the shared LAN deployment; configure IIS with PHP FastCGI as described below.
+For frontend development with hot reload, run `npm run dev` in another
+PowerShell window instead of relying on the previously built assets. Run the
+scheduler in a separate window when testing scheduled tasks such as automatic
+backups:
+
+```powershell
+php artisan schedule:work
+```
+
+The queue worker must also be running for queued jobs, including backups, to
+finish.
 
 ## Configure IIS with PHP FastCGI
 
@@ -274,7 +304,7 @@ FastCGI. Caddy will handle HTTPS and forward requests to IIS on loopback.
 
 ## Serve over the LAN with Caddy
 
-To access ForestTrack from other devices on the same network, put Caddy in
+To access ForesTrack from other devices on the same network, put Caddy in
 front of the loopback-only IIS site.
 
 1. Find the host computer's LAN IPv4 address with:
@@ -324,7 +354,7 @@ front of the loopback-only IIS site.
    caddy run --config .\Caddyfile --adapter caddyfile
    ```
 
-   Leave this PowerShell window open while ForestTrack is being served. Press
+   Leave this PowerShell window open while ForesTrack is being served. Press
    `Ctrl+C` to stop Caddy. Allow inbound TCP traffic to ports `443` and `80` in
    Windows Firewall for the trusted local network. Port 80 allows Caddy to
    redirect HTTP requests to HTTPS.
@@ -335,6 +365,7 @@ front of the loopback-only IIS site.
    APP_ENV=production
    APP_DEBUG=false
    APP_URL=https://192.168.1.25
+   APP_TIMEZONE=Asia/Manila
    SESSION_SECURE_COOKIE=true
    ```
 
@@ -351,10 +382,26 @@ front of the loopback-only IIS site.
    Restart-WebAppPool -Name ForestTrackPool
    ```
 
-   Keep the queue worker running as described above. Build frontend assets on
-   the host with `npm run build`.
+   Build frontend assets on the host with `npm run build`.
 
-5. Open `https://192.168.1.25` from a device on the same LAN. Since the
+5. Ensure the Laravel queue worker and scheduler are running on the host. The
+   queue worker is required for backup jobs; the scheduler runs the configured
+   automatic-backup schedule. For a manually operated setup, open two
+   PowerShell windows and run one command in each:
+
+   ```powershell
+   php artisan queue:work --tries=1 --timeout=0 --sleep=3
+   ```
+
+   ```powershell
+   php artisan schedule:work
+   ```
+
+   For an always-on host, configure the queue worker and scheduled task as
+   described in the [backup plan](BACKUP_PLAN.md). See the
+   [operations runbook](OPERATIONS_RUNBOOK.md) for normal startup checks.
+
+6. Open `https://192.168.1.25` from a device on the same LAN. Since the
    `tls internal` directive uses Caddy's internal certificate authority,
    client devices must trust Caddy's root CA for the certificate to be trusted
    without browser warnings. Install the root CA on each client device using
@@ -362,9 +409,10 @@ front of the loopback-only IIS site.
    automatically trust the certificate on other devices.
 
 Use a trusted network only. Do not expose IIS port `8080` or PostgreSQL port
-`5432` to the LAN or public internet. The Compose file binds PostgreSQL to
-`127.0.0.1` for host-only access. If the host IP changes, update the Caddyfile
-and `APP_URL`, then restart Caddy and recycle the IIS application pool.
+`5432` to the LAN or public internet. The Docker command above binds
+PostgreSQL to `127.0.0.1` for host-only access. If the host IP changes, update
+the Caddyfile and `APP_URL`, then restart Caddy and recycle the IIS application
+pool.
 
 ## Verify the installation
 
@@ -377,16 +425,16 @@ composer --version
 composer check-platform-reqs
 node --version
 npm --version
-docker compose ps
+docker ps --filter "name=foresttrack-postgres"
 ```
 
 ## Common commands
 
 | Task | Command |
 |---|---|
-| Start the database | `docker compose up -d` |
-| View database logs | `docker compose logs -f db` |
-| Stop the database and preserve data | `docker compose down` |
+| Start the database | `docker start foresttrack-postgres` |
+| View database logs | `docker logs -f foresttrack-postgres` |
+| Stop the database and preserve data | `docker stop foresttrack-postgres` |
 | Run new migrations | `php artisan migrate` |
 | Rebuild frontend assets | `npm run build` |
 | Run automated tests | `php artisan test` |
