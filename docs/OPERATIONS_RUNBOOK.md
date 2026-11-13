@@ -1,4 +1,4 @@
-# ForestTrack Operations Runbook
+# ForesTrack Operations Runbook
 
 This runbook is for the administrator operating the Windows host on the
 trusted office LAN. IIS serves Laravel through PHP FastCGI, PostgreSQL runs in
@@ -34,11 +34,12 @@ as an NSSM service as documented in the [backup guide](BACKUP_PLAN.md).
 1. Open PowerShell in the project folder and start PostgreSQL:
 
    ```powershell
-   docker compose up -d
-   docker compose ps
+   docker start foresttrack-postgres
+   docker ps --filter "name=foresttrack-postgres"
    ```
 
-   Confirm the `db` service is running.
+   The PostgreSQL container must already have been created as described in
+   the [installation guide](INSTALLATION.md).
 
 2. Start the IIS application pool and website if they are stopped:
 
@@ -68,7 +69,11 @@ as an NSSM service as documented in the [backup guide](BACKUP_PLAN.md).
    php artisan queue:work --tries=1 --timeout=0 --sleep=3
    ```
 
-6. From a trusted LAN client, open the configured HTTPS address, for example
+6. Confirm the **ForestTrack Scheduler** task is enabled in Windows Task
+   Scheduler if automatic backups are configured. The task should run
+   `artisan schedule:run` every minute; see the [backup guide](BACKUP_PLAN.md).
+
+7. From a trusted LAN client, open the configured HTTPS address, for example
    `https://192.168.1.25`. Sign in and check the dashboard. If the certificate
    is untrusted, confirm that the client has Caddy's internal root CA installed.
 
@@ -84,8 +89,8 @@ Task Scheduler setup.
 Run these checks from the project folder:
 
 ```powershell
-docker compose ps
-docker compose logs --tail 50 db
+docker ps --filter "name=foresttrack-postgres"
+docker logs --tail 50 foresttrack-postgres
 php artisan about
 php artisan queue:failed
 Invoke-WebRequest http://127.0.0.1:8080/up
@@ -134,7 +139,7 @@ good backup before changing the application or database.
 
    ```powershell
    composer install
-   npm ci
+   npm install
    npm run build
    ```
 
@@ -186,12 +191,12 @@ than improvising destructive database changes.
 2. Stop the database only when needed:
 
    ```powershell
-   docker compose down
+   docker stop foresttrack-postgres
    ```
 
    This stops the container but preserves the `foresttrack-postgres-data`
-   volume. Do not use `docker compose down -v` unless intentionally deleting
-   the database and all its stored data.
+   volume. Do not remove the volume unless intentionally deleting the database
+   and all its stored data.
 
 ## Configuration and security reminders
 

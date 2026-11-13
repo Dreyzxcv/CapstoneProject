@@ -1,132 +1,132 @@
-# ForestTrack
+# ForesTrack
 
 **A QR-Based Forest Asset Inventory and GIS Mapping System**
 Developed for DENR-PENRO Catanduanes (Provincial Environment and Natural Resources Office)
 
----
-
 ## About
 
-ForestTrack is a web-based asset inventory and monitoring system designed to
-streamline the tracking of confiscated forest resources and related government
-property. It replaces manual documentation with a centralized, role-based
-platform that uses QR codes, GIS mapping, and analytics to support secure and
-transparent custody monitoring.
+ForesTrack is a web application for recording and monitoring forest assets
+received by DENR-PENRO Catanduanes through apprehension or turn-over,
+including apprehended items with no claimant. It keeps incident, claimant,
+asset, piece, custody, case, and disposal information in a shared inventory
+so authorized staff can follow records through the supported office workflows.
 
-Each confiscated asset is assigned a unique QR code linked to its digital
-record, including its origin, species, legal status, custody history, and
-supporting documents. The system follows the asset from **intake at MES** to
-**property custody**, **accounting and JEV processing**, and **final disposal**
-(donation, decay, fabrication, release, or forfeiture), while maintaining a
-complete audit trail at every step. Apprehension locations are also captured
-and mapped to provide spatial visibility into confiscation trends across
-Catanduanes.
-
-The project addresses the accountability gap in managing seized and
-confiscated forest assets, where limited documentation and inconsistent
-tracking often lead to missing records, delays, and loss of value in public
-custody.
+The system supports logs/lumber, equipment/tools, and conveyances/vehicles.
+Incident records can include location coordinates for mapping and reporting.
+QR stickers link to the current asset or piece record; users must sign in and
+have permission to access the linked record. Workflow transitions appear in
+status history, and QR scans and other supported actions are recorded in
+audit logs.
 
 ## Core Features
 
-- **QR code generation & tagging** — each asset gets an opaque, signed QR
-  token; scanning it always shows the current record, not a static snapshot
-- **Role-Based Access Control (RBAC)** — System Admin, MES Officer, Property
-  Custodian, Accounting Officer, and PENRO Management each see only what
-  their role permits, enforced at both the controller and UI level
-- **Full asset lifecycle tracking** — intake → custody review → receipt
-  signing → storage → (case branch) → accounting → disposal, with every
-  transition logged
-- **Document generation (PDF)** — Acknowledgement Receipt, Journal Entry
-  Voucher (JEV), Inventory Custodian Slip (ICS), Property Acknowledgement
-  Receipt (PAR), Deed of Donation, Decay Report, and DAO 97-32 compliance
-  reports
-- **Real-time inventory dashboard** — role-specific views of asset counts,
-  pipeline stages, and actionable alerts (appeal deadlines, decay risk,
-  stalled paperwork)
-- **GIS incident mapping** — apprehension coordinates logged at intake are
-  plotted on an interactive Leaflet map of Catanduanes, with Normal/Satellite
-  basemap toggle, asset-type color coding, and abandonment-status markers;
-  donation delivery points and individual asset locations are similarly
-  mapped on their respective records
-- **Reports & analytics** — inventory summaries, municipality-based
-  confiscation stats, and month-over-month trend charts
-- **Append-only audit log** — every create/update/status-change/scan is
-  recorded with user, timestamp, IP, and before/after values
+- **Asset and incident intake** — record apprehensions (including abandoned
+  cases with no claimant) and turn-overs, including incident details,
+  claimant information where applicable, coordinates, supporting documents,
+  and item-level measurements.
+- **QR tagging and scanning** — generate printable QR stickers for assets and
+  pieces, then scan them to open the corresponding current record.
+- **Custody and document review** — upload required documents, submit records
+  for Property Custodian review, record review decisions, and track receipt,
+  tagging, and storage-related actions.
+- **Case and accounting workflow** — record case details and holds, resolve
+  case status, and create or upload Journal Entry Voucher (JEV) records for
+  eligible assets and donation disposals.
+- **Type-specific dispositions** — process log donations, decay, or
+  fabrication; vehicle release or forfeiture; and equipment damage/disablement.
+  Log dispositions can be recorded by quantity or selected pieces.
+- **Dashboard and alerts** — show inventory counts, role-specific workflow
+  summaries, and alerts for items needing attention. Selected dashboard data
+  refreshes periodically; open the asset record to confirm its latest saved
+  status.
+- **Reports and maps** — review inventory summaries, asset-type and
+  municipality breakdowns, monthly intake trends, and incident locations with
+  normal, satellite, and heat-map views. Map points are based on recorded
+  incident coordinates.
+- **Exports and documents** — available outputs include inventory CSV and
+  compliance PDF reports, map KML, chart PNGs, and workflow documents such as
+  acknowledgement receipts, JEVs, decay reports, donation documents, asset
+  tags, and ICS/PAR documents where applicable.
+- **Role-based access and audit history** — restrict available actions by
+  role and permission. Supported audit events record the actor, time, IP
+  address, and before/after values where available; audit-log access is
+  reserved for authorized users.
+- **Administration** — manage users and permissions, maintain reference
+  market prices, and run or configure database backups.
 
 ## System Workflow
 
-1. **Incident Intake** — the asset is recorded as apprehended, abandoned, or
-   turned over, with location and supporting details captured at MES
-2. **QR Tagging & Validation** — the Property Custodian verifies the record,
-   generates and assigns the QR tag, and confirms storage or custody status
-3. **Case Review & Monitoring** — assets under legal action remain in custody
-   while status updates, documents, and audit records are tracked
-4. **Accounting & Disposal Preparation** — accounting reviews the asset and
-   prepares required JEV and disposition documents before final action
-5. **Disposal & Reporting** — the asset is released, donated, forfeited,
-   fabricated, or reported as decayed, with the result reflected in the
-   dashboard and audit trail
+1. **Incident intake** — an authorized staff member records the incident and
+   one or more assets, including pieces and available location and case
+   details.
+2. **Documents and custody review** — required supporting documents are
+   uploaded and submitted for Property Custodian review. The custodian can
+   approve or return a submission for correction.
+3. **Receipt, tagging, and case handling** — custody actions are recorded on
+   the asset record. Assets with unresolved legal or court matters can remain
+   under trial; eligible assets proceed to accounting.
+4. **Accounting** — the Accounting Officer records JEV IN information for
+   assets cleared for accounting. Donation disposals may also require a JEV
+   OUT before release documents are completed.
+5. **Disposition and follow-up** — authorized staff record the disposition
+   supported by the asset type and workflow. Some log dispositions can be
+   processed in partial quantities; the asset remains available for further
+   processing until fully disposed.
 
-   - **Logs** — donation, decay report, or fabrication into other items
-   - **Equipment** — damaged/disabled to prevent reuse
-   - **Conveyance** — released to owner within the appeal period or forfeited
-     to government
+The actions available at each stage depend on the asset's status, type, and
+the user's permissions. Follow current DENR-PENRO procedures and required
+official approvals when processing records.
 
-## Tech Stack
+## Technology
 
 | Layer | Technology |
 |---|---|
 | Backend | PHP 8.3+, Laravel 13 |
 | Frontend | Inertia.js, React (TypeScript), Tailwind CSS, shadcn/ui |
-| Database | PostgreSQL (Docker) |
-| Auth & RBAC | Laravel Breeze + Spatie `laravel-permission` |
+| Database | PostgreSQL (Docker for local development) |
+| Authorization | Laravel authentication and Spatie `laravel-permission` |
 | PDF generation | `barryvdh/laravel-dompdf` |
 | QR codes | `chillerlan/php-qrcode` (generation), `html5-qrcode` (scanning) |
-| GIS / Mapping | Leaflet, with CartoDB/Esri satellite and OpenStreetMap basemaps |
+| GIS / Mapping | Leaflet, OpenStreetMap and Esri basemap tiles |
 | Charts | Recharts |
 
-## User Roles
+## Default User Roles
 
-| Role | Responsibilities |
+These are the roles and permissions created by the default role seeder.
+Navigation and available actions are permission-based and may be changed by
+the System Admin.
+
+| Role | Main responsibilities |
 |---|---|
-| System Admin | Full access, user/role management, audit log visibility |
-| MES Officer | Records intake, generates receipts, uploads JEV, updates case status |
-| Property Custodian | Verifies documentation, signs receipts, generates/prints QR codes |
-| Accounting Officer | Creates JEVs, processes disposal documentation |
-| PENRO Management | Read-only dashboard, analytics, compliance report generation |
+| System Admin | User and permission administration, system settings, backup, audit logs, and access to all seeded permissions |
+| MES Officer | Incident intake, asset updates, case details, document uploads, custody-review submissions, and permitted disposal processing |
+| Property Custodian | Custody review, receipt signing, document verification, storage/tagging actions, and QR sticker generation |
+| Accounting Officer | JEV IN/OUT work, JEV uploads, disposal and report viewing, and report exports |
+| PENRO Management | Read-only inventory and disposal views, reports, and report exports |
 
 ## Installation and Local Development
 
-See the [installation guide](docs/INSTALLATION.md) for required tools,
-PHP extensions, PostgreSQL Docker setup, environment configuration, and
-commands to run the application locally or make it available on the LAN over
-HTTPS using Caddy and the host computer's IP address.
-
-## Project Status
-
-Actively in development. The system flow is being finalized in coordination
-with the DENR-PENRO Catanduanes system analyst; some workflow steps
-(notably JEV creation) are expected to be simplified in an upcoming revision
-and are intentionally on hold pending sign-off.
+See the [installation guide](docs/INSTALLATION.md) for requirements,
+PostgreSQL setup, environment configuration, and local development or office
+LAN instructions.
 
 ## Documentation
 
 - [`docs/INSTALLATION.md`](docs/INSTALLATION.md) — prerequisites and
-  step-by-step local installation
-- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — role-based instructions for
-  staff using ForestTrack
+  step-by-step installation
+- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — role-aware instructions for
+  staff using ForesTrack
 - [`docs/OPERATIONS_RUNBOOK.md`](docs/OPERATIONS_RUNBOOK.md) — LAN host
   startup, maintenance, and operational checks
-- [`docs/MVP_DEVELOPMENT_PROMPT.md`](docs/MVP_DEVELOPMENT_PROMPT.md) — full
-  MVP scope, data model, and security requirements
-- [`docs/BACKUP_PLAN.md`](docs/BACKUP_PLAN.md) — backup/restore plan for
+- [`docs/MVP_DEVELOPMENT_PROMPT.md`](docs/MVP_DEVELOPMENT_PROMPT.md) — MVP
+  scope, data model, and requirements
+- [`docs/BACKUP_PLAN.md`](docs/BACKUP_PLAN.md) — backup and restore plan for
   government records
 
 ## Academic Context
 
-ForestTrack is a thesis project developed under the College of Information
-and Communications Technology (CICT), Catanduanes State University, in
+ForesTrack is a thesis project developed under the College of Information and
+Communications Technology (CICT), Catanduanes State University, in
 partnership with DENR-PENRO Catanduanes, and evaluated against ISO/IEC 25010
 software quality characteristics (Functional Suitability, Usability,
 Security, Reliability, Performance Efficiency).

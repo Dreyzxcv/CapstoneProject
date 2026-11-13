@@ -2995,15 +2995,13 @@ export default function AssetsShow({
                 {selectedSibling && (
                     <div key={selectedSibling.id}>
                         {selectedSiblingPiece && (
-                            <div className="mx-auto w-full max-w-xl">
-                                <PieceModal
-                                    piece={selectedSiblingPiece}
-                                    asset={selectedSibling}
-                                    qrSvg={pieceQrSvgs[selectedSiblingPiece.id] ?? null}
-                                    canEdit={false}
-                                    onClose={() => setSelectedSiblingPiece(null)}
-                                />
-                            </div>
+                            <PieceModal
+                                piece={selectedSiblingPiece}
+                                asset={selectedSibling}
+                                qrSvg={pieceQrSvgs[selectedSiblingPiece.id] ?? null}
+                                canEdit={false}
+                                onClose={() => setSelectedSiblingPiece(null)}
+                            />
                         )}
 
                         {/* Kept mounted (just hidden) so search and expanded state survive */}

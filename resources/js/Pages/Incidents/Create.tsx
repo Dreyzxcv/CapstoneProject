@@ -12,11 +12,12 @@ import { Plus, Shield, Trash2, Truck, X, Copy, Calculator, Info } from 'lucide-r
 import CoordinatesPickerModal from '@/Components/shared/CoordinatesPickerModal';
 import { IncidentLocationMap } from '@/Components/shared/IncidentLocationMap';
 import MultiStepWizard from '@/Components/shared/MultiStepWizard';
+import { MONTH_NAMES, buildRateMap, periodFromDate, resolveRate } from '@/lib/marketPrice';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface Option { value: string; label: string; }
-interface MarketPriceEntry { species: string; year: number; price_per_bd_ft: string; }
+interface MarketPriceEntry { species: string; year: number; month: number; price_per_bd_ft: string; }
 
 interface CreateProps {
     types: Option[];
@@ -39,6 +40,7 @@ interface PieceRow {
     height: string;
     volume_bd_ft: string;
     volume_cu_m: string;
+    estimated_value_manual: boolean;
     estimated_value: string;
     estimated_value_auto: boolean;
     plate_number: string;
@@ -168,7 +170,7 @@ function emptyPieceRow(species = ''): PieceRow {
         species, quantity: '1', equipment_type: '', vehicle_type: '', speciesIsOther: false,
         description: '', length: '', width: '', height: '',
         volume_bd_ft: '', volume_cu_m: '', estimated_value: '',
-        estimated_value_auto: false, plate_number: '', serial_number: '',
+        estimated_value_auto: false, plate_number: '', serial_number: '', estimated_value_manual: false,
     };
 }
 
@@ -280,14 +282,6 @@ export default function IncidentsCreate({
         } catch {}
     }, [data, step]);
 
-    const marketPriceMap = useMemo(() => {
-        const map: Record<string, number> = {};
-        marketPrices.forEach((mp) => { map[`${mp.species}|${mp.year}`] = Number(mp.price_per_bd_ft); });
-        return map;
-    }, [marketPrices]);
-
-    const apprehensionYear = data.date_of_apprehension
-        ? new Date(data.date_of_apprehension).getFullYear() : null;
 
     const previewYear = data.date_report_submitted
         ? new Date(data.date_report_submitted).getFullYear() : null;
@@ -297,19 +291,34 @@ export default function IncidentsCreate({
 
     // ── Piece helpers ────────────────────────────────────────────────────────
 
-    function withPieceAutoEstimate(piece: PieceRow, species: string, year: number | null): PieceRow {
-        if (piece.speciesIsOther || !species || !year) return { ...piece, estimated_value_auto: false };
-        const price = marketPriceMap[`${species}|${year}`];
+    const marketPriceMap = useMemo(() => buildRateMap(marketPrices), [marketPrices]);
+
+    const apprehensionPeriod = periodFromDate(data.date_of_apprehension);
+
+    function withPieceAutoEstimate(piece: PieceRow, species: string, period: typeof apprehensionPeriod): PieceRow {
+        // Never overwrite something the user typed.
+        if (piece.estimated_value_manual) return { ...piece, estimated_value_auto: false };
+
+        // No usable rate: drop a stale auto value, keep manual-entry behavior.
+        const dropAuto = (): PieceRow => ({
+            ...piece,
+            estimated_value: piece.estimated_value_auto ? '' : piece.estimated_value,
+            estimated_value_auto: false,
+        });
+
+        if (piece.speciesIsOther || !species) return dropAuto();
+        const rate = resolveRate(marketPriceMap, species, period);
         const volume = parseFloat(piece.volume_bd_ft);
-        if (price === undefined || Number.isNaN(volume) || volume <= 0) return { ...piece, estimated_value_auto: false };
-        return { ...piece, estimated_value: (volume * price).toFixed(2), estimated_value_auto: true };
+        if (!rate || Number.isNaN(volume) || volume <= 0) return dropAuto();
+
+        return { ...piece, estimated_value: (volume * rate.price).toFixed(2), estimated_value_auto: true };
     }
 
     function updatePiece(ai: number, pi: number, fields: Partial<PieceRow>, recompute = false) {
         const nextAssets = [...data.assets];
         const nextPieces = [...nextAssets[ai].pieces];
         let updated = { ...nextPieces[pi], ...fields };
-        if (recompute) updated = withPieceAutoEstimate(updated, updated.species, apprehensionYear);
+        if (recompute) updated = withPieceAutoEstimate(updated, updated.species, apprehensionPeriod);
         nextPieces[pi] = updated;
         nextAssets[ai] = { ...nextAssets[ai], pieces: nextPieces };
         setData('assets', nextAssets);
@@ -322,7 +331,7 @@ export default function IncidentsCreate({
             const bdFt = calculateBdFt(updated.length, updated.width, updated.height);
             updated.volume_bd_ft = bdFt;
             updated.volume_cu_m  = convertBdFtToCuM(bdFt);
-            const withEst = withPieceAutoEstimate(updated, updated.species, apprehensionYear);
+            const withEst = withPieceAutoEstimate(updated, updated.species, apprehensionPeriod)
             const nextAssets = [...data.assets];
             const nextPieces = [...nextAssets[ai].pieces];
             nextPieces[pi] = withEst;
@@ -338,7 +347,7 @@ export default function IncidentsCreate({
     }
 
     function handlePieceSpeciesSelect(ai: number, pi: number, value: string) {
-        if (value === 'Others') updatePiece(ai, pi, { species: '', speciesIsOther: true, estimated_value_auto: false });
+        if (value === 'Others') updatePiece(ai, pi, { species: '', speciesIsOther: true }, true);
         else updatePiece(ai, pi, { species: value, speciesIsOther: false }, true);
     }
 
@@ -438,13 +447,13 @@ export default function IncidentsCreate({
 
     function handleDateOfApprehensionChange(value: string) {
         setData((prev) => {
-            const year = value ? new Date(value).getFullYear() : null;
+            const period = periodFromDate(value);
             return {
                 ...prev,
                 date_of_apprehension: value,
                 assets: prev.assets.map((a) => ({
                     ...a,
-                    pieces: a.pieces.map((p) => withPieceAutoEstimate(p, p.species, year)),
+                    pieces: a.pieces.map((p) => withPieceAutoEstimate(p, p.species, period)),
                 })),
             };
         });
@@ -610,6 +619,7 @@ export default function IncidentsCreate({
         const qty = pieceQty(piece);
         const isVehicle = asset.type === 'vehicle';
         const pk = (f: string) => `piece:${ai}:${pi}:${f}`;
+        const appliedRate = isLog ? resolveRate(marketPriceMap, piece.species, apprehensionPeriod) : null;
 
         return (
             <div key={pi} className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
@@ -750,19 +760,37 @@ export default function IncidentsCreate({
                             <Label>Estimated Value (₱)<span className="text-red-500">*</span></Label>
                             <Input type="text" inputMode="decimal"
                                 value={formatWithCommas(piece.estimated_value)}
-                                onChange={(e) => updatePiece(ai, pi, {
-                                    estimated_value: sanitizeMoney(e.target.value),
-                                    estimated_value_auto: false,
-                                })}
+                                onChange={(e) => {
+                                    const v = sanitizeMoney(e.target.value);
+                                    updatePiece(ai, pi, { estimated_value: v, estimated_value_auto: false, estimated_value_manual: v !== '' });
+                                }}
                                 readOnly={piece.estimated_value_auto}
                                 placeholder="0.00"
                                 className={`${piece.estimated_value_auto ? 'bg-gray-100' : ''} ${hl(pk('estimated_value'))}`} required />
-                            {piece.estimated_value_auto ? (
+                            {piece.estimated_value_auto && appliedRate && apprehensionPeriod ? (
                                 <p className="text-xs text-emerald-700">
-                                    Auto-computed: {piece.volume_bd_ft} bd.ft × ₱{formatWithCommas(marketPriceMap[`${piece.species}|${apprehensionYear}`]?.toFixed(2) ?? '')} (market price {apprehensionYear})
+                                    Auto-computed: {piece.volume_bd_ft} bd.ft × ₱{formatWithCommas(appliedRate.price.toFixed(2))}{' '}
+                                    ({appliedRate.scope === 'month'
+                                        ? `${MONTH_NAMES[apprehensionPeriod.month]} ${apprehensionPeriod.year} monthly rate`
+                                        : `${apprehensionPeriod.year} whole-year rate`})
+                                    {' · '}
+                                    <button type="button" className="underline"
+                                        onClick={() => updatePiece(ai, pi, { estimated_value_auto: false, estimated_value_manual: true })}>
+                                        Enter manually
+                                    </button>
                                 </p>
-                            ) : piece.species && !piece.speciesIsOther && apprehensionYear ? (
-                                <p className="text-xs text-amber-700">No market price set for {piece.species} ({apprehensionYear}) — enter manually.</p>
+                            ) : piece.estimated_value_manual && appliedRate ? (
+                                <p className="text-xs text-gray-500">
+                                    Manually entered. Market rate available: ₱{formatWithCommas(appliedRate.price.toFixed(2))}{' · '}
+                                    <button type="button" className="text-emerald-700 underline"
+                                        onClick={() => updatePiece(ai, pi, { estimated_value_manual: false }, true)}>
+                                        Use market rate
+                                    </button>
+                                </p>
+                            ) : piece.species && !piece.speciesIsOther && apprehensionPeriod && !appliedRate ? (
+                                <p className="text-xs text-amber-700">
+                                    No market price set for {piece.species} ({MONTH_NAMES[apprehensionPeriod.month]} {apprehensionPeriod.year} or whole year {apprehensionPeriod.year}) — enter manually.
+                                </p>
                             ) : null}
                             <InputError message={pieceError(ai, pi, 'estimated_value')} />
                         </div>
@@ -1891,7 +1919,11 @@ export default function IncidentsCreate({
                                         has_confiscation_order_file: null,
                                         assets: (savedDraft.data.assets ?? []).map((a) => ({
                                             ...a,
-                                            pieces: a.pieces.map((p) => ({ ...p, quantity: p.quantity ? String(p.quantity) : '1' })),
+                                            pieces: a.pieces.map((p) => ({
+                                                ...p,
+                                                quantity: p.quantity ? String(p.quantity) : '1',
+                                                estimated_value_manual: p.estimated_value_manual ?? (!!p.estimated_value && !p.estimated_value_auto),
+                                            })),
                                         })),
                                     });
                                     setStep(savedDraft.step);

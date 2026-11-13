@@ -22,12 +22,23 @@ interface FeatureItem {
 }
 
 const FEATURES: FeatureItem[] = [
-    { label: 'QR code generation & tagging', icon: QrCode },
-    { label: 'Real-time inventory dashboard', icon: LayoutDashboard },
-    { label: 'Asset lifecycle tracking', icon: GitBranch },
-    { label: 'Data analytics & reporting', icon: BarChart3 },
-    { label: 'Role-Based Access Control (RBAC)', icon: ShieldCheck },
+    { label: 'QR stickers & scanning', icon: QrCode },
+    { label: 'Inventory dashboard & workflow alerts', icon: LayoutDashboard },
+    { label: 'Custody, case & disposal workflow', icon: GitBranch },
+    { label: 'Reports, charts & incident mapping', icon: BarChart3 },
+    { label: 'Role-based access & audit logs', icon: ShieldCheck },
 ];
+
+const ASSET_TYPES = ['Logs', 'Equipment', 'Vehicles'];
+
+function SectionLabel({ children }: { children: string }) {
+    return (
+        <div className="flex items-center gap-2">
+            <span className="h-4 w-1 rounded-full bg-emerald-600" aria-hidden="true" />
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{children}</p>
+        </div>
+    );
+}
 
 export default function About() {
     return (
@@ -35,55 +46,96 @@ export default function About() {
             <Head title="About" />
 
             <div className="mx-auto max-w-3xl space-y-6 px-4 sm:px-6 lg:px-8">
+                {/* Hero */}
                 <Card className="border-0 shadow-sm">
-                    <CardContent className="pt-6 text-center">
-                        <h1 className="text-lg font-bold text-emerald-900">ForesTrack</h1>
-                        <p className="mt-1 text-sm text-gray-500">
-                            A QR-Based Forest Asset Inventory System with Data Analytics
-                        </p>
-                        <p className="mt-4 text-sm leading-relaxed text-gray-600">
-                            ForesTrack replaces the manual, paper-based tracking of confiscated forest
-                            assets, logs, equipment, and vehicles at DENR-PENRO Catanduanes with a
-                            centralized, QR-code-driven platform. Each confiscated asset is assigned a unique
-                            QR code linking to its live digital profile, letting authorized personnel instantly
-                            retrieve confiscation details, legal status, and supporting documents, track its
-                            lifecycle from intake to final disposition, and generate compliance reports for
-                            DAO 97-32 submissions.
+                    <CardContent className="px-6 py-8 text-center sm:px-10">
+                        <h1 className="sr-only">ForesTrack</h1>
+                        <img
+                            src="/images/foresttrack-logo.png"
+                            alt="ForesTrack: A QR-Based Forest Asset Inventory and GIS Mapping System"
+                            className="mx-auto h-auto w-full max-w-sm object-contain sm:max-w-md"
+                        />
+                        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                            {ASSET_TYPES.map((type) => (
+                                <span
+                                    key={type}
+                                    className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800 ring-1 ring-emerald-100"
+                                >
+                                    {type}
+                                </span>
+                            ))}
+                        </div>
+
+                        <div className="mx-auto my-6 h-px max-w-2xl bg-gray-100" aria-hidden="true" />
+
+                        <p className="mx-auto max-w-2xl text-sm leading-relaxed text-gray-600">
+                            ForesTrack is a web-based system for recording and monitoring forest assets
+                            received by DENR-PENRO Catanduanes through apprehension or turn-over, including
+                            apprehended items with no claimant. It keeps incident, claimant, asset, piece,
+                            custody, case, and disposal information for logs, equipment, and vehicles in one
+                            shared inventory. Printable QR stickers link to the current asset or piece
+                            record, which authorized, signed-in staff can open to review details, documents,
+                            and status history. The system supports document and custody review, case
+                            details, JEV processing, type-specific dispositions, and reports with incident
+                            location maps and CSV or PDF exports. It supports, but does not replace,
+                            official paperwork and approvals.
                         </p>
                     </CardContent>
                 </Card>
 
+                {/* Core features */}
                 <Card className="border-0 shadow-sm">
-                    <CardContent className="pt-6">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Core Features</p>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                            {FEATURES.map(({ label, icon: Icon }) => (
-                                <div key={label} className="flex items-center gap-3 rounded-lg bg-gray-50 px-3 py-2.5">
-                                    <Icon className="h-4 w-4 shrink-0 text-emerald-700" />
-                                    <span className="text-sm text-gray-700">{label}</span>
+                    <CardContent className="space-y-4 pt-6">
+                        <SectionLabel>Core Features</SectionLabel>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {FEATURES.map(({ label, icon: Icon }, i) => (
+                                <div
+                                    key={label}
+                                    className={
+                                        'group flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-3 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow ' +
+                                        (i === FEATURES.length - 1 && FEATURES.length % 2 === 1 ? 'sm:col-span-2' : '')
+                                    }
+                                >
+                                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 transition group-hover:bg-emerald-600 group-hover:text-white">
+                                        <Icon className="h-5 w-5" />
+                                    </span>
+                                    <span className="text-sm font-medium text-gray-800">{label}</span>
                                 </div>
                             ))}
                         </div>
                     </CardContent>
                 </Card>
 
+                {/* Credits */}
                 <Card className="border-0 shadow-sm">
-                    <CardContent className="divide-y divide-gray-100 pt-6">
-                        {CREDITS.map(({ role, names, icon: Icon }) => (
-                            <div key={role} className="flex items-start gap-4 py-4 first:pt-0 last:pb-0">
-                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                                    <Icon className="h-5 w-5" />
-                                </span>
-                                <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{role}</p>
-                                    <p className="mt-1 text-sm font-medium text-gray-900">{names.join(', ')}</p>
+                    <CardContent className="space-y-4 pt-6">
+                        <SectionLabel>Credits</SectionLabel>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                            {CREDITS.map(({ role, names, icon: Icon }) => (
+                                <div
+                                    key={role}
+                                    className="rounded-xl border border-gray-100 bg-gray-50/60 p-4"
+                                >
+                                    <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+                                        <Icon className="h-5 w-5" />
+                                    </span>
+                                    <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                        {role}
+                                    </p>
+                                    <ul className="mt-1 space-y-0.5">
+                                        {names.map((name) => (
+                                            <li key={name} className="text-sm font-medium text-gray-900">
+                                                {name}
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </CardContent>
                 </Card>
 
-                <p className="pb-4 text-center text-xs text-gray-400">
+                <p className="pb-4 text-center text-xs leading-relaxed text-gray-400">
                     Developed for DENR-PENRO Catanduanes as a capstone project under the College of Information
                     and Communications Technology (CICT), Catanduanes State University.
                 </p>
