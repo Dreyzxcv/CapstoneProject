@@ -5,7 +5,7 @@
     <title>Deed of Donation</title>
     <style>
         /* Top/bottom margins are enlarged to reserve room for the fixed
-           header and footer below — DomPDF only repeats position:fixed
+           header and footer below. DomPDF only repeats position:fixed
            elements on every page, so the letterhead and footer are pulled
            out of normal flow and placed inside these reserved margins
            (see .page-header / .footer, which use negative offsets to sit
@@ -128,6 +128,16 @@
             font-weight: bold;
         }
 
+        table.asset-table th.col-desc,
+        table.asset-table td.col-desc {
+            width: 40%;
+            text-align: left;
+        }
+
+        table.asset-table .row-qty {
+            font-size: 10pt;
+        }
+
         /* ---------- Signature blocks ----------
            Each visual "row" (office heading / BY: / signature line) is its
            own <tr>, not stacked inside one <td>. HTML tables automatically
@@ -228,7 +238,7 @@
         file_exists(public_path('images/bagong-pilipinas-logo.png')) ? file_get_contents(public_path('images/bagong-pilipinas-logo.png')) : ''
     );
 
-    // OIC / donor representative — editable per-document via the disposal
+    // OIC / donor representative: editable per-document via the disposal
     // form; falls back to config/office.php only when left blank.
     $donorName = $donation->donorRepresentativeName();
     $donorTitle = $donation->donorRepresentativeTitle();
@@ -236,7 +246,7 @@
     $doneeName = $donation->requester_name;
     $doneePosition = $donation->donee_position;
 
-    // "Donee Office" — the institution the item is being donated to.
+    // "Donee Office": the institution the item is being donated to.
     // Editable via the form's "Donee Office / Institution Name" field
     // (stored on agency_name). Falls back to a literal placeholder only
     // for older records that predate this field.
@@ -289,10 +299,7 @@
     Natural Resources &ndash; PENRO, Catanduanes, represented by {{ $donorTitle }}
     <strong>{{ mb_strtoupper($donorName) }}</strong> of PENRO&ndash;Catanduanes, hereinafter called the
     <strong>DONOR</strong>, in favor of {{ $doneeOfficeName !== 'DONEE OFFICE' ? $doneeOfficeName : 'the donee institution' }}, Catanduanes
-    represented by {{ $doneePosition ? $doneePosition . ' ' : '' }}<strong>{{ mb_strtoupper($doneeName) }}</strong>
-    @if($doneePosition)
-        , {{ $doneePosition }},
-    @endif
+    represented by <strong>{{ mb_strtoupper($doneeName) }}</strong>@if($doneePosition), {{ $doneePosition }},@endif
     hereinafter called the <strong>DONEE</strong>.
 </p>
 
@@ -320,6 +327,7 @@
     <thead>
         <tr>
             <th>AAP No.</th>
+            <th class="col-desc">Asset / Description</th>
             <th>Dimensions</th>
             <th>Volume (bd. ft)</th>
         </tr>
@@ -329,11 +337,31 @@
             @php
                 $rowAsset = $d->asset;
 
+                // Asset identity: species + description, de-duplicated so identical
+                // values aren't printed twice.
+                $rowIdentity = collect([$rowAsset->species, $rowAsset->description])
+                    ->map(fn ($v) => trim((string) $v))
+                    ->filter()
+                    ->unique(fn ($v) => mb_strtolower($v))
+                    ->implode(' - ');
+
+                // Fall back to the asset code so the row is never blank.
+                if ($rowIdentity === '') {
+                    $rowIdentity = $rowAsset->asset_code ?: 'N/A';
+                }
+
+                // Disposal quantity is what was actually donated in this row, so a
+                // partial donation shows its own piece count.
+                $rowQty = (int) ($d->quantity ?? 0);
+
                 // Dimensions rendered as L x W x H, omitting the row's own
                 // units since the Asset model doesn't carry a
-                // dimension-unit field. Falls back to an em-dash when none
-                // of the three are recorded.
-                $rowHasDimensions = $rowAsset->length || $rowAsset->width || $rowAsset->height;
+                // dimension-unit field. Falls back to a dash when none
+                // of the three are recorded. Casts are decimal:2 (strings),
+                // so compare as floats to treat "0.00" as empty.
+                $rowHasDimensions = (float) $rowAsset->length > 0
+                    || (float) $rowAsset->width > 0
+                    || (float) $rowAsset->height > 0;
                 $rowDimensionsText = $rowHasDimensions
                     ? number_format((float) $rowAsset->length, 2) . ' x ' . number_format((float) $rowAsset->width, 2) . ' x ' . number_format((float) $rowAsset->height, 2)
                     : '—';
@@ -341,6 +369,12 @@
             @endphp
             <tr>
                 <td>{{ $rowAsset->aap_number ?: '—' }}</td>
+                <td class="col-desc">
+                    {{ $rowIdentity }}
+                    @if($rowQty > 0)
+                        <br><span class="row-qty">({{ $rowQty }} {{ $rowQty === 1 ? 'piece' : 'pieces' }})</span>
+                    @endif
+                </td>
                 <td>{{ $rowDimensionsText }}</td>
                 <td>{{ $rowVolumeBdFt ? number_format((float) $rowVolumeBdFt, 2) : '—' }}</td>
             </tr>
@@ -362,7 +396,7 @@
 
 <p class="body-text execution-date">
     <strong>IN WITNESS WHEREOF</strong>, the DONOR and the DONEE have hereunto set their hands this
-    ____ day of <strong>{{ $executionDate->format('F d, Y') }}</strong> in Virac, Catanduanes, Philippines.
+    ____ day of <strong>{{ $executionDate->format('F Y') }}</strong> in Virac, Catanduanes, Philippines.
 </p>
 
 <table class="signatures">
