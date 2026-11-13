@@ -7,6 +7,7 @@ use App\Actions\CreateIncidentWithAssets;
 use App\Enums\AssetMode;
 use App\Enums\AssetType;
 use App\Enums\Municipality;
+use App\Models\MarketPrice;
 use App\Http\Requests\StoreIncidentRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,7 +45,7 @@ class IncidentController extends Controller
             ]),
             'barangaysByMunicipality' => config('barangays'),
             'nextAssetSequence' => (int) \App\Models\Incident::count() + 1,
-            'marketPrices' => \App\Models\MarketPrice::all(['species', 'year', 'price_per_bd_ft']),
+            'marketPrices' => MarketPrice::all(['species', 'month', 'year', 'price_per_bd_ft']),
         ]);
     }
 

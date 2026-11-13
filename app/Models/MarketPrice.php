@@ -23,6 +23,8 @@ class MarketPrice extends Model
         'price_per_bd_ft',
     ];
 
+    protected $appends = ['month_label'];
+
     protected function casts(): array
     {
         return [
