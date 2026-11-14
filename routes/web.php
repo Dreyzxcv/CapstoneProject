@@ -149,9 +149,13 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     // Backup (System Admin only)
     Route::middleware('can:backup.run')->group(function () {
         Route::get('/settings/backup', [SettingsController::class, 'backup'])->name('settings.backup');
+        Route::get('/settings/backup/guide', [BackupController::class, 'guide'])->name('backup.guide');
         Route::post('/settings/backup/run', [BackupController::class, 'run'])
             ->middleware('throttle:report-export')
             ->name('backup.run');
+        Route::post('/settings/backup/test-path', [BackupController::class, 'testPath'])
+            ->middleware('throttle:report-export')
+            ->name('backup.test-path');
         Route::post('/settings/backup/settings', [BackupController::class, 'updateSettings'])
             ->name('backup.settings.update');
     });
