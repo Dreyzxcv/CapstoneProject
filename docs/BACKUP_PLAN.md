@@ -8,12 +8,17 @@ This guide gets automatic backups running. Do the **one-time setup** once on the
 
 ## What a backup contains
 
-One ZIP file with:
+One ZIP file with a database backup and all files in the application's private
+`documents` folder:
 
-- `database/db_<timestamp>.sql`: full copy of the database
-- `documents/`: all uploaded and generated PDFs
+- PostgreSQL or MySQL: `database/db_<timestamp>.sql`
+- SQLite: `database/db_<timestamp>.sqlite` (a copy of the database file)
+- `documents/`: uploaded and generated documents
 
-Saved in: `storage\app\private\backups\backup_YYYY-MM-DD_HHMMSS.zip`
+By default, ZIP files are saved in
+`storage\app\private\backups\backup_YYYY-MM-DD_HHMMSS.zip`. The Backup page lets
+you choose a different folder, including a folder on another drive or a
+network share. The page shows the actual save location.
 
 ---
 
@@ -21,7 +26,10 @@ Saved in: `storage\app\private\backups\backup_YYYY-MM-DD_HHMMSS.zip`
 
 Open **PowerShell** in the project folder (example: `C:\Users\jjjj\Projects\foresTrack`) for each step.
 
-### Step 1. Check that `pg_dump` works
+### Step 1. Check the database backup utility
+
+For PostgreSQL (the default database configuration), check that `pg_dump`
+works:
 
 ```powershell
 pg_dump --version
@@ -32,6 +40,9 @@ pg_dump --version
   ```
   PG_DUMP_PATH="C:\Program Files\PostgreSQL\18\bin\pg_dump.exe"
   ```
+
+For MySQL, the server needs `mysqldump` available on its PATH. SQLite backups
+copy the configured database file and do not need a separate dump utility.
 
 ### Step 2. Check `.env` settings
 
@@ -103,10 +114,11 @@ Use **NSSM** so the worker starts automatically when the server boots.
 1. Log in as **System Admin** > **Settings > Backup**.
 2. Click **Run Backup Now**. A progress bar should appear and move.
 3. When it finishes, the page shows **Last backup succeeded** with the file location.
-4. Check the file exists:
+4. Check the file exists in the configured backup folder. By default:
    ```powershell
    Get-ChildItem storage\app\private\backups | Sort-Object LastWriteTime -Descending | Select-Object -First 3 Name, Length, LastWriteTime
    ```
+   If you changed **Backup folder** on the page, check that folder instead.
 
 If the bar stays at **0% / Queued**, the queue worker (Step 5) is not running.
 
@@ -124,8 +136,11 @@ Go to **Settings > Backup > Backup Schedule**:
 | Frequency | Daily, or weekly (then pick the day) |
 | Time | Time of day to start the backup |
 | Delete backups older than (days) | Backups older than this are deleted automatically (1 to 365, default 30) |
+| Backup folder | Full server path for ZIP files. Leave empty to use `storage\app\private\backups`. |
 
-Click **Save settings**. The page shows the **next automatic backup** date and time.
+Click **Save settings**. The folder must be writable by the server; a folder
+that does not exist is created when possible. The page shows the **next
+automatic backup** date and time and the location of the latest backup.
 
 Notes:
 - The newest successful backup is **never** deleted, even if it is older than the limit.
@@ -138,7 +153,7 @@ Notes:
 
 | When | What to do |
 |---|---|
-| Every week | Copy the newest ZIP from `storage\app\private\backups` to an **external drive or another PC**. Backups on the same disk are lost if the disk fails. |
+| Every week | Copy the newest ZIP from the configured backup folder to an **external drive or another PC** if backups are stored on the system disk. Backups on the same disk are lost if the disk fails. |
 | Every month | Keep one of those copies as the monthly snapshot (for COA audit). Do not delete these. |
 | Every quarter | Do a **restore test** (see Part 4, "Test a backup") and write down the date and result. |
 | Every day or week | Open the Backup page and check that it says **Last backup succeeded** with a recent date. |
@@ -147,7 +162,7 @@ Notes:
 
 ## Part 4: Restoring a backup
 
-Use this only if the data is lost or corrupted. **Restoring replaces the current data.** Anything encoded after the backup was made is lost.
+Use this only if the data is lost or corrupted. **Restoring replaces the current data.** Anything encoded after the backup was made is lost. The commands below assume PostgreSQL and the default backup folder; use the configured folder if it was changed. SQLite and MySQL backups require restoring the matching `.sqlite` file or SQL dump with the corresponding database procedure.
 
 ### Test a backup first (safe, do this quarterly)
 
@@ -190,7 +205,7 @@ pg_dump -h 127.0.0.1 -U your_user -f "$env:USERPROFILE\Desktop\before-restore.sq
 Copy-Item storage\app\private\documents "$env:USERPROFILE\Desktop\documents-before-restore" -Recurse
 
 # 3. Extract the backup you want
-$backup = "storage\app\private\backups\backup_YYYY-MM-DD_HHMMSS.zip"   # change this
+$backup = "storage\app\private\backups\backup_YYYY-MM-DD_HHMMSS.zip"   # change this; use the configured folder if different
 Expand-Archive $backup -DestinationPath $env:TEMP\restore -Force
 
 # 4. Recreate the database and load the dump
@@ -231,9 +246,10 @@ After restoring:
 | "Backup did not finish. Make sure the queue worker is running." | Same as above. Start the worker, then click **Run Backup Now** again. |
 | No automatic backup at the scheduled time | The server was off, or the Task Scheduler task (Step 4) is disabled. Check that `ForestTrack Scheduler` is Ready and running every minute. |
 | Automatic backup ran at the wrong hour | `APP_TIMEZONE=Asia/Manila` is missing in `.env`. Add it, then run `php artisan config:clear`. |
-| `pg_dump failed: ...` | Check `pg_dump --version` (Step 1), and that `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD` in `.env` are correct. `pg_dump` must not be older than the database server. |
-| "Unsupported DB driver" | `DB_CONNECTION` in `.env` is not `pgsql`, `mysql`, or `sqlite`. |
-| Backup is slow | Normal. The documents folder is large (about 350 MB now). It takes a few minutes. |
+| `pg_dump failed: ...` | For PostgreSQL, check `pg_dump --version` (Step 1), and that `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD` in `.env` are correct. `pg_dump` must not be older than the database server. |
+| `mysqldump failed: ...` | For MySQL, check that `mysqldump` is available and the database connection details in `.env` are correct. |
+| "Unsupported DB driver" | The backup supports PostgreSQL, MySQL, and SQLite. Check `DB_CONNECTION` in `.env` and clear cached configuration after changing it. |
+| Backup is slow | Duration depends on the database and total size of the documents folder. It can take a few minutes. |
 | Backup page not in the Settings menu | The user does not have the `backup.run` permission. Only System Admin has it. |
 
 More details are in `storage\logs\laravel.log`:
