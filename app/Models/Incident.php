@@ -25,7 +25,7 @@ class Incident extends Model
     protected function casts(): array
     {
         return [
-            'date_of_apprehension' => 'date',
+            'date_of_apprehension' => 'date:Y-m-d',
             'date_report_submitted' => 'date',
             'has_claimant' => 'boolean',
         ];
