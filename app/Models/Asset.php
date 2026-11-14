@@ -277,4 +277,13 @@ class Asset extends Model
             ->where('status', \App\Enums\DocumentStatus::Verified->value)
             ->exists();
     }
+
+    public function scopeWithoutPieces($query)
+    {
+        return $query->whereNotExists(function ($sub) {
+            $sub->selectRaw('1')
+                ->from('asset_pieces')
+                ->whereColumn('asset_pieces.asset_id', 'assets.id');
+        });
+    }
 }

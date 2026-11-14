@@ -19,6 +19,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Models\Incident;
 use App\Enums\AssetMode;
 use App\Enums\Municipality;
+use Closure;
 
 class ReportController extends Controller
 {
@@ -87,16 +88,7 @@ class ReportController extends Controller
             ->values();
 
         return Inertia::render('Reports/Index', [
-            'summary' => [
-                'total'       => Asset::count(),
-                'inStorage' => Asset::whereNotIn('current_status', collect(AssetStatus::cases())
-                    ->filter(fn ($s) => $s->isTerminal())
-                    ->map(fn ($s) => $s->value)
-                    ->all()
-                )->count(),
-                'forDisposal' => Asset::where('current_status', AssetStatus::ForDisposal)->count(),
-                'underTrial'  => Asset::where('current_status', AssetStatus::UnderTrial)->count(),
-            ],
+            'summary' => $this->buildPieceSummary(),
             'byType' => (clone $chartQuery)
                 ->selectRaw('type, count(*) as count')
                 ->groupBy('type')
@@ -169,6 +161,67 @@ class ReportController extends Controller
         }
 
         return array_values($buckets);
+    }
+    
+    private function buildPieceSummary(): array
+    {
+        $terminal = AssetStatus::terminalValues();
+
+        return [
+            'total'       => $this->countAllPieces(),
+            'disposed'    => $this->countDisposedPieces(),
+            'inStorage'   => $this->countUndisposedPieces(
+                fn ($q) => $q->whereNotIn('current_status', $terminal)
+            ),
+            'forDisposal' => $this->countUndisposedPieces(
+                fn ($q) => $q->where('current_status', AssetStatus::ForDisposal)
+            ),
+            'underTrial'  => $this->countUndisposedPieces(
+                fn ($q) => $q->where('current_status', AssetStatus::UnderTrial)
+            ),
+        ];
+    }
+
+    private function countAllPieces(): int
+    {
+        $rows   = AssetPiece::query()->count();
+        $legacy = (int) Asset::query()->withoutPieces()
+            ->sum(DB::raw('COALESCE(quantity, 1)'));
+
+        return $rows + $legacy;
+    }
+
+    private function countDisposedPieces(): int
+    {
+        $rows   = AssetPiece::query()->disposed()->count();
+        $legacy = (int) Asset::query()->withoutPieces()
+            ->sum(DB::raw($this->legacyDisposedSql()));
+
+        return $rows + $legacy;
+    }
+
+    private function countUndisposedPieces(Closure $assetScope): int
+    {
+        $rows = AssetPiece::query()
+            ->whereHas('asset', $assetScope)
+            ->undisposed()
+            ->count();
+
+        $legacyQuery = Asset::query()->withoutPieces();
+        $assetScope($legacyQuery);
+
+        $legacy = (int) $legacyQuery->sum(
+            DB::raw('COALESCE(quantity, 1) - (' . $this->legacyDisposedSql() . ')')
+        );
+
+        return $rows + $legacy;
+    }
+
+    private function legacyDisposedSql(): string
+    {
+        return 'CASE WHEN COALESCE(disposed_quantity, 0) > COALESCE(quantity, 1)
+                    THEN COALESCE(quantity, 1)
+                    ELSE COALESCE(disposed_quantity, 0) END';
     }
 
     public function inventory(Request $request): StreamedResponse
