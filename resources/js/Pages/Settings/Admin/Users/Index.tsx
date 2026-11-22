@@ -6,8 +6,10 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import InputError from '@/Components/InputError';
 import Modal from '@/Components/Modal';
-import { FormEvent, useMemo, useState } from 'react';
-import { KeyRound, Mail, Pencil, PowerOff, Search, UserPlus, UsersRound, X } from 'lucide-react';
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import {
+    ArrowLeft, KeyRound, Mail, Pencil, PowerOff, Search, Settings2, ShieldCheck, UserPlus, UsersRound, X,
+} from 'lucide-react';
 
 interface AreaDef { key: string; label: string; group: string; description: string }
 interface AreaState { allowed: boolean; role_default: boolean; source: 'role' | 'custom' }
@@ -33,6 +35,7 @@ interface UsersIndexProps {
 }
 
 type StatusKey = 'all' | 'active' | 'inactive' | 'never';
+type ManageView = 'overview' | 'edit' | 'permissions' | 'deactivate' | 'reset';
 
 const statusFilters: { key: StatusKey; label: string; test: (u: UserRow) => boolean }[] = [
     { key: 'all',      label: 'All',             test: () => true },
@@ -57,10 +60,18 @@ const avatarColors = [
 const focusRing =
     'focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2';
 
-const actionBtn =
-    'inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium transition ' +
+const tileBtn =
+    'flex w-full items-start gap-3 rounded-lg border p-3 text-left transition ' +
     'focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 ' +
     'disabled:cursor-not-allowed disabled:opacity-50';
+
+const selectClass =
+    'h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 shadow-sm ' +
+    'focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600';
+    
+const footerRow =
+    'mt-6 flex flex-col-reverse gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3';
+const footerBtn = 'w-full sm:w-auto';
 
 function avatarColor(name: string) {
     return avatarColors[name.charCodeAt(0) % avatarColors.length];
@@ -77,23 +88,71 @@ function formatLastLogin(dateString: string | null): string {
     });
 }
 
-function FilterPill({
-    label, count, active, onClick,
-}: { label: string; count: number; active: boolean; onClick: () => void }) {
+function customCount(u: UserRow): number {
+    return u.is_admin ? 0 : Object.values(u.areas).filter((a) => a.source === 'custom').length;
+}
+
+function Avatar({ name, size = 'sm' }: { name: string; size?: 'sm' | 'lg' }) {
     return (
-        <button
-            type="button"
-            aria-pressed={active}
-            onClick={onClick}
+        <span
+            aria-hidden="true"
             className={
-                'rounded-full px-4 py-1.5 text-sm font-semibold capitalize transition ' + focusRing + ' ' +
-                (active
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')
+                'flex shrink-0 items-center justify-center rounded-md font-bold text-white ' +
+                (size === 'lg' ? 'h-11 w-11 text-base ' : 'h-8 w-8 text-xs ') +
+                avatarColor(name)
             }
         >
-            {label} ({count})
-        </button>
+            {name.charAt(0).toUpperCase()}
+        </span>
+    );
+}
+
+function RoleBadges({ roles }: { roles: string[] }) {
+    return (
+        <div className="flex flex-wrap gap-1.5">
+            {roles.map((role) => (
+                <span
+                    key={role}
+                    className={
+                        'inline-flex max-w-full rounded-full px-3 py-1 text-xs font-bold capitalize ' +
+                        (roleBadgeClass[role.toLowerCase()] ?? 'bg-gray-100 text-gray-500')
+                    }
+                >
+                    <span className="truncate">{role}</span>
+                </span>
+            ))}
+        </div>
+    );
+}
+
+function StatusBadge({ active }: { active: boolean }) {
+    return (
+        <span
+            className={
+                'inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ' +
+                (active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500')
+            }
+        >
+            {active ? 'Active' : 'Inactive'}
+        </span>
+    );
+}
+
+function CustomBadge({ count }: { count: number }) {
+    if (count === 0) return null;
+    return (
+        <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+            Custom access ({count})
+        </span>
+    );
+}
+
+function Detail({ label, children }: { label: string; children: ReactNode }) {
+    return (
+        <div className="min-w-0">
+            <dt className="text-xs text-gray-500">{label}</dt>
+            <dd className="mt-0.5 break-words text-sm text-gray-900">{children}</dd>
+        </div>
     );
 }
 
@@ -101,12 +160,24 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
     const [search,       setSearch]       = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusKey>('all');
     const [roleFilter,   setRoleFilter]   = useState<string | null>(null); // null = all roles
-    const [editingUser,  setEditingUser]  = useState<UserRow | null>(null);
-    const [confirm, setConfirm] = useState<{ kind: 'deactivate' | 'reset'; user: UserRow } | null>(null);
+    // Single source of truth for the Manage panel. Stores the id only, so the user is
+    // always read fresh from the `users` prop and can never go stale after a reload.
+    const [manage, setManage] = useState<{ id: number; view: ManageView } | null>(null);
     const [busy, setBusy] = useState<{ id: number; action: 'toggle' | 'reset' } | null>(null);
     const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     const editForm = useForm({ name: '', email: '', role: '' });
+    const permForm = useForm<{ areas: Record<string, boolean> }>({ areas: {} });
+
+    const managedUser = useMemo(
+        () => (manage ? users.find((u) => u.id === manage.id) ?? null : null),
+        [manage, users],
+    );
+
+    // If the managed user disappears from the list, drop the panel state.
+    useEffect(() => {
+        if (manage && !managedUser) setManage(null);
+    }, [manage, managedUser]);
 
     const query = search.trim().toLowerCase();
     const matchesSearch = (u: UserRow) =>
@@ -146,9 +217,6 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
         setRoleFilter(null);
     }
 
-    const [permUser, setPermUser] = useState<UserRow | null>(null);
-    const permForm = useForm<{ areas: Record<string, boolean> }>({ areas: {} });
-
     const areaGroups = useMemo(
         () => permissionAreas.reduce<Record<string, AreaDef[]>>((acc, a) => {
             (acc[a.group] ??= []).push(a);
@@ -168,25 +236,52 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
         setBanner({ type: 'error', message });
     }
 
-    function openEdit(user: UserRow) {
-        setEditingUser(user);
+    // ── Manage panel navigation ──────────────────────────────────────────────
+
+    function openManage(u: UserRow) {
         editForm.clearErrors();
-        editForm.setData({ name: user.name, email: user.email, role: user.roles[0] ?? '' });
+        permForm.clearErrors();
+        setManage({ id: u.id, view: 'overview' });
     }
 
-    function closeEdit() {
-        setEditingUser(null);
+    function closeManage() {
+        // Don't dismiss while a request is running.
+        if (busy || editForm.processing || permForm.processing) return;
+        setManage(null);
         editForm.clearErrors();
-        editForm.reset();
+        permForm.clearErrors();
     }
+
+    function goTo(view: ManageView) {
+        if (!managedUser) return;
+        if (view === 'edit') {
+            editForm.clearErrors();
+            editForm.setData({ name: managedUser.name, email: managedUser.email, role: managedUser.roles[0] ?? '' });
+        }
+        if (view === 'permissions') {
+            permForm.clearErrors();
+            permForm.setData(
+                'areas',
+                Object.fromEntries(permissionAreas.map((a) => [a.key, managedUser.areas[a.key].allowed])),
+            );
+        }
+        setManage({ id: managedUser.id, view });
+    }
+
+    function backToOverview() {
+        if (busy || editForm.processing || permForm.processing) return;
+        goTo('overview');
+    }
+
+    // ── Actions (same routes and handlers as before) ─────────────────────────
 
     function submitEdit(e: FormEvent) {
         e.preventDefault();
-        if (!editingUser) return;
+        if (!managedUser) return;
         setBanner(null);
-        editForm.put(route('users.update', editingUser.id), {
+        editForm.put(route('users.update', managedUser.id), {
             preserveScroll: true,
-            onSuccess: (page) => { closeEdit(); showResult(page); },
+            onSuccess: (page) => { setManage(null); editForm.clearErrors(); showResult(page); },
         });
     }
 
@@ -197,14 +292,14 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
             preserveScroll: true,
             onSuccess: showResult,
             onError: () => showFailure(`Could not update ${user.name}'s account. Please try again.`),
-            onFinish: () => { setBusy(null); setConfirm(null); },
+            onFinish: () => { setBusy(null); setManage(null); },
         });
     }
 
     function toggleActive(user: UserRow) {
         // Deactivating asks for confirmation first; reactivating does not.
         if (user.is_active) {
-            setConfirm({ kind: 'deactivate', user });
+            goTo('deactivate');
             return;
         }
         runToggle(user);
@@ -217,41 +312,356 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
             preserveScroll: true,
             onSuccess: showResult,
             onError: () => showFailure(`Could not send a reset link to ${user.email}. Please try again.`),
-            onFinish: () => { setBusy(null); setConfirm(null); },
+            onFinish: () => { setBusy(null); setManage(null); },
         });
     }
 
-    function confirmAction() {
-        if (!confirm) return;
-        if (confirm.kind === 'deactivate') runToggle(confirm.user);
-        else runPasswordReset(confirm.user);
-    }
-
-    function closeConfirm() {
-        if (busy) return; // don't dismiss while the request is running
-        setConfirm(null);
-    }
-
-    function openPermissions(u: UserRow) {
-        permForm.clearErrors();
-        permForm.setData('areas', Object.fromEntries(permissionAreas.map((a) => [a.key, u.areas[a.key].allowed])));
-        setPermUser(u);
-    }
-    function closePermissions() { setPermUser(null); permForm.clearErrors(); }
     function resetToRole(u: UserRow) {
         permForm.setData('areas', Object.fromEntries(permissionAreas.map((a) => [a.key, u.areas[a.key].role_default])));
     }
+
     function submitPermissions(e: FormEvent) {
         e.preventDefault();
-        if (!permUser) return;
+        if (!managedUser) return;
         setBanner(null);
-        permForm.put(route('users.permissions.update', permUser.id), {
+        permForm.put(route('users.permissions.update', managedUser.id), {
             preserveScroll: true,
-            onSuccess: (page) => { closePermissions(); showResult(page); },
+            onSuccess: (page) => { setManage(null); permForm.clearErrors(); showResult(page); },
         });
     }
 
     const headerCell = 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400';
+
+    function ManageButton({ u, className }: { u: UserRow; className?: string }) {
+        return (
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={className}
+                onClick={() => openManage(u)}
+                disabled={busy?.id === u.id}
+                aria-haspopup="dialog"
+                aria-label={`Manage ${u.name}`}
+            >
+                <Settings2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                Manage
+            </Button>
+        );
+    }
+
+    // ── Manage panel views ───────────────────────────────────────────────────
+
+    function renderOverview(u: UserRow) {
+        const isSelf = u.id === authId;
+        const rowBusy = busy?.id === u.id;
+        const customs = customCount(u);
+
+        return (
+            <div className="space-y-5">
+                <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <Detail label="Full name">{u.name}{isSelf && <span className="ml-1.5 text-xs text-gray-400">(you)</span>}</Detail>
+                    <Detail label="Email"><span className="break-all">{u.email}</span></Detail>
+                    <Detail label="Status"><StatusBadge active={u.is_active} /></Detail>
+                    <Detail label={u.roles.length > 1 ? 'Assigned roles' : 'Assigned role'}>
+                        {u.roles.length > 0 ? <RoleBadges roles={u.roles} /> : <span className="text-gray-400">No role</span>}
+                    </Detail>
+                    <Detail label="Last login">{formatLastLogin(u.last_login_at)}</Detail>
+                    <Detail label="Account type">{u.is_admin ? 'System Admin (full access)' : 'Standard account'}</Detail>
+                </dl>
+
+                {u.roles.length > 1 && (
+                    <p role="alert" className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        This account has {u.roles.length} roles. Accounts are limited to one role, so saving the account
+                        in Edit will keep only the one you select.
+                    </p>
+                )}
+
+                {/* Effective permissions */}
+                <section aria-labelledby="effective-access">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h3 id="effective-access" className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            Effective access
+                        </h3>
+                        <CustomBadge count={customs} />
+                    </div>
+
+                    {u.is_admin ? (
+                        <p className="mt-2 flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+                            System Admin accounts have full access to every area. Their access cannot be restricted.
+                        </p>
+                    ) : (
+                        <ul className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200">
+                            {permissionAreas.map((a) => {
+                                const s = u.areas[a.key];
+                                return (
+                                    <li key={a.key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 p-3">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-gray-800">{a.label}</p>
+                                            <p className="text-xs text-gray-500">
+                                                Role default: {s.role_default ? 'Allowed' : 'Not allowed'}
+                                                {s.source === 'custom' && (
+                                                    <span className="ml-1 font-medium text-amber-600">
+                                                        · {s.allowed ? 'Added for this user' : 'Removed for this user'}
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
+                                        <span
+                                            className={
+                                                'rounded px-2 py-0.5 text-xs font-medium ' +
+                                                (s.allowed ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500')
+                                            }
+                                        >
+                                            {s.allowed ? 'Allowed' : 'Not allowed'}
+                                        </span>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
+                </section>
+
+                {/* The four actions */}
+                <section aria-labelledby="manage-actions">
+                    <h3 id="manage-actions" className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        Actions
+                    </h3>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        <button
+                            type="button"
+                            onClick={() => goTo('edit')}
+                            disabled={rowBusy}
+                            className={tileBtn + ' border-gray-200 text-gray-700 hover:bg-gray-50'}
+                        >
+                            <Pencil className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
+                            <span>
+                                <span className="block text-sm font-medium">Edit account</span>
+                                <span className="block text-xs text-gray-500">Change name, email or role.</span>
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => goTo('permissions')}
+                            disabled={rowBusy || u.is_admin}
+                            aria-describedby={u.is_admin ? 'perm_admin_note' : undefined}
+                            className={tileBtn + ' border-gray-200 text-gray-700 hover:bg-gray-50'}
+                        >
+                            <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
+                            <span>
+                                <span className="block text-sm font-medium">Update permissions</span>
+                                <span id="perm_admin_note" className="block text-xs text-gray-500">
+                                    {u.is_admin ? 'System Admin access cannot be restricted.' : 'Customise which areas this user can view.'}
+                                </span>
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => goTo('reset')}
+                            disabled={rowBusy}
+                            className={tileBtn + ' border-gray-200 text-gray-700 hover:bg-gray-50'}
+                        >
+                            <Mail className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" aria-hidden="true" />
+                            <span>
+                                <span className="block text-sm font-medium">Send password reset link</span>
+                                <span className="block break-all text-xs text-gray-500">Emails a link to {u.email}.</span>
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => toggleActive(u)}
+                            disabled={rowBusy || isSelf}
+                            aria-describedby={isSelf ? 'toggle_self_note' : undefined}
+                            className={
+                                tileBtn + ' ' +
+                                (u.is_active
+                                    ? 'border-red-100 text-red-600 hover:bg-red-50'
+                                    : 'border-emerald-100 text-emerald-700 hover:bg-emerald-50')
+                            }
+                        >
+                            <PowerOff className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                            <span>
+                                <span className="block text-sm font-medium">
+                                    {rowBusy && busy?.action === 'toggle'
+                                        ? (u.is_active ? 'Deactivating…' : 'Reactivating…')
+                                        : (u.is_active ? 'Deactivate account' : 'Reactivate account')}
+                                </span>
+                                <span id="toggle_self_note" className="block text-xs opacity-80">
+                                    {isSelf
+                                        ? 'You cannot deactivate your own account.'
+                                        : u.is_active ? 'Blocks sign-in immediately.' : 'Restores sign-in access.'}
+                                </span>
+                            </span>
+                        </button>
+                    </div>
+                </section>
+            </div>
+        );
+    }
+
+    function renderEdit(u: UserRow) {
+        return (
+            <form onSubmit={submitEdit}>
+                <div className="space-y-4">
+                    <div>
+                        <Label htmlFor="edit_name">Name</Label>
+                        <Input
+                            id="edit_name"
+                            className="mt-1 w-full"
+                            value={editForm.data.name}
+                            onChange={(e) => editForm.setData('name', e.target.value)}
+                            required
+                        />
+                        <InputError message={editForm.errors.name} className="mt-1" />
+                    </div>
+
+                    <div>
+                        <Label htmlFor="edit_email">Email</Label>
+                        <Input
+                            id="edit_email"
+                            type="email"
+                            className="mt-1 w-full"
+                            value={editForm.data.email}
+                            onChange={(e) => editForm.setData('email', e.target.value)}
+                            required
+                        />
+                        <InputError message={editForm.errors.email} className="mt-1" />
+                    </div>
+
+                    <div>
+                        <Label htmlFor="edit_role">Role</Label>
+                        <select
+                            id="edit_role"
+                            value={editForm.data.role}
+                            onChange={(e) => editForm.setData('role', e.target.value)}
+                            aria-describedby="edit_role_help"
+                            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            required
+                        >
+                            <option value="" disabled>Select a role</option>
+                            {availableRoles.map((role) => (
+                                <option key={role} value={role}>{role}</option>
+                            ))}
+                        </select>
+                        <p id="edit_role_help" className="mt-1 text-xs text-gray-500">
+                            Each account has exactly one role. Saving replaces the current role with the one selected.
+                        </p>
+                        {u.roles.length > 1 && (
+                            <p role="alert" className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                This account currently has {u.roles.length} roles ({u.roles.join(', ')}).
+                                Accounts are limited to one role, so saving will remove all of them except the one selected above.
+                            </p>
+                        )}
+                        <InputError message={editForm.errors.role} className="mt-1" />
+                    </div>
+                </div>
+
+                <div className={footerRow}>
+                    <Button type="button" variant="outline" className={footerBtn} onClick={backToOverview} disabled={editForm.processing}>Back</Button>
+                    <Button type="submit" className={footerBtn} disabled={editForm.processing}>
+                        {editForm.processing ? 'Saving…' : 'Save Changes'}
+                    </Button>
+                </div>
+            </form>
+        );
+    }
+
+    function renderPermissions(u: UserRow) {
+        return (
+            <form onSubmit={submitPermissions}>
+                <p className="text-sm text-gray-600">
+                    Areas <span className="font-medium">{u.name}</span> can view. Role:{' '}
+                    <span className="capitalize">{u.roles.join(', ')}</span>.
+                </p>
+
+                <div className="mt-5 space-y-5">
+                    {Object.entries(areaGroups).map(([group, areas]) => (
+                        <fieldset key={group}>
+                            <legend className="text-xs font-semibold uppercase tracking-wide text-gray-400">{group}</legend>
+                            <div className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200">
+                                {areas.map((a) => {
+                                    const checked = permForm.data.areas[a.key] ?? false;
+                                    const def = u.areas[a.key].role_default;
+                                    const note = checked === def ? 'Role default' : checked ? 'Added for this user' : 'Removed for this user';
+                                    return (
+                                        <label key={a.key} className="flex cursor-pointer flex-wrap items-start gap-3 p-3">
+                                            <input type="checkbox" className="mt-1" checked={checked}
+                                                onChange={(e) => permForm.setData('areas', { ...permForm.data.areas, [a.key]: e.target.checked })} />
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block text-sm font-medium text-gray-800">{a.label}</span>
+                                                <span className="block text-xs text-gray-500">{a.description}</span>
+                                            </span>
+                                            <span className={'text-xs font-medium ' + (checked === def ? 'text-gray-400' : 'text-amber-600')}>{note}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </fieldset>
+                    ))}
+                </div>
+
+                <p className="mt-4 text-xs text-gray-500">
+                    User Management, audit logs, market prices and backups are System Admin only and cannot be granted here.
+                </p>
+                <InputError message={permForm.errors.areas} className="mt-2" />
+
+                <div className="mt-6 flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <Button type="button" variant="ghost" className="w-full sm:w-auto" onClick={() => resetToRole(u)} disabled={permForm.processing}>
+                        Reset to role
+                    </Button>
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:gap-3">
+                        <Button type="button" variant="outline" className={footerBtn} onClick={backToOverview} disabled={permForm.processing}>Back</Button>
+                        <Button type="submit" className={footerBtn} disabled={permForm.processing}>
+                            {permForm.processing ? 'Saving…' : 'Save'}
+                        </Button>
+                    </div>
+                </div>
+            </form>
+        );
+    }
+
+    function renderConfirm(u: UserRow, kind: 'deactivate' | 'reset') {
+        const working = busy?.id === u.id;
+        return (
+            <div>
+                {kind === 'deactivate' ? (
+                    <p className="text-sm text-gray-600">
+                        <span className="font-medium">{u.name}</span> will immediately lose access to the system. Their records and audit trail will be preserved.
+                    </p>
+                ) : (
+                    <p className="text-sm text-gray-600">
+                        A password reset link will be emailed to <span className="break-all font-medium">{u.email}</span>.
+                        Their current password keeps working until they use the link.
+                    </p>
+                )}
+                <div className={footerRow}>
+                    <Button type="button" variant="outline" className={footerBtn} onClick={backToOverview} disabled={working}>Cancel</Button>
+                    <Button
+                        type="button"
+                        className={footerBtn + (kind === 'deactivate' ? ' bg-red-600 hover:bg-red-700' : '')}
+                        onClick={() => (kind === 'deactivate' ? runToggle(u) : runPasswordReset(u))}
+                        disabled={working}
+                    >
+                        {kind === 'deactivate'
+                            ? (working ? 'Deactivating…' : 'Deactivate')
+                            : (working ? 'Sending…' : 'Send reset link')}
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    const viewTitle: Record<ManageView, string> = {
+        overview: 'Manage User',
+        edit: 'Edit Account',
+        permissions: 'Update Permissions',
+        deactivate: 'Deactivate Account',
+        reset: 'Send Password Reset Link',
+    };
 
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800">User Management</h2>}>
@@ -284,12 +694,12 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
                                 : 'border-emerald-200 bg-emerald-50 text-emerald-800')
                         }
                     >
-                        <span>{banner.message}</span>
+                        <span className="min-w-0 break-words">{banner.message}</span>
                         <button
                             type="button"
                             onClick={() => setBanner(null)}
                             aria-label="Dismiss message"
-                            className={'rounded p-0.5 hover:bg-white/60 ' + focusRing}
+                            className={'shrink-0 rounded p-0.5 hover:bg-white/60 ' + focusRing}
                         >
                             <X className="h-4 w-4" />
                         </button>
@@ -320,51 +730,52 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
                             </div>
                         ) : (
                             <>
-                                {/* Search */}
-                                <div className="mb-4">
-                                    <Label htmlFor="user-search" className="sr-only">Search users by name or email</Label>
-                                    <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm focus-within:ring-2 focus-within:ring-emerald-600">
-                                        <Search className="h-4 w-4 text-gray-400" aria-hidden="true" />
-                                        <input
-                                            id="user-search"
-                                            type="search"
-                                            value={search}
-                                            onChange={(e) => setSearch(e.target.value)}
-                                            placeholder="Search by name or email…"
-                                            className="w-full border-0 p-0 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-0"
-                                        />
+                                {/* Search + filters */}
+                                <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_14rem_14rem]">
+                                    <div className="sm:col-span-2 lg:col-span-1">
+                                        <Label htmlFor="user-search" className="sr-only">Search users by name or email</Label>
+                                        <div className="flex h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 shadow-sm focus-within:ring-2 focus-within:ring-emerald-600">
+                                            <Search className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+                                            <input
+                                                id="user-search"
+                                                type="search"
+                                                value={search}
+                                                onChange={(e) => setSearch(e.target.value)}
+                                                placeholder="Search by name or email…"
+                                                className="w-full min-w-0 border-0 p-0 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-0"
+                                            />
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Filters */}
-                                <div className="mb-4 space-y-3">
-                                    <div role="group" aria-label="Filter by account status" className="flex flex-wrap gap-2">
-                                        {statusFilters.map((s) => (
-                                            <FilterPill
-                                                key={s.key}
-                                                label={s.label}
-                                                count={statusCounts[s.key]}
-                                                active={statusFilter === s.key}
-                                                onClick={() => setStatusFilter(s.key)}
-                                            />
-                                        ))}
+                                    <div>
+                                        <Label htmlFor="status-filter" className="sr-only">Filter by account status</Label>
+                                        <select
+                                            id="status-filter"
+                                            value={statusFilter}
+                                            onChange={(e) => setStatusFilter(e.target.value as StatusKey)}
+                                            className={selectClass}
+                                        >
+                                            {statusFilters.map((s) => (
+                                                <option key={s.key} value={s.key}>
+                                                    {s.key === 'all' ? 'All statuses' : s.label} ({statusCounts[s.key]})
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
-                                    <div role="group" aria-label="Filter by role" className="flex flex-wrap gap-2">
-                                        <FilterPill
-                                            label="All roles"
-                                            count={roleCounts.all}
-                                            active={roleFilter === null}
-                                            onClick={() => setRoleFilter(null)}
-                                        />
-                                        {availableRoles.map((role) => (
-                                            <FilterPill
-                                                key={role}
-                                                label={role}
-                                                count={roleCounts.map[role] ?? 0}
-                                                active={roleFilter === role}
-                                                onClick={() => setRoleFilter(role)}
-                                            />
-                                        ))}
+
+                                    <div>
+                                        <Label htmlFor="role-filter" className="sr-only">Filter by role</Label>
+                                        <select
+                                            id="role-filter"
+                                            value={roleFilter ?? ''}
+                                            onChange={(e) => setRoleFilter(e.target.value === '' ? null : e.target.value)}
+                                            className={selectClass}
+                                        >
+                                            <option value="">All roles ({roleCounts.all})</option>
+                                            {availableRoles.map((role) => (
+                                                <option key={role} value={role}>{role} ({roleCounts.map[role] ?? 0})</option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
 
@@ -372,379 +783,178 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
                                     Showing {filteredUsers.length} of {users.length} account{users.length === 1 ? '' : 's'}
                                 </p>
 
-                                {/* Table: scrolls horizontally on small screens */}
-                                <div
-                                    role="region"
-                                    aria-label="Users table"
-                                    tabIndex={0}
-                                    className={'relative max-w-full overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm ' + focusRing}
-                                >
-                                    <table className="min-w-[56rem] divide-y divide-gray-100 lg:min-w-full">
-                                        <caption className="sr-only">System user accounts</caption>
-                                        <thead className="bg-gray-50/60">
-                                            <tr>
-                                                <th scope="col" className={headerCell}>#</th>
-                                                <th scope="col" className={headerCell}>Name</th>
-                                                <th scope="col" className={headerCell}>Email</th>
-                                                <th scope="col" className={headerCell}>Role</th>
-                                                <th scope="col" className={headerCell}>Access</th>
-                                                <th scope="col" className={headerCell}>Status</th>
-                                                <th scope="col" className={headerCell}>Last Login</th>
-                                                {can.edit && (
-                                                    <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                                        Actions
-                                                    </th>
-                                                )}
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100">
-                                            {filteredUsers.map((u, index) => {
-                                                const isSelf     = u.id === authId;
-                                                const isInactive = !u.is_active;
-                                                const rowBusy    = busy?.id === u.id;
+                                {hasActiveFilters && (
+                                    <button
+                                        type="button"
+                                        onClick={clearFilters}
+                                        className={'mb-2 ml-2 text-xs font-medium text-emerald-700 hover:underline ' + focusRing}
+                                    >
+                                        Clear filters
+                                    </button>
+                                )}
+
+                                {filteredUsers.length === 0 ? (
+                                    <div className="rounded-xl border border-gray-200 bg-white px-4 py-10 text-center shadow-sm">
+                                        <p className="text-sm font-medium text-gray-700">No users match your search or filters.</p>
+                                        <p className="mt-1 text-sm text-gray-500">
+                                            Try a different search term, or clear the filters to see every account.
+                                        </p>
+                                        {hasActiveFilters && (
+                                            <Button type="button" variant="outline" className="mt-4" onClick={clearFilters}>
+                                                Clear filters
+                                            </Button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* Mobile + tablet: cards */}
+                                        <ul className="grid gap-3 sm:grid-cols-2 lg:hidden" aria-label="System user accounts">
+                                            {filteredUsers.map((u) => {
+                                                const isSelf = u.id === authId;
                                                 return (
-                                                    <tr
+                                                    <li
                                                         key={u.id}
-                                                        className={'hover:bg-gray-50/60 ' + (isInactive ? 'opacity-60' : '')}
+                                                        className={'min-w-0 rounded-xl border border-gray-200 bg-white p-4 shadow-sm ' + (u.is_active ? '' : 'opacity-70')}
                                                     >
-                                                        <td className="px-4 py-3 text-sm text-gray-400">
-                                                            {String(index + 1).padStart(2, '0')}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            <div className="flex items-center gap-3">
-                                                                <span
-                                                                    aria-hidden="true"
-                                                                    className={
-                                                                        'flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white ' +
-                                                                        avatarColor(u.name)
-                                                                    }
-                                                                >
-                                                                    {u.name.charAt(0).toUpperCase()}
-                                                                </span>
-                                                                <p className="text-sm font-medium text-gray-800">
+                                                        <div className="flex items-start gap-3">
+                                                            <Avatar name={u.name} />
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="break-words text-sm font-medium text-gray-800">
                                                                     {u.name}
-                                                                    {isSelf && (
-                                                                        <span className="ml-1.5 text-xs font-normal text-gray-400">(you)</span>
-                                                                    )}
+                                                                    {isSelf && <span className="ml-1.5 text-xs font-normal text-gray-400">(you)</span>}
                                                                 </p>
+                                                                <p className="break-all text-xs text-gray-500">{u.email}</p>
                                                             </div>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-sm text-gray-600">{u.email}</td>
-                                                        <td className="px-4 py-3">
-                                                            <div className="flex flex-wrap gap-1.5">
-                                                                {u.roles.map((role) => (
-                                                                    <span
-                                                                        key={role}
-                                                                        className={
-                                                                            'inline-flex rounded-full px-3 py-1 text-xs font-bold capitalize ' +
-                                                                            (roleBadgeClass[role.toLowerCase()] ?? 'bg-gray-100 text-gray-500')
-                                                                        }
-                                                                    >
-                                                                        {role}
-                                                                    </span>
-                                                                ))}
+                                                            <StatusBadge active={u.is_active} />
+                                                        </div>
+                                                        <div className="mt-3 space-y-2">
+                                                            <RoleBadges roles={u.roles} />
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                {u.is_admin && <span className="text-xs font-medium text-gray-500">Full access</span>}
+                                                                <CustomBadge count={customCount(u)} />
                                                             </div>
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            {u.is_admin ? (
-                                                                <span className="text-xs font-medium text-gray-500">Full access</span>
-                                                            ) : (
-                                                                <div className="flex flex-wrap gap-1">
-                                                                    {permissionAreas.map((a) => {
-                                                                        const s = u.areas[a.key];
-                                                                        return (
-                                                                            <span
-                                                                                key={a.key}
-                                                                                title={s.source === 'custom' ? 'Customised for this user' : 'Role default'}
-                                                                                className={
-                                                                                    'rounded px-2 py-0.5 text-xs font-medium ' +
-                                                                                    (s.allowed ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400 line-through')
-                                                                                }
-                                                                            >
-                                                                                {a.label}{s.source === 'custom' ? ' •' : ''}
-                                                                                <span className="sr-only">
-                                                                                    {s.allowed ? ' (allowed)' : ' (not allowed)'}
-                                                                                    {s.source === 'custom' ? ', customised' : ''}
-                                                                                </span>
-                                                                            </span>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            <span
-                                                                className={
-                                                                    'inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ' +
-                                                                    (u.is_active
-                                                                        ? 'bg-emerald-50 text-emerald-700'
-                                                                        : 'bg-gray-100 text-gray-500')
-                                                                }
-                                                            >
-                                                                {u.is_active ? 'Active' : 'Inactive'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-xs text-gray-500">
-                                                            {formatLastLogin(u.last_login_at)}
-                                                        </td>
+                                                            <p className="text-xs text-gray-500">Last login: {formatLastLogin(u.last_login_at)}</p>
+                                                        </div>
                                                         {can.edit && (
-                                                            <td className="px-4 py-3">
-                                                                {/* Labels collapse to icons below xl; accessible names always include the user. */}
-                                                                <div className="flex items-center justify-end gap-1.5">
-                                                                    {!u.is_admin && (
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => openPermissions(u)}
-                                                                            disabled={rowBusy}
-                                                                            title="Configure access"
-                                                                            aria-label={`Configure access for ${u.name}`}
-                                                                            className={actionBtn + ' border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-emerald-700'}
-                                                                        >
-                                                                            <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
-                                                                            <span className="sr-only xl:not-sr-only">Permissions</span>
-                                                                        </button>
-                                                                    )}
-
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => openEdit(u)}
-                                                                        disabled={rowBusy}
-                                                                        title="Edit user"
-                                                                        aria-label={`Edit ${u.name}`}
-                                                                        className={actionBtn + ' border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-emerald-700'}
-                                                                    >
-                                                                        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                                                                        <span className="sr-only xl:not-sr-only">Edit</span>
-                                                                    </button>
-
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setConfirm({ kind: 'reset', user: u })}
-                                                                        disabled={rowBusy}
-                                                                        title="Send password reset link"
-                                                                        aria-label={`Send password reset link to ${u.name}`}
-                                                                        className={actionBtn + ' border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-blue-700'}
-                                                                    >
-                                                                        <Mail className="h-3.5 w-3.5" aria-hidden="true" />
-                                                                        <span className="sr-only xl:not-sr-only">
-                                                                            {rowBusy && busy?.action === 'reset' ? 'Sending…' : 'Send reset link'}
-                                                                        </span>
-                                                                    </button>
-
-                                                                    {/* Deactivate / Reactivate — hidden for self */}
-                                                                    {!isSelf && (
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => toggleActive(u)}
-                                                                            disabled={rowBusy}
-                                                                            title={u.is_active ? 'Deactivate account' : 'Reactivate account'}
-                                                                            aria-label={`${u.is_active ? 'Deactivate' : 'Reactivate'} ${u.name}`}
-                                                                            className={
-                                                                                actionBtn + ' ' +
-                                                                                (u.is_active
-                                                                                    ? 'border-red-100 text-red-500 hover:bg-red-50'
-                                                                                    : 'border-emerald-100 text-emerald-600 hover:bg-emerald-50')
-                                                                            }
-                                                                        >
-                                                                            <PowerOff className="h-3.5 w-3.5" aria-hidden="true" />
-                                                                            <span className="sr-only xl:not-sr-only">
-                                                                                {rowBusy && busy?.action === 'toggle'
-                                                                                    ? (u.is_active ? 'Deactivating…' : 'Reactivating…')
-                                                                                    : (u.is_active ? 'Deactivate' : 'Reactivate')}
-                                                                            </span>
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                            </td>
+                                                            <div className="mt-4 border-t border-gray-100 pt-3">
+                                                                <ManageButton u={u} className="w-full" />
+                                                            </div>
                                                         )}
-                                                    </tr>
+                                                    </li>
                                                 );
                                             })}
+                                        </ul>
 
-                                            {filteredUsers.length === 0 && (
-                                                <tr>
-                                                    <td colSpan={can.edit ? 8 : 7} className="px-4 py-10 text-center">
-                                                        <p className="text-sm font-medium text-gray-700">No users match your search or filters.</p>
-                                                        <p className="mt-1 text-sm text-gray-500">
-                                                            Try a different search term, or clear the filters to see every account.
-                                                        </p>
-                                                        {hasActiveFilters && (
-                                                            <Button type="button" variant="outline" className="mt-4" onClick={clearFilters}>
-                                                                Clear filters
-                                                            </Button>
+                                        {/* Large screens: table (no horizontal scroll) */}
+                                        <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:block">
+                                            <table className="w-full table-fixed divide-y divide-gray-100">
+                                                <caption className="sr-only">System user accounts</caption>
+                                                <thead className="bg-gray-50/60">
+                                                    <tr>
+                                                        <th scope="col" className={headerCell + ' w-14'}>#</th>
+                                                        <th scope="col" className={headerCell}>User</th>
+                                                        <th scope="col" className={headerCell + ' w-52'}>Role</th>
+                                                        <th scope="col" className={headerCell + ' w-32'}>Status</th>
+                                                        <th scope="col" className={headerCell + ' w-44'}>Last Login</th>
+                                                        {can.edit && (
+                                                            <th scope="col" className="w-32 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                                                Actions
+                                                            </th>
                                                         )}
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100">
+                                                    {filteredUsers.map((u, index) => {
+                                                        const isSelf = u.id === authId;
+                                                        return (
+                                                            <tr key={u.id} className={'hover:bg-gray-50/60 ' + (u.is_active ? '' : 'opacity-60')}>
+                                                                <td className="px-4 py-3 text-sm text-gray-400">
+                                                                    {String(index + 1).padStart(2, '0')}
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <div className="flex min-w-0 items-center gap-3">
+                                                                        <Avatar name={u.name} />
+                                                                        <div className="min-w-0">
+                                                                            <p className="truncate text-sm font-medium text-gray-800" title={u.name}>
+                                                                                {u.name}
+                                                                                {isSelf && <span className="ml-1.5 text-xs font-normal text-gray-400">(you)</span>}
+                                                                            </p>
+                                                                            <p className="truncate text-xs text-gray-500" title={u.email}>{u.email}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <div className="space-y-1.5">
+                                                                        <RoleBadges roles={u.roles} />
+                                                                        <CustomBadge count={customCount(u)} />
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-4 py-3"><StatusBadge active={u.is_active} /></td>
+                                                                <td className="px-4 py-3 text-xs text-gray-500">{formatLastLogin(u.last_login_at)}</td>
+                                                                {can.edit && (
+                                                                    <td className="px-4 py-3 text-right"><ManageButton u={u} /></td>
+                                                                )}
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </>
+                                )}
                             </>
                         )}
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Edit modal */}
-            <Modal show={editingUser !== null} onClose={closeEdit} maxWidth="md">
-                {editingUser && (
-                    <form onSubmit={submitEdit} className="p-6">
-                        <h2 className="text-lg font-medium text-gray-900">Edit User</h2>
-                        <p className="mt-1 text-sm text-gray-600">
-                            Update profile for <span className="font-medium">{editingUser.name}</span>.
-                        </p>
-
-                        <div className="mt-6 space-y-4">
-                            <div>
-                                <Label htmlFor="edit_name">Name</Label>
-                                <Input
-                                    id="edit_name"
-                                    className="mt-1 w-full"
-                                    value={editForm.data.name}
-                                    onChange={(e) => editForm.setData('name', e.target.value)}
-                                    required
-                                />
-                                <InputError message={editForm.errors.name} className="mt-1" />
-                            </div>
-
-                            <div>
-                                <Label htmlFor="edit_email">Email</Label>
-                                <Input
-                                    id="edit_email"
-                                    type="email"
-                                    className="mt-1 w-full"
-                                    value={editForm.data.email}
-                                    onChange={(e) => editForm.setData('email', e.target.value)}
-                                    required
-                                />
-                                <InputError message={editForm.errors.email} className="mt-1" />
-                            </div>
-
-                            <div>
-                                <Label htmlFor="edit_role">Role</Label>
-                                <select
-                                    id="edit_role"
-                                    value={editForm.data.role}
-                                    onChange={(e) => editForm.setData('role', e.target.value)}
-                                    aria-describedby="edit_role_help"
-                                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                                    required
-                                >
-                                    <option value="" disabled>Select a role</option>
-                                    {availableRoles.map((role) => (
-                                        <option key={role} value={role}>{role}</option>
-                                    ))}
-                                </select>
-                                <p id="edit_role_help" className="mt-1 text-xs text-gray-500">
-                                    Each account has exactly one role. Saving replaces the current role with the one selected.
+            {/* Manage modal: one panel, one managed user, five views */}
+            <Modal show={managedUser !== null} onClose={closeManage} maxWidth="2xl">
+                {managedUser && manage && (
+                    <div className="p-4 sm:p-6">
+                        <div className="flex items-start gap-3">
+                            <Avatar name={managedUser.name} size="lg" />
+                            <div className="min-w-0 flex-1">
+                                <h2 className="text-lg font-medium text-gray-900">{viewTitle[manage.view]}</h2>
+                                <p className="break-words text-sm text-gray-600">
+                                    <span className="font-medium">{managedUser.name}</span>
                                 </p>
-                                {editingUser.roles.length > 1 && (
-                                    <p role="alert" className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                        This account currently has {editingUser.roles.length} roles ({editingUser.roles.join(', ')}).
-                                        Accounts are limited to one role, so saving will remove all of them except the one selected above.
-                                    </p>
-                                )}
-                                <InputError message={editForm.errors.role} className="mt-1" />
+                                <p className="break-all text-xs text-gray-500">{managedUser.email}</p>
                             </div>
-                        </div>
-
-                        <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
-                            <Button type="button" variant="outline" onClick={closeEdit}>Cancel</Button>
-                            <Button type="submit" disabled={editForm.processing}>
-                                {editForm.processing ? 'Saving…' : 'Save Changes'}
-                            </Button>
-                        </div>
-                    </form>
-                )}
-            </Modal>
-
-            <Modal show={permUser !== null} onClose={closePermissions} maxWidth="md">
-                {permUser && (
-                    <form onSubmit={submitPermissions} className="p-6">
-                        <h2 className="text-lg font-medium text-gray-900">Permissions</h2>
-                        <p className="mt-1 text-sm text-gray-600">
-                            Areas <span className="font-medium">{permUser.name}</span> can view. Role: <span className="capitalize">{permUser.roles.join(', ')}</span>.
-                        </p>
-
-                        <div className="mt-5 space-y-5">
-                            {Object.entries(areaGroups).map(([group, areas]) => (
-                                <fieldset key={group}>
-                                    <legend className="text-xs font-semibold uppercase tracking-wide text-gray-400">{group}</legend>
-                                    <div className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200">
-                                        {areas.map((a) => {
-                                            const checked = permForm.data.areas[a.key] ?? false;
-                                            const def = permUser.areas[a.key].role_default;
-                                            const note = checked === def ? 'Role default' : checked ? 'Added for this user' : 'Removed for this user';
-                                            return (
-                                                <label key={a.key} className="flex cursor-pointer items-start gap-3 p-3">
-                                                    <input type="checkbox" className="mt-1" checked={checked}
-                                                        onChange={(e) => permForm.setData('areas', { ...permForm.data.areas, [a.key]: e.target.checked })} />
-                                                    <span className="flex-1">
-                                                        <span className="block text-sm font-medium text-gray-800">{a.label}</span>
-                                                        <span className="block text-xs text-gray-500">{a.description}</span>
-                                                    </span>
-                                                    <span className={'text-xs font-medium ' + (checked === def ? 'text-gray-400' : 'text-amber-600')}>{note}</span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </fieldset>
-                            ))}
-                        </div>
-
-                        <p className="mt-4 text-xs text-gray-500">
-                            User Management, audit logs, market prices and backups are System Admin only and cannot be granted here.
-                        </p>
-                        <InputError message={permForm.errors.areas} className="mt-2" />
-
-                        <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-4">
-                            <Button type="button" variant="ghost" onClick={() => resetToRole(permUser)}>Reset to role</Button>
-                            <div className="flex gap-3">
-                                <Button type="button" variant="outline" onClick={closePermissions}>Cancel</Button>
-                                <Button type="submit" disabled={permForm.processing}>
-                                    {permForm.processing ? 'Saving…' : 'Save'}
-                                </Button>
-                            </div>
-                        </div>
-                    </form>
-                )}
-            </Modal>
-
-            {/* Confirmation modal: deactivate account / send password reset link */}
-            <Modal show={confirm !== null} onClose={closeConfirm} maxWidth="sm">
-                {confirm && (
-                    <div className="p-6">
-                        {confirm.kind === 'deactivate' ? (
-                            <>
-                                <h2 className="text-lg font-medium text-gray-900">Deactivate Account</h2>
-                                <p className="mt-2 text-sm text-gray-600">
-                                    <span className="font-medium">{confirm.user.name}</span> will immediately lose access to the system. Their records and audit trail will be preserved.
-                                </p>
-                            </>
-                        ) : (
-                            <>
-                                <h2 className="text-lg font-medium text-gray-900">Send Password Reset Link</h2>
-                                <p className="mt-2 text-sm text-gray-600">
-                                    A password reset link will be emailed to{' '}
-                                    <span className="font-medium">{confirm.user.email}</span>. Their current password keeps working until they use the link.
-                                </p>
-                            </>
-                        )}
-                        <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
-                            <Button type="button" variant="outline" onClick={closeConfirm} disabled={busy !== null}>
-                                Cancel
-                            </Button>
-                            <Button
+                            <button
                                 type="button"
-                                className={confirm.kind === 'deactivate' ? 'bg-red-600 hover:bg-red-700' : undefined}
-                                onClick={confirmAction}
-                                disabled={busy !== null}
+                                onClick={closeManage}
+                                aria-label="Close"
+                                className={'shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 ' + focusRing}
                             >
-                                {confirm.kind === 'deactivate'
-                                    ? (busy ? 'Deactivating…' : 'Deactivate')
-                                    : (busy ? 'Sending…' : 'Send reset link')}
-                            </Button>
+                                <X className="h-5 w-5" aria-hidden="true" />
+                            </button>
                         </div>
+
+                        {manage.view !== 'overview' && (
+                            <button
+                                type="button"
+                                onClick={backToOverview}
+                                className={'mt-3 inline-flex items-center gap-1 rounded text-xs font-medium text-emerald-700 hover:underline ' + focusRing}
+                            >
+                                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                                Back to details
+                            </button>
+                        )}
+
+                        <div className="mt-5 border-t border-gray-100 pt-5">
+                            {manage.view === 'overview' && renderOverview(managedUser)}
+                            {manage.view === 'edit' && renderEdit(managedUser)}
+                            {manage.view === 'permissions' && !managedUser.is_admin && renderPermissions(managedUser)}
+                            {manage.view === 'deactivate' && renderConfirm(managedUser, 'deactivate')}
+                            {manage.view === 'reset' && renderConfirm(managedUser, 'reset')}
+                        </div>
+
+                        {manage.view === 'overview' && (
+                            <div className={footerRow}>
+                                <Button type="button" variant="outline" className={footerBtn} onClick={closeManage}>Close</Button>
+                            </div>
+                        )}
                     </div>
                 )}
             </Modal>
