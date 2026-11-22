@@ -76,4 +76,12 @@ enum AssetStatus: string
             self::Damaged,
         ], true);
     }
+
+    public static function terminalValues(): array
+    {
+        return array_map(
+            fn (self $s) => $s->value,
+            array_filter(self::cases(), fn (self $s) => $s->isTerminal()),
+        );
+    }
 }

@@ -15,6 +15,9 @@ use Inertia\Response;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\DB;
+use App\Services\AuditLogService;
+use Illuminate\Support\Str;
+use Throwable;
 
 class UsersController extends Controller
 {
@@ -58,24 +61,65 @@ class UsersController extends Controller
     {
         abort_unless($request->user()?->can('users.manage'), 403);
 
+        $descriptions = [
+            'System Admin'       => 'Full access, including user management, audit logs, market prices and backups.',
+            'MES Officer'        => 'Records apprehension and turn-over intake and manages case details.',
+            'Property Custodian' => 'Handles custody, storage and disposal of recorded assets.',
+            'Accounting Officer' => 'Handles JEV entries and finance-related records.',
+            'PENRO Management'   => 'Reviews assets, reports and compliance information.',
+        ];
+
         return Inertia::render('Settings/Admin/Users/Create', [
-            'roles' => Role::orderBy('name')->pluck('name'),
+            'roles' => Role::with('permissions')->orderBy('name')->get()->map(fn ($r) => [
+                'name' => $r->name,
+                'description' => $descriptions[$r->name] ?? null,
+                'privileged' => $r->permissions->pluck('name')
+                    ->intersect(AreaPermissions::ADMIN_ONLY)->isNotEmpty(),
+            ])->values(),
         ]);
     }
 
-    public function store(StoreUserRequest $request): RedirectResponse
+    public function store(StoreUserRequest $request, AuditLogService $audit): RedirectResponse
     {
-        $user = User::create([
-            'name' => $request->validated('name'),
-            'email' => $request->validated('email'),
-            'password' => Hash::make($request->validated('password')),
-            'is_active' => true,
-            'email_verified_at' => now(), // admin-created, skip email verification
-        ]);
+        $data = $request->validated();
+        $actorId = $request->user()->id;
 
-        $user->syncRoles([$request->validated('role')]);
+        $user = DB::transaction(function () use ($data, $audit, $actorId) {
+            // Unknown random password: the person sets their own via the setup link.
+            $user = new User([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'password' => Str::random(64),
+                'is_active' => true,
+            ]);
+            // Not mass-assignable; admin-created accounts skip email verification (intentional).
+            $user->forceFill(['email_verified_at' => now()])->save();
 
-        return redirect()->route('users.index')->with('success', "Account created for {$user->name}.");
+            $user->syncRoles([$data['role']]);
+
+            // No password or token is ever recorded.
+            $audit->log('user.created', $user, null, [
+                'created_by' => $actorId,
+                'email' => $user->email,
+                'role' => $data['role'],
+            ], $actorId);
+
+            return $user;
+        });
+
+        $email = $user->email;
+
+        // Runs after the redirect is sent, so a slow mail server can't freeze the form.
+        dispatch(function () use ($email) {
+            try {
+                Password::sendResetLink(['email' => $email]);
+            } catch (Throwable $e) {
+                report($e); // never log the token
+            }
+        })->afterResponse();
+
+        return redirect()->route('users.index')
+            ->with('success', "Account created for {$user->name}. A setup link is being sent to {$email}. If it doesn't arrive, use \"Send reset link\" on the user list.");
     }
 
     public function update(UpdateUserRequest $request, User $user): RedirectResponse

@@ -249,6 +249,25 @@ class AssetController extends Controller
         $receipt = $asset->acknowledgementReceipt
             ?? $relatedAssets->pluck('acknowledgementReceipt')->filter()->first();
 
+        // Other asset rows linked to the same incident: edits to incident fields affect them too.
+        $sharedIncidentCount = $asset->incident_id
+            ? Asset::where('incident_id', $asset->incident_id)
+                ->where('id', '!=', $asset->id)
+                ->count()
+            : 0;
+
+        // The confiscation flag is switched on automatically for abandoned apprehensions
+        // (CreateAsset, DAO 97-32). Treat it as "automatic" only while nothing points to an
+        // issued order: apprehended, no claimant, and no uploaded confiscation order.
+        $confiscationAuto = $asset->has_confiscation_order
+            && $asset->mode === AssetMode::Apprehended
+            && $asset->incident !== null
+            && $asset->incident->claimants->isEmpty()
+            && empty($asset->incident->confiscation_order_path)
+            && ! $asset->documents->contains(
+                fn ($d) => $d->getRawOriginal('document_type') === 'confiscation_order'
+            );
+
         $pdfReady = fn ($r) => $r?->pdf_path
             && Storage::disk('local')->exists($r->pdf_path);
 
@@ -271,6 +290,10 @@ class AssetController extends Controller
             'qrSvg' => $qrSvg,
             'pieceQrSvgs' => $pieceQrSvgs, 
             'relatedAssets' => $relatedAssets,
+            'confiscationAuto' => $confiscationAuto,
+            'sharedIncident' => $sharedIncidentCount > 0
+                ? ['other_assets_count' => $sharedIncidentCount]
+                : null,
             'requiredDocumentTypes' => collect($asset->requiredDocumentTypes())->map(fn ($t) => [
                 'value' => $t->value,
                 'label' => $t->label(),

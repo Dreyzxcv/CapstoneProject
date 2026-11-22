@@ -54,4 +54,14 @@ class AssetPiece extends Model
     {
         return $this->disposed_at !== null;
     }
+
+    public function scopeUndisposed($query)
+    {
+        return $query->whereNull('disposed_at');
+    }
+
+    public function scopeDisposed($query)
+    {
+        return $query->whereNotNull('disposed_at');
+    }
 }

@@ -11,6 +11,7 @@ use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use App\Support\AreaPermissions;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Notifications\ResetPasswordNotification;
 
 #[Fillable(['name', 'email', 'password', 'is_active', 'last_login_at'])]
 #[Hidden(['password', 'remember_token'])]
@@ -98,5 +99,10 @@ class User extends Authenticatable
     public function isActive(): bool
     {
         return (bool) ($this->is_active ?? true);
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 }

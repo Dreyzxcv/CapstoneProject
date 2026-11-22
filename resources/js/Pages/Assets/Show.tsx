@@ -32,6 +32,7 @@ import {
     Circle,
     Search,
     X,
+    AlertTriangle,
 } from "lucide-react";
 import { IncidentLocationMap } from "@/Components/shared/IncidentLocationMap";
 import RequiredDocumentsModal from "@/Components/shared/RequiredDocumentsModal";
@@ -49,6 +50,8 @@ interface ShowProps {
         custody_review_remarks: string | null;
     };
     relatedAssets: Asset[];
+    sharedIncident: { other_assets_count: number } | null;
+    confiscationAuto: boolean;
     hasAllRequiredDocuments: boolean;
     aapDocumentUploaded: boolean;
 
@@ -1619,6 +1622,8 @@ export default function AssetsShow({
     acknowledgementReceipt,
     asset,
     relatedAssets,
+    sharedIncident,
+    confiscationAuto,
     qrPayload,
     qrSvg,
     pieceQrSvgs,
@@ -3148,6 +3153,23 @@ export default function AssetsShow({
                                 From Incident Report
                             </p>
 
+                            {sharedIncident && sharedIncident.other_assets_count > 0 && (
+                                <div
+                                    role="alert"
+                                    className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+                                >
+                                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                                    <p>
+                                        <span className="font-semibold">Shared incident.</span>{" "}
+                                        The incident fields below also belong to{" "}
+                                        {sharedIncident.other_assets_count === 1
+                                            ? "1 other asset"
+                                            : `${sharedIncident.other_assets_count} other assets`}
+                                        . Changes here update the shared incident and may affect those assets too.
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Date */}
                             <div className="space-y-1">
                                 <Label htmlFor="edit-date-apprehension">
@@ -3167,17 +3189,21 @@ export default function AssetsShow({
                             {/* Province / Municipality / Land Class */}
                             <div className="grid gap-3 sm:gap-4 sm:grid-cols-3">
                                 <div className="space-y-1">
-                                    <Label>Province</Label>
+                                    <div className="flex items-end sm:min-h-10">
+                                        <Label>Province</Label>
+                                    </div>
                                     <select className={selectClass} value="Catanduanes" disabled>
                                         <option value="Catanduanes">Catanduanes</option>
                                     </select>
                                 </div>
                                 <div className="space-y-1">
-                                    <Label htmlFor="edit-place-apprehension">
-                                        {editIsTurnedOver
-                                            ? "Municipality (Place of Turn-Over)"
-                                            : "Municipality (Place of Apprehension)"}
-                                    </Label>
+                                    <div className="flex items-end sm:min-h-10">
+                                        <Label htmlFor="edit-place-apprehension">
+                                            {editIsTurnedOver
+                                                ? "Municipality (Place of Turn-Over)"
+                                                : "Municipality (Place of Apprehension)"}
+                                        </Label>
+                                    </div>
                                     <select
                                         id="edit-place-apprehension"
                                         value={editForm.data.place_of_apprehension}
@@ -3192,7 +3218,9 @@ export default function AssetsShow({
                                     <InputError message={(editForm.errors as any).place_of_apprehension} />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label htmlFor="edit-area">Land Class</Label>
+                                    <div className="flex items-end sm:min-h-10">
+                                        <Label htmlFor="edit-area">Land Class</Label>
+                                    </div>
                                     <select
                                         id="edit-area"
                                         value={editForm.data.area}
@@ -3392,10 +3420,18 @@ export default function AssetsShow({
                                     }
                                 >
                                     {editForm.data.has_confiscation_order
-                                        ? "Confiscation / Forfeiture Order"
+                                        ? confiscationAuto && !editForm.data.has_claimant
+                                            ? "Confiscation (automatic: abandoned)"
+                                            : "Confiscation / Forfeiture Order"
                                         : "No order yet"}
                                 </button>
                             </div>
+                            {editForm.data.has_confiscation_order && confiscationAuto && !editForm.data.has_claimant && (
+                                <p className="text-xs text-gray-600">
+                                    Set automatically because no claimant came forward (DAO 97-32). No confiscation
+                                    order has been uploaded.
+                                </p>
+                            )}
                         </div>
                     )}
 

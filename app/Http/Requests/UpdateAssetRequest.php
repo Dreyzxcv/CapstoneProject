@@ -23,8 +23,7 @@ class UpdateAssetRequest extends FormRequest
             'has_ongoing_case'       => ['boolean'],
             'has_confiscation_order' => ['boolean'],
 
-            // Incident-level (only present when asset has an incident)
-            'date_of_apprehension'   => ['nullable', 'date'],
+            'date_of_apprehension'   => ['nullable', 'date_format:Y-m-d'],
             'place_of_apprehension'  => ['nullable', Rule::enum(\App\Enums\Municipality::class)],
             'area'                   => ['nullable', Rule::in(['Timberland', 'Protected Area', 'Alienable & Disposable'])],
             'coordinates'            => ['nullable', 'string', 'max:100'],

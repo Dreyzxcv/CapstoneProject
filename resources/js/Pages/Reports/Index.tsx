@@ -34,6 +34,7 @@ import {
     ArrowRight,
     MapPin,
     BarChart2,
+    PackageCheck,
     PieChart as PieChartIcon,
     Image,
 } from 'lucide-react';
@@ -53,6 +54,7 @@ interface TrendPoint {
 interface ReportsIndexProps {
     summary: {
         total: number;
+        disposed: number;
         inStorage: number;
         forDisposal: number;
         underTrial: number;
@@ -126,17 +128,26 @@ function GradientDefs() {
 
 const SUMMARY_CONFIG = {
     total: {
-        label: 'Total Assets',
-        description: 'All apprehended assets on record',
+        label: 'Total Pieces',
+        description: 'All registered pieces, including disposed',
         icon: LayoutGrid,
         iconBg: 'bg-emerald-50',
         iconColor: 'text-emerald-700',
         accent: 'border-l-emerald-500',
         valueColor: 'text-emerald-700',
     },
+    disposed: {
+        label: 'Disposed Pieces',
+        description: 'Pieces confirmed disposed',
+        icon: PackageCheck,
+        iconBg: 'bg-slate-100',
+        iconColor: 'text-slate-700',
+        accent: 'border-l-slate-500',
+        valueColor: 'text-slate-700',
+    },
     inStorage: {
-        label: 'In Storage',
-        description: 'Currently held at the depot',
+        label: 'Pieces in Storage',
+        description: 'Undisposed pieces in active custody. Includes the two cards below',
         icon: Archive,
         iconBg: 'bg-blue-50',
         iconColor: 'text-blue-700',
@@ -144,8 +155,8 @@ const SUMMARY_CONFIG = {
         valueColor: 'text-blue-700',
     },
     forDisposal: {
-        label: 'For Disposal',
-        description: 'Cleared and awaiting disposal',
+        label: 'Pieces for Disposal',
+        description: 'Undisposed pieces cleared for disposal. Part of In Storage',
         icon: Package,
         iconBg: 'bg-amber-50',
         iconColor: 'text-amber-700',
@@ -153,8 +164,8 @@ const SUMMARY_CONFIG = {
         valueColor: 'text-amber-700',
     },
     underTrial: {
-        label: 'Under Trial',
-        description: 'Active legal proceedings',
+        label: 'Pieces Under Trial',
+        description: 'Undisposed pieces in active proceedings. Part of In Storage',
         icon: Gavel,
         iconBg: 'bg-rose-50',
         iconColor: 'text-rose-700',
@@ -686,7 +697,7 @@ export default function ReportsIndex({
             <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
 
                 {/* ── Summary cards ── */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                     {(Object.keys(SUMMARY_CONFIG) as Array<keyof typeof SUMMARY_CONFIG>).map((key) => {
                         const cfg = SUMMARY_CONFIG[key];
                         const Icon = cfg.icon;
