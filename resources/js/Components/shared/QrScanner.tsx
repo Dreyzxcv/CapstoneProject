@@ -1,11 +1,36 @@
 import { Html5Qrcode } from 'html5-qrcode';
 import { ChangeEvent, useEffect, useRef, useState } from 'react';
-import { Camera, Check, ImageIcon, Loader2, Zap, ZapOff } from 'lucide-react';
+import { Camera, Check, Flashlight, ImageIcon, Loader2, QrCode } from 'lucide-react';
 
 const CAMERA_REGION_ID = 'qr-camera-region';
 const FILE_REGION_ID = 'qr-file-region';
+const REDIRECT_DELAY_MS = 400;
 
 type Status = 'idle' | 'starting' | 'scanning' | 'detected' | 'error';
+
+// Only accept QR codes that point back to this app.
+// If your tags were generated with a different domain than the one the app
+// runs on (e.g. APP_URL is still localhost), compare a path prefix instead.
+function isAssetUrl(text: string): boolean {
+    try {
+        return new URL(text).origin === window.location.origin;
+    } catch {
+        return false;
+    }
+}
+
+function cameraErrorMessage(err: unknown): string {
+    const text = String(err);
+    if (!window.isSecureContext) return 'The camera needs a secure (HTTPS) connection.';
+    if (/NotAllowed|Permission/i.test(text)) {
+        return 'Camera access is blocked. Allow it in your browser settings, then try again.';
+    }
+    if (/NotFound|device not found/i.test(text)) return 'No camera was found on this device.';
+    return 'Could not start the camera.';
+}
+
+const focusRing =
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-0';
 
 export function QrScanner() {
     const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
@@ -21,18 +46,36 @@ export function QrScanner() {
 
     const [status, setStatus] = useState<Status>('idle');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
     const [torchOn, setTorchOn] = useState(false);
     const [torchSupported, setTorchSupported] = useState(false);
 
+    // Auto-dismiss notices
+    useEffect(() => {
+        if (!notice) return;
+        const t = setTimeout(() => setNotice(null), 3500);
+        return () => clearTimeout(t);
+    }, [notice]);
+
     function handleDecoded(decodedText: string) {
         if (hasScannedRef.current) return;
-        hasScannedRef.current = true;
-        setStatus('detected');
 
+        // Not one of our tags: tell the user and keep scanning.
+        if (!isAssetUrl(decodedText)) {
+            setNotice("That QR code isn't a ForesTrack asset tag.");
+            return;
+        }
+
+        hasScannedRef.current = true;
+        setNotice(null);
+        setStatus('detected');
+        navigator.vibrate?.(80);
+
+        // Short delay so the checkmark is actually visible before navigating.
         const redirect = () => {
-            if (decodedText.startsWith('http')) {
+            setTimeout(() => {
                 window.location.href = decodedText;
-            }
+            }, REDIRECT_DELAY_MS);
         };
 
         const scanner = html5QrCodeRef.current;
@@ -58,6 +101,7 @@ export function QrScanner() {
     async function startScanner() {
         setStatus('starting');
         setErrorMessage(null);
+        setNotice(null);
 
         try {
             const html5QrCode = new Html5Qrcode(CAMERA_REGION_ID);
@@ -79,10 +123,10 @@ export function QrScanner() {
             } catch {
                 setTorchSupported(false);
             }
-        } catch {
+        } catch (err) {
             isScanningRef.current = false;
             setStatus('error');
-            setErrorMessage('Camera access was denied or is unavailable on this device.');
+            setErrorMessage(cameraErrorMessage(err));
         }
     }
 
@@ -108,7 +152,7 @@ export function QrScanner() {
             const result = await fileScanner.scanFile(file, false);
             handleDecoded(result);
         } catch {
-            setErrorMessage('Could not find a QR code in that image. Try another file.');
+            setNotice('Could not find a QR code in that image. Try another one.');
         }
     }
 
@@ -161,11 +205,17 @@ export function QrScanner() {
                         </span>
                         {torchSupported && (
                             <button
+                                type="button"
                                 onClick={toggleTorch}
-                                className="rounded-full bg-black/40 p-2 text-white backdrop-blur-sm transition hover:bg-black/60"
+                                aria-pressed={torchOn}
                                 aria-label="Toggle flashlight"
+                                className={
+                                    'flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-sm transition ' +
+                                    focusRing + ' ' +
+                                    (torchOn ? 'bg-amber-400 text-black' : 'bg-black/40 text-white hover:bg-black/60')
+                                }
                             >
-                                {torchOn ? <ZapOff className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
+                                <Flashlight className="h-5 w-5" aria-hidden="true" />
                             </button>
                         )}
                     </div>
@@ -174,10 +224,14 @@ export function QrScanner() {
                     <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 p-5 text-center">
                         <p className="text-sm text-white/90">Align the QR code within the frame</p>
                         <button
+                            type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/25"
+                            className={
+                                'flex h-11 items-center gap-2 rounded-full bg-white/15 px-4 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/25 ' +
+                                focusRing
+                            }
                         >
-                            <ImageIcon className="h-4 w-4" />
+                            <ImageIcon className="h-4 w-4" aria-hidden="true" />
                             Scan an Image Instead
                         </button>
                     </div>
@@ -187,7 +241,7 @@ export function QrScanner() {
             {status === 'detected' && (
                 <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-black/70 text-white">
                     <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500">
-                        <Check className="h-7 w-7" />
+                        <Check className="h-7 w-7" aria-hidden="true" />
                     </span>
                     <p className="text-sm text-white/90">QR code detected — opening record…</p>
                 </div>
@@ -195,27 +249,35 @@ export function QrScanner() {
 
             {status === 'starting' && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white">
-                    <Loader2 className="h-8 w-8 animate-spin" />
+                    <Loader2 className="h-8 w-8 animate-spin" aria-hidden="true" />
                     <p className="text-sm text-white/80">Starting camera…</p>
                 </div>
             )}
 
             {status === 'error' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center text-white">
-                    <Camera className="h-10 w-10 text-white/60" />
-                    <p className="text-sm text-white/80">{errorMessage}</p>
-                    <div className="flex flex-col items-center gap-2">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-gradient-to-b from-slate-800 to-slate-950 px-8 text-center text-white">
+                    <Camera className="h-10 w-10 text-white/60" aria-hidden="true" />
+                    <p role="alert" className="text-sm text-white/80">{errorMessage}</p>
+                    <div className="flex w-full max-w-[220px] flex-col gap-2">
                         <button
+                            type="button"
                             onClick={startScanner}
-                            className="rounded-full bg-emerald-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-emerald-600"
+                            className={
+                                'h-11 rounded-full bg-emerald-500 px-5 text-sm font-medium text-white transition hover:bg-emerald-600 ' +
+                                focusRing
+                            }
                         >
                             Try Again
                         </button>
                         <button
+                            type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="flex items-center gap-2 text-sm text-white/70 underline underline-offset-2 hover:text-white"
+                            className={
+                                'flex h-11 items-center justify-center gap-2 rounded-full bg-white/10 text-sm font-medium text-white transition hover:bg-white/20 ' +
+                                focusRing
+                            }
                         >
-                            <ImageIcon className="h-4 w-4" />
+                            <ImageIcon className="h-4 w-4" aria-hidden="true" />
                             Scan an Image Instead
                         </button>
                     </div>
@@ -223,14 +285,58 @@ export function QrScanner() {
             )}
 
             {status === 'idle' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white">
-                    <Camera className="h-10 w-10 text-white/60" />
-                    <button
-                        onClick={startScanner}
-                        className="rounded-full bg-emerald-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-emerald-600"
-                    >
-                        Enable Camera
-                    </button>
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-gradient-to-b from-slate-800 to-slate-950 px-8 text-center text-white">
+                    <div className="relative flex h-36 w-36 items-center justify-center">
+                        <span className="absolute left-0 top-0 h-8 w-8 rounded-tl-2xl border-l-4 border-t-4 border-emerald-400/70" />
+                        <span className="absolute right-0 top-0 h-8 w-8 rounded-tr-2xl border-r-4 border-t-4 border-emerald-400/70" />
+                        <span className="absolute bottom-0 left-0 h-8 w-8 rounded-bl-2xl border-b-4 border-l-4 border-emerald-400/70" />
+                        <span className="absolute bottom-0 right-0 h-8 w-8 rounded-br-2xl border-b-4 border-r-4 border-emerald-400/70" />
+                        <QrCode className="h-14 w-14 text-white/50" aria-hidden="true" />
+                    </div>
+
+                    <div>
+                        <h3 className="text-base font-semibold">Scan an asset tag</h3>
+                        <p className="mt-1 text-sm text-white/70">
+                            Point your camera at the QR tag on a log, equipment or vehicle to open its record.
+                        </p>
+                    </div>
+
+                    <div className="flex w-full max-w-[220px] flex-col gap-2">
+                        <button
+                            type="button"
+                            onClick={startScanner}
+                            className={
+                                'h-11 rounded-full bg-emerald-500 px-5 text-sm font-medium text-white transition hover:bg-emerald-600 ' +
+                                focusRing
+                            }
+                        >
+                            Enable Camera
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className={
+                                'flex h-11 items-center justify-center gap-2 rounded-full bg-white/10 text-sm font-medium text-white transition hover:bg-white/20 ' +
+                                focusRing
+                            }
+                        >
+                            <ImageIcon className="h-4 w-4" aria-hidden="true" />
+                            Scan an Image
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Notice toast: sits above the bottom bar while scanning */}
+            {notice && status !== 'detected' && (
+                <div
+                    role="status"
+                    className={
+                        'absolute inset-x-4 z-30 rounded-xl bg-red-500/90 px-4 py-2.5 text-center text-sm font-medium text-white shadow-lg backdrop-blur-sm ' +
+                        (status === 'scanning' ? 'bottom-24' : 'bottom-4')
+                    }
+                >
+                    {notice}
                 </div>
             )}
 
