@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Http\JsonResponse;
 
 class JevController extends Controller
 {
@@ -28,6 +29,23 @@ class JevController extends Controller
         'jev_date'   => 'jev_date',
         'amount'     => 'amount',
         'created_at' => 'created_at',
+    ];
+
+    private const DETAIL_ASSET_FIELDS = [
+        'id', 'asset_code', 'aap_number', 'stcp_number', 'type',
+        'quantity', 'quantity_unit', 'municipality_of_origin', 'location_apprehended',
+    ];
+
+    private const DETAIL_INCIDENT_FIELDS = [
+        'incident_code', 'date_of_apprehension', 'apprehending_party', 'place_of_apprehension',
+    ];
+
+    private const DETAIL_PIECE_FIELDS = [
+        'id', 'piece_number', 'species', 'description',
+        'length', 'width', 'height',
+        'volume_bd_ft', 'volume_cu_m', 'estimated_value',
+        'vehicle_type', 'plate_number', 'equipment_type', 'serial_number',
+        'disposed_at',
     ];
 
     public function index(Request $request): Response
@@ -190,6 +208,7 @@ class JevController extends Controller
             ],
             'can'                     => [
                 'issue_jev' => $request->user()->can('create', Jev::class),
+                'issue_jev_out' => $request->user()->can('jev.create'),
             ],
         ]);
     }
@@ -239,6 +258,74 @@ class JevController extends Controller
             'jev'   => $jev,
             'can'   => [
                 'issue_jev' => $request->user()->can('create', Jev::class),
+            ],
+        ]);
+    }
+
+    public function details(Request $request, Asset $asset): JsonResponse
+    {
+        $this->authorize('view', $asset);
+
+        $asset->load(['incident', 'pieces']);
+        $jev = $asset->jev;
+
+        return response()->json([
+            'asset' => array_merge($asset->only(self::DETAIL_ASSET_FIELDS), [
+                'incident' => $asset->incident?->only(self::DETAIL_INCIDENT_FIELDS),
+                'pieces'   => $asset->pieces
+                    ->map(fn ($piece) => $piece->only(self::DETAIL_PIECE_FIELDS))
+                    ->values(),
+            ]),
+            'jev' => $jev?->only(['jev_number', 'jev_date', 'particulars', 'amount', 'created_at']),
+            'can' => [
+                'issue_jev' => $request->user()->can('create', Jev::class),
+            ],
+        ]);
+    }
+
+    /** JSON for the JEV OUT modal. Same authorization and batch lookup as showDisposalJev(). */
+    public function disposalDetails(Request $request, Disposal $disposal): JsonResponse
+    {
+        $this->authorize('viewAny', Jev::class);
+
+        $disposal->load(['disposalJev', 'donation']);
+        $donation = $disposal->donation;
+
+        $siblings = $donation
+            ? Disposal::where('donation_id', $donation->id)
+                ->with(['asset', 'asset.pieces' => fn ($q) => $q->whereIn(
+                    'disposal_id',
+                    Disposal::where('donation_id', $donation->id)->pluck('id')
+                )])
+                ->get()
+            : collect();
+
+        return response()->json([
+            'disposal' => [
+                'id'           => $disposal->id,
+                'donation'     => $donation?->only([
+                    'id', 'requester_name', 'agency_name', 'municipality', 'barangay', 'street',
+                ]),
+                'disposal_jev' => $disposal->disposalJev?->only(['id', 'jev_number', 'created_at']),
+            ],
+            'siblings' => $siblings->map(fn ($s) => [
+                'id'           => $s->id,
+                'quantity'     => $s->quantity,
+                'processed_at' => $s->processed_at,
+                'asset'        => $s->asset ? [
+                    'id'         => $s->asset->id,
+                    'asset_code' => $s->asset->asset_code,
+                    'type'       => $s->asset->type,
+                    'aap_number' => $s->asset->aap_number,
+                    'pieces'     => $s->asset->pieces
+                        ->map(fn ($p) => $p->only([
+                            'id', 'piece_number', 'species', 'volume_bd_ft', 'volume_cu_m', 'estimated_value',
+                        ]))
+                        ->values(),
+                ] : null,
+            ])->values(),
+            'can' => [
+                'issue_jev_out' => $request->user()->can('jev.create'),
             ],
         ]);
     }

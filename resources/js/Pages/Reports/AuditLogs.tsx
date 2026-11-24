@@ -1,15 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Badge } from '@/Components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/Components/ui/table';
+import { cn } from '@/lib/utils';
 import { Head, Link, router, usePoll } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import { Download, History, Inbox, Search } from 'lucide-react';
@@ -46,6 +38,11 @@ interface AuditLogsProps {
 }
 
 type ActionCategory = 'created' | 'processed' | 'verified' | 'scanned' | 'changed' | 'failed' | 'other';
+
+const CARD = 'overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm';
+const TH = 'px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500';
+const TD = 'px-4 py-3 text-sm';
+const LABEL = 'mb-1 block text-xs font-medium text-gray-500';
 
 const CATEGORY_STYLES: Record<ActionCategory, string> = {
     created:   'bg-emerald-100 text-emerald-800',
@@ -237,6 +234,14 @@ export default function AuditLogs({ logs, filters }: AuditLogsProps) {
 
     // Debounced server-side filter (search + dates)
     useEffect(() => {
+        if (
+            search === (filters.search ?? '') &&
+            dateFrom === (filters.date_from ?? '') &&
+            dateTo === (filters.date_to ?? '')
+        ) {
+            return;
+        }
+
         const timeout = setTimeout(() => {
             router.get(
                 route('audit-logs.index'),
@@ -265,6 +270,9 @@ export default function AuditLogs({ logs, filters }: AuditLogsProps) {
         'all', 'created', 'processed', 'verified', 'scanned', 'changed', 'failed', 'other',
     ];
 
+    const hasLinks = !!logs.links && logs.links.length > 3;
+    const hasTotal = typeof logs.total === 'number';
+
     return (
         <AuthenticatedLayout
             header={
@@ -281,230 +289,234 @@ export default function AuditLogs({ logs, filters }: AuditLogsProps) {
         >
             <Head title="Audit Logs" />
 
-            <div className="mx-auto max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
-                <Card>
-                    <CardHeader className="space-y-3 pb-3">
-                        {/* Top row: title + search + dates + export */}
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <CardTitle className="text-base">Activity Feed</CardTitle>
-
-                            <div className="flex flex-wrap items-center gap-2">
-                                {/* Search */}
-                                <div className="relative w-full sm:w-60">
-                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                    <Input
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        placeholder="Search user, action, IP…"
-                                        className="pl-9"
-                                    />
-                                </div>
-
-                                {/* Date range */}
+            <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+                {/* ── Filters ── */}
+                <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
+                        <div className="sm:col-span-2 lg:col-span-5">
+                            <label htmlFor="log-search" className={LABEL}>Search</label>
+                            <div className="relative">
+                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                 <Input
-                                    type="date"
-                                    value={dateFrom}
-                                    onChange={(e) => setDateFrom(e.target.value)}
-                                    className="w-36 text-sm"
-                                    title="From date"
+                                    id="log-search"
+                                    type="search"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    placeholder="Search user, action, IP…"
+                                    className="pl-9"
                                 />
-                                <span className="text-xs text-gray-400">to</span>
-                                <Input
-                                    type="date"
-                                    value={dateTo}
-                                    onChange={(e) => setDateTo(e.target.value)}
-                                    className="w-36 text-sm"
-                                    title="To date"
-                                />
-
-                                {/* Export */}
-                                <a
-                                    href={exportUrl}
-                                    className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                                    title="Export current view as CSV"
-                                >
-                                    <Download className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Export CSV</span>
-                                </a>
                             </div>
                         </div>
-
-                        {/* Category filter chips */}
-                        <div className="flex flex-wrap gap-1.5">
-                            {categories.map((cat) => (
-                                <button
-                                    key={cat}
-                                    onClick={() => setCategory(cat)}
-                                    className={
-                                        'rounded-full px-3 py-1 text-xs font-medium transition-colors ' +
-                                        (category === cat
-                                            ? CATEGORY_CHIP_STYLES[cat]
-                                            : CATEGORY_CHIP_INACTIVE[cat])
-                                    }
-                                >
-                                    {CATEGORY_LABELS[cat]}
-                                </button>
-                            ))}
+                        <div className="lg:col-span-3">
+                            <label htmlFor="log-from" className={LABEL}>From</label>
+                            <Input
+                                id="log-from"
+                                type="date"
+                                value={dateFrom}
+                                max={dateTo || undefined}
+                                onChange={(e) => setDateFrom(e.target.value)}
+                            />
                         </div>
-                    </CardHeader>
+                        <div className="lg:col-span-3">
+                            <label htmlFor="log-to" className={LABEL}>To</label>
+                            <Input
+                                id="log-to"
+                                type="date"
+                                value={dateTo}
+                                min={dateFrom || undefined}
+                                onChange={(e) => setDateTo(e.target.value)}
+                            />
+                        </div>
+                        <div className="sm:col-span-2 lg:col-span-1">
+                            <a
+                                href={exportUrl}
+                                className="flex h-10 w-full items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-600 hover:bg-gray-50"
+                                title="Export current view as CSV"
+                            >
+                                <Download className="h-4 w-4" />
+                                <span className="lg:hidden">Export CSV</span>
+                            </a>
+                        </div>
+                    </div>
 
-                    <CardContent className="p-0">
-                        {filtered.length === 0 ? (
-                            <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-                                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-                                    <Inbox className="h-6 w-6 text-gray-400" />
-                                </span>
-                                <div>
-                                    <p className="font-medium text-gray-700">
-                                        {search || category !== 'all' ? 'No matching entries' : 'No activity yet'}
-                                    </p>
-                                    <p className="text-sm text-gray-500">
-                                        {search || category !== 'all'
-                                            ? 'Try a different search term or filter.'
-                                            : 'Tracked actions will appear here as they happen.'}
-                                    </p>
-                                </div>
+                    {/* Category filter chips */}
+                    <div className="flex flex-wrap gap-1.5 border-t border-gray-100 pt-3">
+                        {categories.map((cat) => (
+                            <button
+                                key={cat}
+                                type="button"
+                                onClick={() => setCategory(cat)}
+                                aria-pressed={category === cat}
+                                className={cn(
+                                    'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                                    category === cat
+                                        ? CATEGORY_CHIP_STYLES[cat]
+                                        : CATEGORY_CHIP_INACTIVE[cat],
+                                )}
+                            >
+                                {CATEGORY_LABELS[cat]}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* ── Activity ── */}
+                <div className={CARD}>
+                    {filtered.length === 0 ? (
+                        <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+                            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                                <Inbox className="h-6 w-6 text-gray-400" />
+                            </span>
+                            <div>
+                                <p className="font-medium text-gray-700">
+                                    {search || category !== 'all' ? 'No matching entries' : 'No activity yet'}
+                                </p>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    {search || category !== 'all'
+                                        ? 'Try a different search term or filter.'
+                                        : 'Tracked actions will appear here as they happen.'}
+                                </p>
                             </div>
-                        ) : (
-                            <>
-                                {/* Mobile: stacked cards */}
-                                <div className="divide-y divide-gray-100 sm:hidden">
+                        </div>
+                    ) : (
+                        <>
+                            {/* Mobile: stacked cards */}
+                            <ul className="divide-y divide-gray-100 md:hidden">
+                                {filtered.map((log) => {
+                                    const cat      = categorize(log.action);
+                                    const userName = log.user?.name ?? 'System';
+                                    const isNew    = newIds.has(log.id);
+                                    return (
+                                        <li
+                                            key={log.id}
+                                            className={cn(
+                                                'space-y-2 px-4 py-4 transition-colors duration-[1500ms]',
+                                                isNew && 'bg-emerald-50',
+                                            )}
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <Badge className={cn('whitespace-normal', CATEGORY_STYLES[cat])}>
+                                                    {formatAction(log.action)}
+                                                </Badge>
+                                                <span
+                                                    className="shrink-0 text-xs text-gray-500"
+                                                    title={relativeTime(log.created_at)}
+                                                >
+                                                    {formatAbsoluteTime(log.created_at)}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-gray-700">
+                                                <span
+                                                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${avatarColor(userName)}`}
+                                                >
+                                                    {userName.charAt(0).toUpperCase()}
+                                                </span>
+                                                {userName}
+                                            </div>
+                                            <p className="font-mono text-xs text-gray-500">
+                                                <ModelCell modelType={log.model_type} modelId={log.model_id} />
+                                                {log.ip_address && (
+                                                    <span className="ml-2 text-gray-400">{log.ip_address}</span>
+                                                )}
+                                            </p>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+
+                            {/* Tablet / desktop: table */}
+                            <table className="hidden w-full divide-y divide-gray-200 md:table">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" className={TH}>Time</th>
+                                        <th scope="col" className={TH}>User</th>
+                                        <th scope="col" className={TH}>Action</th>
+                                        <th scope="col" className={TH}>Model</th>
+                                        <th scope="col" className={TH}>IP Address</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
                                     {filtered.map((log) => {
                                         const cat      = categorize(log.action);
                                         const userName = log.user?.name ?? 'System';
                                         const isNew    = newIds.has(log.id);
                                         return (
-                                            <div
+                                            <tr
                                                 key={log.id}
-                                                className={
-                                                    'space-y-2 px-4 py-4 transition-colors duration-[1500ms] ' +
-                                                    (isNew ? 'bg-emerald-50' : '')
-                                                }
+                                                className={cn(
+                                                    'transition-colors duration-[1500ms] hover:bg-gray-50',
+                                                    isNew && 'bg-emerald-50',
+                                                )}
                                             >
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <Badge className={CATEGORY_STYLES[cat]}>
+                                                <td
+                                                    className={cn(TD, 'whitespace-nowrap text-gray-600')}
+                                                    title={relativeTime(log.created_at)}
+                                                >
+                                                    {formatAbsoluteTime(log.created_at)}
+                                                </td>
+                                                <td className={TD}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span
+                                                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${avatarColor(userName)}`}
+                                                        >
+                                                            {userName.charAt(0).toUpperCase()}
+                                                        </span>
+                                                        <span className="font-medium text-gray-800">{userName}</span>
+                                                    </div>
+                                                </td>
+                                                <td className={TD}>
+                                                    <Badge className={cn('whitespace-nowrap', CATEGORY_STYLES[cat])}>
                                                         {formatAction(log.action)}
                                                     </Badge>
-                                                    <span
-                                                        className="text-xs text-gray-500"
-                                                        title={relativeTime(log.created_at)}
-                                                    >
-                                                        {formatAbsoluteTime(log.created_at)}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-sm text-gray-700">
-                                                    <span
-                                                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${avatarColor(userName)}`}
-                                                    >
-                                                        {userName.charAt(0).toUpperCase()}
-                                                    </span>
-                                                    {userName}
-                                                </div>
-                                                <p className="font-mono text-xs text-gray-500">
+                                                </td>
+                                                <td className={TD}>
                                                     <ModelCell modelType={log.model_type} modelId={log.model_id} />
-                                                    {log.ip_address && (
-                                                        <span className="ml-2 text-gray-400">{log.ip_address}</span>
-                                                    )}
-                                                </p>
-                                            </div>
+                                                </td>
+                                                <td className={cn(TD, 'font-mono text-xs text-gray-500')}>
+                                                    {log.ip_address ?? '—'}
+                                                </td>
+                                            </tr>
                                         );
                                     })}
+                                </tbody>
+                            </table>
+                        </>
+                    )}
+
+                    {(hasLinks || hasTotal) && (
+                        <div className="flex flex-col gap-2 border-t border-gray-100 bg-gray-50/50 px-4 py-3 text-sm text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+                            {hasTotal ? (
+                                <span>
+                                    Showing {logs.from ?? 0}–{logs.to ?? 0} of {logs.total} entries
+                                </span>
+                            ) : (
+                                <span />
+                            )}
+
+                            {hasLinks && (
+                                <div className="flex flex-wrap items-center gap-1">
+                                    {logs.links!.map((link, index) => (
+                                        <Link
+                                            key={index}
+                                            href={link.url ?? '#'}
+                                            preserveScroll
+                                            aria-current={link.active ? 'page' : undefined}
+                                            className={cn(
+                                                'min-w-8 rounded-md border px-3 py-1.5 text-center text-xs font-medium',
+                                                link.active
+                                                    ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+                                                    : link.url
+                                                      ? 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                                                      : 'pointer-events-none cursor-not-allowed border-gray-200 bg-white text-gray-300 opacity-40',
+                                            )}
+                                            dangerouslySetInnerHTML={{ __html: link.label }}
+                                        />
+                                    ))}
                                 </div>
-
-                                {/* Desktop: table */}
-                                <div className="hidden sm:block">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Time</TableHead>
-                                                <TableHead>User</TableHead>
-                                                <TableHead>Action</TableHead>
-                                                <TableHead>Model</TableHead>
-                                                <TableHead>IP Address</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {filtered.map((log) => {
-                                                const cat      = categorize(log.action);
-                                                const userName = log.user?.name ?? 'System';
-                                                const isNew    = newIds.has(log.id);
-                                                return (
-                                                    <TableRow
-                                                        key={log.id}
-                                                        className={
-                                                            'transition-colors duration-[1500ms] hover:bg-gray-50 ' +
-                                                            (isNew ? 'bg-emerald-50' : '')
-                                                        }
-                                                    >
-                                                        <TableCell
-                                                            className="whitespace-nowrap text-sm text-gray-600"
-                                                            title={relativeTime(log.created_at)}
-                                                        >
-                                                            {formatAbsoluteTime(log.created_at)}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="flex items-center gap-2">
-                                                                <span
-                                                                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${avatarColor(userName)}`}
-                                                                >
-                                                                    {userName.charAt(0).toUpperCase()}
-                                                                </span>
-                                                                <span className="text-sm font-medium text-gray-800">
-                                                                    {userName}
-                                                                </span>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge className={CATEGORY_STYLES[cat]}>
-                                                                {formatAction(log.action)}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <ModelCell
-                                                                modelType={log.model_type}
-                                                                modelId={log.model_id}
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="font-mono text-xs text-gray-500">
-                                                            {log.ip_address ?? '—'}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </>
-                        )}
-
-                        {logs.links && logs.links.length > 3 && (
-                            <div className="flex flex-wrap items-center justify-center gap-1 border-t border-gray-100 px-4 py-3">
-                                {logs.links.map((link, index) => (
-                                    <Link
-                                        key={index}
-                                        href={link.url ?? '#'}
-                                        preserveScroll
-                                        className={
-                                            'min-w-9 rounded-md px-3 py-1.5 text-center text-sm ' +
-                                            (link.active
-                                                ? 'bg-emerald-700 text-white'
-                                                : link.url
-                                                    ? 'text-gray-600 hover:bg-gray-100'
-                                                    : 'cursor-default text-gray-300')
-                                        }
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {typeof logs.total === 'number' && (
-                    <p className="text-center text-xs text-gray-400">
-                        Showing {logs.from ?? 0}–{logs.to ?? 0} of {logs.total} entries
-                    </p>
-                )}
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </AuthenticatedLayout>
     );

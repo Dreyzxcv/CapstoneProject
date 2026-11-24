@@ -75,6 +75,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::middleware('can:jev.view')->group(function () {
         Route::get('/jev', [JevController::class, 'index'])->name('jev.index');
         Route::get('/jev/{asset}', [JevController::class, 'show'])->name('assets.jev.show');
+        Route::get('/jev/{asset}/details', [JevController::class, 'details'])->name('assets.jev.details');
     });
     Route::post('/jev/{asset}', [JevController::class, 'store'])->name('assets.jev.store');
 
@@ -98,7 +99,9 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::get('/disposals/{disposal}/jev-out/show', [JevController::class, 'showDisposalJev'])
         ->middleware('can:jev.view')
         ->name('disposals.jev-out.show');
-
+    Route::get('/disposals/{disposal}/jev-out/details', [JevController::class, 'disposalDetails'])
+        ->middleware('can:jev.view')
+        ->name('disposals.jev-out.details');
     // QR Scan
     Route::get('/scan', [QrScanController::class, 'index'])->name('scan.index');
     Route::post('/scan', [QrScanController::class, 'store'])
