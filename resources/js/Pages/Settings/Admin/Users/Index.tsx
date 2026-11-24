@@ -908,41 +908,45 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
                 </Card>
             </div>
 
-            {/* Manage modal: one panel, one managed user, five views */}
+            {/* Manage modal: fixed header, scrollable body, fixed footer */}
             <Modal show={managedUser !== null} onClose={closeManage} maxWidth="2xl">
                 {managedUser && manage && (
-                    <div className="p-4 sm:p-6">
-                        <div className="flex items-start gap-3">
-                            <Avatar name={managedUser.name} size="lg" />
-                            <div className="min-w-0 flex-1">
-                                <h2 className="text-lg font-medium text-gray-900">{viewTitle[manage.view]}</h2>
-                                <p className="break-words text-sm text-gray-600">
-                                    <span className="font-medium">{managedUser.name}</span>
-                                </p>
-                                <p className="break-all text-xs text-gray-500">{managedUser.email}</p>
+                    <div className="flex max-h-[calc(100dvh-3rem)] flex-col">
+                        {/* Fixed header */}
+                        <div className="shrink-0 border-b border-gray-100 p-4 sm:p-6">
+                            <div className="flex items-start gap-3">
+                                <Avatar name={managedUser.name} size="lg" />
+                                <div className="min-w-0 flex-1">
+                                    <h2 className="text-lg font-medium text-gray-900">{viewTitle[manage.view]}</h2>
+                                    <p className="break-words text-sm text-gray-600">
+                                        <span className="font-medium">{managedUser.name}</span>
+                                    </p>
+                                    <p className="break-all text-xs text-gray-500">{managedUser.email}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={closeManage}
+                                    aria-label="Close"
+                                    className={'shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 ' + focusRing}
+                                >
+                                    <X className="h-5 w-5" aria-hidden="true" />
+                                </button>
                             </div>
-                            <button
-                                type="button"
-                                onClick={closeManage}
-                                aria-label="Close"
-                                className={'shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 ' + focusRing}
-                            >
-                                <X className="h-5 w-5" aria-hidden="true" />
-                            </button>
+
+                            {manage.view !== 'overview' && (
+                                <button
+                                    type="button"
+                                    onClick={backToOverview}
+                                    className={'mt-3 inline-flex items-center gap-1 rounded text-xs font-medium text-emerald-700 hover:underline ' + focusRing}
+                                >
+                                    <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                                    Back to details
+                                </button>
+                            )}
                         </div>
 
-                        {manage.view !== 'overview' && (
-                            <button
-                                type="button"
-                                onClick={backToOverview}
-                                className={'mt-3 inline-flex items-center gap-1 rounded text-xs font-medium text-emerald-700 hover:underline ' + focusRing}
-                            >
-                                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                                Back to details
-                            </button>
-                        )}
-
-                        <div className="mt-5 border-t border-gray-100 pt-5">
+                        {/* Scrollable content */}
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
                             {manage.view === 'overview' && renderOverview(managedUser)}
                             {manage.view === 'edit' && renderEdit(managedUser)}
                             {manage.view === 'permissions' && !managedUser.is_admin && renderPermissions(managedUser)}
@@ -950,9 +954,12 @@ export default function UsersIndex({ users, availableRoles, can, authId, permiss
                             {manage.view === 'reset' && renderConfirm(managedUser, 'reset')}
                         </div>
 
+                        {/* Fixed footer (overview only) */}
                         {manage.view === 'overview' && (
-                            <div className={footerRow}>
-                                <Button type="button" variant="outline" className={footerBtn} onClick={closeManage}>Close</Button>
+                            <div className="shrink-0 border-t border-gray-100 p-4 sm:px-6">
+                                <Button type="button" variant="outline" className="w-full sm:ml-auto sm:flex" onClick={closeManage}>
+                                    Close
+                                </Button>
                             </div>
                         )}
                     </div>

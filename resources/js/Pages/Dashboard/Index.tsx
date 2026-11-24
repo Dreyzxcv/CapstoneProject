@@ -355,19 +355,25 @@ function AssetTypeBreakdownCard({
 function AlertRow({ alert }: { alert: DashboardAlert }) {
     const style = SEVERITY_STYLES[alert.severity];
     const Icon = style.icon;
-    const classes = `flex items-start gap-3 rounded-lg border ${style.border} ${style.bg} p-3`;
+    const classes =
+        `flex flex-col gap-3 rounded-lg border ${style.border} ${style.bg} p-3 ` +
+        'sm:flex-row sm:items-center';
 
     const body = (
         <>
-            <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${style.iconColor}`} />
-            <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">{alert.title}</p>
-                <p className="text-sm text-gray-600">{alert.message}</p>
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+                <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${style.iconColor}`} />
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900">{alert.title}</p>
+                    <p className="break-words text-sm text-gray-600">{alert.message}</p>
+                </div>
             </div>
+
             {alert.action && (
                 <span
                     className={
-                        'inline-flex shrink-0 items-center gap-1 self-center rounded-md border px-2 py-1 text-xs font-semibold ' +
+                        'inline-flex w-full shrink-0 items-center justify-center gap-1 rounded-md border px-3 py-2 text-xs font-semibold ' +
+                        'sm:w-auto sm:py-1 ' +
                         (alert.actionable
                             ? 'border-gray-300 bg-white text-gray-900'
                             : 'border-transparent text-gray-500')
